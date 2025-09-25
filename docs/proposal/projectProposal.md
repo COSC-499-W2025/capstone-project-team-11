@@ -1,1 +1,0 @@
-# Team #11 Project Proposal
