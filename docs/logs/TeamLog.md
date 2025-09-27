@@ -1,4 +1,4 @@
-Team #11 - Week 3 Team Log (September 15th through September 21st)
+# Team #11 - Week 3 Team Log (September 15th through September 21st)
 
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -19,7 +19,7 @@ This week we focused on completing the following tasks from our Kanban board:
 Burnup Chart: 
 <img width="1022" height="542" alt="Screenshot 2025-09-20 at 2 29 42 PM" src="https://github.com/user-attachments/assets/7f53e5cf-e0f5-48d9-8315-38d45564c5dd" />
 
-Table view of completed tasks on project board (by which username):
+Table view of completed tasks on project board (by name):
 - Create Repository for project
     - ALL
 - Create and organize Discord server for communication
@@ -38,9 +38,21 @@ Table view of in progress tasks on project board (by which username):
 Test Report: 
 - N/A For week 3
 
+# Team #11 - Week 4 Team Log (September 22nd through September 28th)
 
+Overview:
+This week we focused on completing the following tasks from our Kanban board:
+- Project Proposal
+- Final Architecture Design
 
+Burnup Chart: 
+<img width="994" height="494" alt="Screenshot 2025-09-27 at 12 55 07 PM" src="https://github.com/user-attachments/assets/c3b9c21c-99bb-4ba5-ad06-1e8965b24edb" />
 
+Table view of completed tasks on project board (by name):
+- Project Proposal
+  - Daniel, Travis, Priyanshu, Tanner, Jaxson
+- Final Architecture Design
+  - Daniel, Travis, Priyanshu, Tanner, Jaxson
 
-
-
+Testing Report:
+- N/A For week 4
