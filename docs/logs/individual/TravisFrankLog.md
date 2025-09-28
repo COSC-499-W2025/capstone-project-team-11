@@ -11,4 +11,21 @@ Been apart of the following tasks:
 - Creating project requirements
 - Repo initalization and set up
 - Weekly and individual log
+---
 
+# Week 4 Personal Log (September 22nd - 28th)
+
+<img width="1058" height="616" alt="Screenshot 2025-09-28 at 3 31 23 PM" src="https://github.com/user-attachments/assets/0febdbac-efb0-4669-9d92-2fa3bbd5afb0" />
+
+This week we focused lots on polishing our system architecture diagram, and a detailed project proposal document which asked us to go in depth on use cases, functional/non-functional requirements, and how worload will be shared.
+
+### Tasks Completed
+Been apart of the following tasks this week:
+
+- Week 4 peer eval
+- System Architecture diagram (issue #9)
+- Finalized and submitted project proposal document (issue #8)
+- Individual Logs Week 4 (issue #10)
+- Team Logs Week 4 (issue #11)
+
+---
