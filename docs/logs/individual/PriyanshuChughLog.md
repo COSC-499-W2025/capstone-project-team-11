@@ -12,3 +12,19 @@ I was involved with the following tasks either by myself or helping my peers.
 - Helped out think of ideas for capstone requirments specifically usage scenarios and target users 
 - Finished the Project requirements quiz 
 - Did the Weekly log and individual log  
+
+
+
+ # Week 4 Personal Log (22nd-28th of September)
+
+ This weeks focus was creating the system architecture design and making the final project proposal.  
+
+ <img width="1512" height="982" alt="week4logpic" src="https://github.com/user-attachments/assets/c17db5b7-4e4f-48f4-a483-8d12a377040c" />
+
+## Tasks Completed:
+I was involved with the following tasks either by myself or helping my classmates.
+
+- Finalizing project proposal (issue #8)
+- Worked on system architecture design (issue #9)
+- Individual Logs Week 4 (issue #10)
+ 
