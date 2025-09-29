@@ -28,4 +28,3 @@ I have been involved with the following tasks either alone or helping my other c
 
 - Reviewed teams system architecture (issue #9)
 - Week 4 peer evaluation (issue #10)
-- Week 4 team evaluation (issue #11)
