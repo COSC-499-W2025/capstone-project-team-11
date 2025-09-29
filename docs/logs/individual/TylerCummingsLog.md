@@ -1,4 +1,4 @@
-# Tyler'sWeek 3 Personal Log (15-21 Sept.)
+# Tyler's Week 3 Personal Log (15-21 Sept.)
 
 Focus of the week was creating requirements of the week and github repository
 
@@ -15,3 +15,17 @@ I have been involved with the following tasks either alone or helping my other c
 - Joined github repository
 - Completed projects requirements quiz on canvas
 - Completed personal log for week 3
+
+# Tyler's Week 4 Personal Log (22-28 Sept.)
+
+Focus of the week was to create the system architecture and project proposal. 
+
+<img width="947" height="546" alt="Image" src="https://github.com/user-attachments/assets/8075be32-5920-4342-99ca-01b187c0ebf7" />
+
+
+## Tasks Completed:
+I have been involved with the following tasks either alone or helping my other classmates.
+
+- Reviewed teams system architecture (issue #9)
+- Week 4 peer evaluation (issue #10)
+- Week 4 team evaluation (issue #11)
