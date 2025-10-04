@@ -1,7 +1,7 @@
 # Tanner Dyck Personal Log
 # Week #3 - September 15th-21st
 
-<img width="1078" height="632" alt="Week3Tasks" src="https://github.com/user-attachments/assets/26dfbdb3-651e-451d-b659-c27fb8ccd9ce" />
+<img width="1078" height="632" alt="TannerDyck-Week3Tasks" src="https://github.com/user-attachments/assets/26dfbdb3-651e-451d-b659-c27fb8ccd9ce" />
 
 ## Tasks Completed:
 As this was the first week of getting our repository initialized and organzied, we made all decisions as a team and worked collaboratively on all of the following tasks (excluding personal logs and Canvas quizzes):
@@ -36,7 +36,7 @@ I have completed the following tasks either alone or in collaboration with my te
 
 # Week #5 - September 29th - October 5th
 
-<img/>
+<img width="704" height="538" alt="TannerDyck-Week5Tasks" src="https://github.com/user-attachments/assets/d5402613-0622-4328-8677-cb9dd6dd4efe" />
 
 ## Tasks Completed:
 As our team continues to work through the documentation phase of our project planning, we have been working collaboratively on document designs and revisions. Here is a list of tasks we completed together this week:
