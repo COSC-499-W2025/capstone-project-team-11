@@ -27,4 +27,24 @@ I was involved with the following tasks either by myself or helping my classmate
 - Finalizing project proposal (issue #8)
 - Worked on system architecture design (issue #9)
 - Individual Logs Week 4 (issue #10)
+
+
+ # Week 5 Personal Log (29th-5th of October)
+
+This week we focused on creating level 1 and 0 data flow diagrams. We then updated our design with the feedback we recived from other teams, and by comparing our diagrams to other teams to see what we could improve/what we were missing
  
+
+<img width="1512" height="982" alt="week5ss" src="https://github.com/user-attachments/assets/080f5072-eaa2-4f89-ba4a-1f39d282d39e" />
+
+
+
+
+#  Tasks Completed:
+- Week 5 Individual Logs (issue #14)
+- Helped Design level 1 Data flow diagram (issue #16)
+- Edidted level 1 DFD with peer/other groups feedback (issue #17)
+
+
+
+ 
+
