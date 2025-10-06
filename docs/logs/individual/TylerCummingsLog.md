@@ -28,3 +28,22 @@ I have been involved with the following tasks either alone or helping my other c
 
 - Reviewed teams system architecture (issue #9)
 - Week 4 peer evaluation (issue #10)
+
+# Tyler's Week 5 Personal Log (22-28 Sept.)
+
+Focus of the week was to create the DFD level 0 and 1. 
+
+<img width="962" height="561" alt="Capstone Week 5 Self Evaluation" src="https://github.com/user-attachments/assets/7c9e515b-accd-47d7-bf74-f125c6453a5c" />
+
+
+
+## Tasks Completed:
+I have been involved with the following tasks either alone or helping my other classmates.
+
+- Created Data Flow Diagram Level 0 (issue #16)
+- Talked to other teams and compared DFD's using their feedback to improve our teams
+- Reviewed list of feedback/issues with our DFD created by Tanner
+- Helped revise our DFD to include the improvements from the meetings with other teams (issue #17)
+- Finished individual DFD Canvas assignments (issue #18)
+- Finished individual logs and peer reviews for the week (issue #14)
+- Finished comprehensive team log for the week
