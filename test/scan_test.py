@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 import tempfile
 import shutil
+import time
 from io import StringIO
 from contextlib import redirect_stdout
 
@@ -68,6 +69,45 @@ class TestListFilesInDirectory(unittest.TestCase):
         """Should print an error message for non-existent directories."""
         output = self.capture_output("invalid/path", recursive=False)
         self.assertIn("Directory does not exist", output)
+
+    def test_file_statistics(self):
+        """Should print largest, smallest, newest, and oldest files."""
+        # Create files with controlled sizes
+        small = os.path.join(self.test_dir, "small.txt")
+        medium = os.path.join(self.test_dir, "medium.txt")
+        large = os.path.join(self.test_dir, "large.txt")
+
+        with open(small, "w") as f:
+            f.write("a")  # 1 byte
+        with open(medium, "w") as f:
+            f.write("b" * 10)  # 10 bytes
+        with open(large, "w") as f:
+            f.write("c" * 100)  # 100 bytes
+
+        # Set mtimes so we can predict newest/oldest
+        now = time.time()
+        os.utime(small, (now - 300, now - 300))   # oldest
+        os.utime(medium, (now - 150, now - 150))  # middle
+        os.utime(large, (now, now))               # newest
+
+        output = self.capture_output(self.test_dir, recursive=True)
+
+        # Check size-based stats mentioned
+        self.assertIn("Largest file", output)
+        self.assertIn(os.path.basename(large), output)
+        self.assertIn(f"({os.path.getsize(large)} bytes)", output)
+
+        self.assertIn("Smallest file", output)
+        self.assertIn(os.path.basename(small), output)
+        self.assertIn(f"({os.path.getsize(small)} bytes)", output)
+
+        # Check time-based stats mentioned
+        self.assertIn("Most recently modified", output)
+        self.assertIn(os.path.basename(large), output)
+
+        self.assertIn("Least recently modified", output)
+        self.assertIn(os.path.basename(small), output)
+
 
 
 if __name__ == "__main__":
