@@ -65,4 +65,3 @@ This marked our first week of largely individual work. We chose to divide and co
 - Reviewed code contributions and various other PR requests
 - Completed my peer reviews for week 6
 - Completed my individual logs for week 6
-- Completed our team log for week 6
