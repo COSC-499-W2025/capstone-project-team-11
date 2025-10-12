@@ -36,10 +36,23 @@ The main focus of this week was creating our Data Flow Diagram level 1. This is 
 <img width="1601" height="939" alt="Screenshot 2025-10-05 140230" src="https://github.com/user-attachments/assets/02317e1a-b0d4-4e90-90b9-a565c9a5c75c" />
 
 ## Tasks Completed:
-I havew been involved with the following tasks either alone or helping my other classmates.
+I have been involved with the following tasks either alone or helping my other classmates.
 
 - Providing first draft of DFD level 1 before class to use for reference.
 - Gained and gave feedback to other teams on their DFDs.
 - Reworked and finalized our DFD.
-- Completed individual logs.
+
+# Week 6 (October 6th - October 12th)
+This week we priotized reworking our system architecture and began starting simple coding in order to perform a scan on files.
+
+<img width="1590" height="918" alt="image" src="https://github.com/user-attachments/assets/dfc6fa88-6be5-49ad-beab-9aef2fc93d22" />
+
+## Tasks completed
+I have been involved with the following tasks either alone or helping my other classmates.
+- Helped Jaxson with starting an initial scan program which he completed.
+- Looked over and tested his code to ensure it was clear and concise.
+- Added additional details to the scan which displays details about the files scanned.
+- Wrote tests for the scan details.
+- Completed week 6 logs.
+
 
