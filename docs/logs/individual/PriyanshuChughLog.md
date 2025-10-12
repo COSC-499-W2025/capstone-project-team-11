@@ -45,6 +45,19 @@ This week we focused on creating level 1 and 0 data flow diagrams. We then updat
 - Edidted level 1 DFD with peer/other groups feedback (issue #17)
 
 
+# Week 6 Personal Log (6th-12th of October)
+
+The week we focused on updating our system diagrams to reflect final requirements and also updating the read me to have links for the diagrams.
+
+<img width="1512" height="982" alt="Screenshot 2025-10-12 at 11 40 08 AM" src="https://github.com/user-attachments/assets/1bcc05da-6ccd-4f76-88fe-d47d8514b1ec" />
+
+## Tasks Completed:
+- reviewed with team members on Work Breakdown Structure 
+- Reviewed final WBS
+-Update Repo README to have explanations and links to System Architecture, DFD, #pr 51
+-Added WBS milestone 1 diagram to docs/proposal/wbs #pr 50
+- reviwed created basic file scanning script #43
 
  
+
 
