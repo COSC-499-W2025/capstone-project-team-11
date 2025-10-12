@@ -41,3 +41,19 @@ Was apart of the following tasks this week:
 - Week 5 indivdual log (issue #14)
 - Design Data Flow diagram (issue #16)
 - Submit DFD to canvas (issue #17)
+
+---
+
+# Week 6 Personal Log (Oct 6th - Oct 12th)
+
+This week we started to develop code after finilizing changes to system requirements and architecture.
+
+![alt text](<Screenshot 2025-10-12 at 4.36.53 PM.png>)
+
+## Tasks Completed
+
+- Week 6 individual log
+- Inital dockerization (issue #41) PR #55
+- Reviewed ScanDetails PR (PR #44)
+- Reviewd final WBS 
+---
