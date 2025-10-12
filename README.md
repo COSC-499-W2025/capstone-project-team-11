@@ -19,3 +19,26 @@ Please use the provided folder structure for your project. You are free to organ
 
 Please use a branching workflow, and once an item is ready, do remember to issue a PR, review, and merge it into the master branch.
 Be sure to keep your docs and README.md up-to-date.
+
+## Project Documentation
+
+### System Architecture
+The final System Architecture diagram.  
+[View the System Architecture Diagram](https://github.com/COSC-499-W2025/capstone-project-team-11/blob/SystemArchitecture/SystemArchitecture.md)
+
+This diagram shows the overall structure of our application,including the frontend (Electron/React),backend (FastAPI, Database),and supporting components such as the file Scanner,report Generator,and export Engine.
+
+---
+
+### DFD Level 1
+[View the Level 1 Data Flow Diagram](https://github.com/COSC-499-W2025/capstone-project-team-11/blob/dfd/docs/dfd/dfd1.jpg)
+
+This Level 1 DFD expands on the Level 0 diagram by showing specific processes, data stores, and data flows between sections. It helps show how user input and data move between the different parts of the system.
+
+---
+
+
+### Work Breakdown Structure 
+[View the Revised WBS](https://github.com/COSC-499-W2025/capstone-project-team-11/blob/main/docs/WBS%20CAPSTONE.webp)
+
+The revised Work Breakdown Structure outlines all major project phases, including user consent and file validation, project identification and classification, data output, evaluation, and system testing. It visually represents task ownership, milestones, and dependencies between key parts of the system.
