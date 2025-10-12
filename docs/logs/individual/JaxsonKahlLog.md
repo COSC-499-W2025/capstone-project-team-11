@@ -42,7 +42,7 @@ I have been involved with the following tasks either alone or helping my other c
 - Individual Logs Week 4 (issue #10)
 - Team Logs Week 4 (issue #11) 
 
-# Week 5 Personal Logs (29th - 5th of Octorber
+# Week 5 Personal Logs (29th - 5th of October)
 
 The week we focused on creating level 1 and 0 data flow diagrams. We then iterated on our design with the feedback we recived to iterate on our final level 1 design.
 
@@ -54,4 +54,16 @@ The week we focused on creating level 1 and 0 data flow diagrams. We then iterat
 - Week 5 Individual Logs (issue #14)
 - Week 5 Team Logs (issue #15)
 
+# Week 6 Personal Logs (6th - 12th of October)
 
+The week we focused on updating our system diagrams to reflect the final requirements and started developing code. 
+
+<img width="963" height="559" alt="Screenshot 2025-10-11 at 3 48 25 PM" src="https://github.com/user-attachments/assets/8efa386d-ca76-4021-be94-2c85bb01fdf0" />
+
+## Tasks Completed:
+- Developed initial scanning code to scan selected directories and print out the file name based on file type (PR #43)
+- Developed tests for initial scanning (PR #43)
+- Documented code for other team members (PR #43)
+- Advised Team members on Work Breakdown Structure 
+- Reviewed final WBS
+- Reviewed ScanDetails PR (PR #44)
