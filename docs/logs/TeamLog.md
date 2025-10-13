@@ -80,3 +80,35 @@ Table view of completed tasks on project board (by name):
 
 Testing Report:
 - N/A For week 4
+
+# Team #11 - Week 6 Team Log (October 6th through October 12th)
+
+Overview:
+This week we focused on completing the following tasks from our Kanban board:
+- System diagrams to reflect the final requirements
+- File analysis code
+- Pull request template
+- Setup docker container
+
+Burnup Chart: 
+
+<img width="995" height="505" alt="Capstone Week 6 Burnup Chart" src="https://github.com/user-attachments/assets/674c9dca-bede-4601-bbc2-1a5d5e223455" />
+
+Table view of completed tasks on project board (by name):
+- Write code to analyze files in a directory, including size and modification statistics
+    - Daniel, Jaxson
+- Review Code
+    - Tannerc, Tyler, Pri
+- Update Repo README to have explanations and links to System Architecture, DFD, WBS
+    - Pri, Travis
+- Complete Work Breakdown Structure
+    - Tanner
+- Set up Docker Container
+    - Travis
+
+Testing Report:
+- All tests for the file scanning script passed successfully on multiple machines.
+- The tests thoroughly covers key functionalities, including recursive and non-recursive directory scanning, file type filtering, error handling for invalid paths, and verification of file statistics such as size and modification time.
+- Each test is clearly structured with descriptive names and uses temporary directories.
+- Overall, tests have strong coverage, clean organization, and validate both normal and edge-case behaviors.
+
