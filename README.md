@@ -22,3 +22,4 @@ This Level 1 DFD expands on the Level 0 diagram by showing specific processes, d
 [View the Revised WBS](https://github.com/COSC-499-W2025/capstone-project-team-11/blob/main/docs/WBS%20CAPSTONE.webp)
 
 The revised Work Breakdown Structure outlines all major project phases, including user consent and file validation, project identification and classification, data output, evaluation, and system testing. It visually represents task ownership, milestones, and dependencies between key parts of the system.
+>>>>>>> main
