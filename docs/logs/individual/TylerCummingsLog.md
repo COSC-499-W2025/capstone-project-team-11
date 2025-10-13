@@ -2,7 +2,6 @@
 
 Focus of the week was creating requirements of the week and github repository
 
-
 <img width="1211" height="698" alt="Image" src="https://github.com/user-attachments/assets/2784c6f4-4d04-4359-b313-3ebe5a6c989c" />
 
 ## Tasks Completed:
@@ -22,20 +21,17 @@ Focus of the week was to create the system architecture and project proposal.
 
 <img width="947" height="546" alt="Image" src="https://github.com/user-attachments/assets/8075be32-5920-4342-99ca-01b187c0ebf7" />
 
-
 ## Tasks Completed:
 I have been involved with the following tasks either alone or helping my other classmates.
 
 - Reviewed teams system architecture (issue #9)
 - Week 4 peer evaluation (issue #10)
 
-# Tyler's Week 5 Personal Log (22-28 Sept.)
+# Tyler's Week 5 Personal Log (Sept. 29th - Oct. 5th)
 
 Focus of the week was to create the DFD level 0 and 1. 
 
 <img width="962" height="561" alt="Capstone Week 5 Self Evaluation" src="https://github.com/user-attachments/assets/7c9e515b-accd-47d7-bf74-f125c6453a5c" />
-
-
 
 ## Tasks Completed:
 I have been involved with the following tasks either alone or helping my other classmates.
@@ -47,3 +43,17 @@ I have been involved with the following tasks either alone or helping my other c
 - Finished individual DFD Canvas assignments (issue #18)
 - Finished individual logs and peer reviews for the week (issue #14)
 - Finished comprehensive team log for the week
+
+# Tyler's Week 6 Personal Log (6-12 Oct.)
+
+Focus of the week was on updating system diagrams to match final requirements and started developing code/setup docker.
+
+<img width="947" height="545" alt="Capstone Week 6 Self Evaluation" src="https://github.com/user-attachments/assets/3fa4e1c9-6cdf-4a87-8f4e-f2a150f6223d" />
+
+## Tasks Completed:
+I have been involved with the following tasks either alone or helping my other classmates.
+
+- Reviewed PR requests and PR template
+- Finished peer reviews for week 6
+- Finished individual logs for week 6
+- Finished team logs for week 6
