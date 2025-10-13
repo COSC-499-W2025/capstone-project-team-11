@@ -49,3 +49,19 @@ As our team continues to work through the documentation phase of our project pla
 - Added our DFD Level 0 and Level 1 diagrams to our GitHub repository under docs/dfd/ (issue #19)
 - Completed our individual logs and peer reviews for the week
 - Completed our comprehensive team log for the week
+
+***
+
+# Week #6 - October 6th - October 12th
+
+<img width="701" height="539" alt="TannerDyck-Week5Tasks" src="https://github.com/user-attachments/assets/14eb2e92-0138-4850-838a-aa767512d6ac" />
+
+## Tasks Completed:
+This marked our first week of largely individual work. We chose to divide and conquer a few tasks this week. Here is what I completed and/or helped complete:
+
+- Attended team meeting at Wednesday's lecture and determined workload for the week
+- Converted all 20 milestone #1 deliverables into GitHub issues on our Kanban board
+- Built a Work Breakdown Structure document for milestone #1
+- Reviewed code contributions and various other PR requests
+- Completed my peer reviews for week 6
+- Completed my individual logs for week 6
