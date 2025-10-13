@@ -48,7 +48,7 @@ Was apart of the following tasks this week:
 
 This week we started to develop code after finilizing changes to system requirements and architecture.
 
-![alt text](<Screenshot 2025-10-12 at 4.36.53 PM.png>)
+<img width="1094" height="615" alt="Screenshot 2025-10-12 at 6 26 22 PM" src="https://github.com/user-attachments/assets/53e72f19-87f4-4cb6-9c04-8e8c2c59276e" />
 
 ## Tasks Completed
 
@@ -56,4 +56,5 @@ This week we started to develop code after finilizing changes to system requirem
 - Inital dockerization (issue #41) PR #55
 - Reviewed ScanDetails PR (PR #44)
 - Reviewd final WBS 
+
 ---
