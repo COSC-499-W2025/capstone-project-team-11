@@ -65,3 +65,32 @@ This marked our first week of largely individual work. We chose to divide and co
 - Reviewed code contributions and various other PR requests
 - Completed my peer reviews for week 6
 - Completed my individual logs for week 6
+
+# Week #7 - October 13th - October 19th
+
+<img width="546" height="404" alt="week7tasks" src="https://github.com/user-attachments/assets/06eac3b7-489c-4e8c-b57a-59952bab8e23" />
+
+## Tasks Completed:
+This was an extremely busy week for our team as midterms stole a lot of our productive hours. I also started a new job, which took up a lot of my usual capstone time.
+Regardless, I was able to complete the milestone #1 deliverable #6 (Store user configurations for future use)
+- I created two new files in the repo, src/config.py and test/config_test.py
+- config.py contains code to handle the creation, reading/writing, locating, and loading of a simple scan config file
+- The config.json file is located at the user's home directory in a hidden folder named .mda
+- The stored information consists of the most recently scanned and saved: directory (path String), choice to scan nested folders (boolean), and file type filter (file extension String)
+- The overall functionality of my files is to allow a user to reuse the parameters from their most recent scan after choosing to save them locally. (Each new scan prompts the user to decide whether or not to save the scan parameters for next time)
+I also created config_test.py to act as a suite of unit tests for all of the functions in config.py, as well as testing config.py's integration with scan.py (our main executable file)
+
+This first revision has completed issue #26 from our project board (6. Store user configurations for future use)
+
+In addition to this milestone #1 deliverable, I completed the following non-coding tasks this week:
+- Attended Wednesday's Quiz #1 Lecture
+- Reviewed other team members' pull requests
+- Communicated all of my repository changes in our team's Discord server
+- Filmed and edited video demos for my deliverable #6 solution
+
+Below is a screenshot of my assigned issues from our project's Kanban board as of 6:30pm PST on October 19th, 2025.
+In week 8, I hope to:
+- Complete deliverable #1 (Require the user to give consent for data access before proceeding)
+- Reuse code from deliverable #1 to create an early revision/framework for deliverable #4 (Request user permission before using external services (e.g., LLM) and provide implications on data privacy about the user's data)
+
+<img width="1247" height="576" alt="week7kanban" src="https://github.com/user-attachments/assets/c8b89e5c-ee60-4dc3-8950-fe9e16f74855" />
