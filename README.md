@@ -77,6 +77,17 @@ When run directly, it prompts for:
 
 This feature is useful as a basic file system utility or a backend helper for metadata scanning, file statistics, or report generation.
 
+#### config.py Breakdown:
+Manages simple persistent settings for the scanner: 
+- Provides default scan settings and helper functions to read/write/normalize those settings:
+- normalize_file_type() formats selected file types to be scanned. It does so by stripping white space around the String, ensuring it starts with a period (eg. ".txt"), and converting String to lowercase. (Essentially converts a submitted String, ex. " JSON " into ".json")
+- config_path() returns the default config file location at the User's home directory (~/.mda/config.json) but does not create directories or files.
+- load_config() reads/writes JSON config files from local storage (falling back to defalt settings on missing/invalid files)
+- merge_settings() sets a precedence in prioritization of saved scan configurations: DEFAULTS < saved config < explicit args (arguments declared at the start of a new scan when not using saved settings)
+
+config.py is useful as it handles all of the logic around saving/storing, locating, and reading/loading scan configuration files.
+
+
 [src folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/src)
 
 ---
@@ -100,5 +111,21 @@ The tests check that:
 5. File statistics (largest, smallest, newest, oldest) are correctly reported based on file size and modification time.
 
 This ensures that the directory scanning utility behaves as expected in real-world scenarios, catches regressions, and provides confidence in file handling logic.
+
+#### config_test.py Breakdown:
+Unit test suite for config.py and its integration with scan.py using tempfile-based directories so tests are isolated and filesystem-safe. There are 6 unit tests within config_test.py:
+
+Config.py Function Tests
+1. Tests that loading a non-existent config file returns the default scan settings.
+2. Tests that saving a config and then loading it is functional (also verify formatting of file_type).
+3. Tests that if the config file contains invalid JSON, load_config should fall back to the default scan settings.
+4. Tests that merge_settings should let explicit arguments override values from the saved config.
+
+scan.py Integration Tests:
+
+5. Tests that when arguments are omitted, run_with_saved_settings should use the saved config values.
+6. Tests that explicit arguments passed to run_with_saved_settings should override the saved config values.
+
+These unit tests serve us during development by ensuring the individual components of our larger delivered features continue to be operational as our project scope increases. These tests also help us during bug-fixing by pointing us in the right direction by isolating any broken functionalities.
 
 [test folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/test)
