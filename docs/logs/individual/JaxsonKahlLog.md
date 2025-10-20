@@ -67,3 +67,25 @@ The week we focused on updating our system diagrams to reflect the final require
 - Advised Team members on Work Breakdown Structure 
 - Reviewed final WBS
 - Reviewed ScanDetails PR (PR #44)
+
+# Week 7 Personal Logs (13th - 19th of October)
+<img width="942" height="555" alt="Screenshot 2025-10-19 at 4 18 32 PM" src="https://github.com/user-attachments/assets/05739b05-e530-488a-8193-aae7c6449684" />
+
+## Tasks Completed:
+- Reviewed final version of Assignment Repo README Content #1 (issue #68)
+- Tested and reviewed Tanner's user configuration code (issue #26)
+- Added User config description to repo README
+
+## In progress tasks
+- Parse Complicated Zipped Folder (issue #22)
+
+## Planned tasks for next sprint
+- Parse Complicated Zipped Folder (issue #22)
+- Data access consent (issue #21)
+- Return errors for incorrect file types (issue #23) 
+
+<img width="1884" height="708" alt="Screenshot 2025-10-19 at 4 50 11 PM" src="https://github.com/user-attachments/assets/dd44a6ab-9613-4a34-80e6-26cf662c38b4" />
+
+
+
+
