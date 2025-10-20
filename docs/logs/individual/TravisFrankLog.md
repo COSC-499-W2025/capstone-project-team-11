@@ -58,3 +58,28 @@ This week we started to develop code after finilizing changes to system requirem
 - Reviewd final WBS 
 
 ---
+
+# Week 7 Personal Log (Oct 13th - Oct 19th)
+
+This week, I focused on documentation and progress tracking for our milestone deliverables. I completed the Week 7 team log, ensured that all team activities were properly reflected on our project board, and helped review project updates and PRs to maintain consistency across the repository.
+
+<img width="1096" height="642" alt="Screenshot 2025-10-19 at 9 51 17 PM" src="https://github.com/user-attachments/assets/e67214d6-89dc-4373-ab44-9ec37e93baf3" />
+
+## Tasks Completed
+
+- Completed Week 7 Team Log (#65)  
+- Reviewed project documentation and verified milestone progress   
+- Participated in PR review discussions with teammates  
+- Helped organize the Kanban board and verify completed items
+  
+<img width="1075" height="115" alt="Screenshot 2025-10-19 at 9 50 34 PM" src="https://github.com/user-attachments/assets/25195b3f-a81a-4fc4-9d81-b370944dbf12" />
+
+## Plans for Week 8
+
+- Finalize and test the “Return Errors for Incorrect File Formats” functionality (#23)  
+- Assist with milestone submission documentation and final checks  
+- Review the parsing functionality for zipped folders (#22)  
+- Ensure consistency between testing outputs and documented requirements  
+- Continue supporting integration and testing efforts across modules
+
+---
