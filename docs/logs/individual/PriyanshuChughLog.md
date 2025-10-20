@@ -58,6 +58,28 @@ The week we focused on updating our system diagrams to reflect final requirement
 -Added WBS milestone 1 diagram to docs/proposal/wbs #pr 50
 - reviwed created basic file scanning script #43
 
- 
+
+
+# Week 7 Personal Log (13th-19th of October)
+
+
+ <img width="1512" height="982" alt="Screenshot 2025-10-19 at 5 36 47 PM" src="https://github.com/user-attachments/assets/513b3a68-25c9-4a02-a890-63a93e22be45" />
+
+## Tasks Completed:
+- Tested and reviewed Tanner's user configuration code (issue #26)
+
+
+## In progress tasks
+- Parse Complicated Zipped Folder (issue #22)
+
+## Planned tasks for next sprint
+- Parse Complicated Zipped Folder (issue #22)
+- Data access consent (issue #21)
+- Return errors for incorrect file types (issue #23) 
+
+<img width="1512" height="982" alt="Screenshot 2025-10-19 at 5 41 25 PM" src="https://github.com/user-attachments/assets/780a3abc-7f44-4091-9062-d346928924c8" />
+
+
+
 
 
