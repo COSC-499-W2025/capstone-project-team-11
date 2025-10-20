@@ -112,3 +112,46 @@ Testing Report:
 - Each test is clearly structured with descriptive names and uses temporary directories.
 - Overall, tests have strong coverage, clean organization, and validate both normal and edge-case behaviors.
 
+# Team #11 - Week 7 Team Log (October 13th through October 19th)
+
+Team Members    --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
+
+Overview:
+- This week, our focus was on enhancing the project’s usability and configuration management. We updated the repository README to include a more detailed description of the project’s purpose, core features, and technical design overview. In addition a new configuration management system was implemented to streamline user interaction with the file scanning tool.
+  
+Burnup Chart:
+<img width="1041" height="466" alt="Screenshot 2025-10-19 at 9 20 48 PM" src="https://github.com/user-attachments/assets/ababae31-4353-4c4f-92a8-9bc7920fe5ec" />
+
+Table view of completed tasks on project board (by name):
+<img width="1110" height="264" alt="Screenshot 2025-10-19 at 9 16 16 PM" src="https://github.com/user-attachments/assets/4dcd1811-59eb-4673-8f43-0a210dcca7a4" />
+
+Testing Report:  
+All six unit tests in `config_test.py` passed successfully on multiple systems. The tests validate key behaviors, including:
+- Loading a non-existent config file defaults correctly.
+- Saving and reloading a valid config file works as intended.
+- Invalid JSON gracefully falls back to defaults.
+- Explicit arguments correctly override saved settings.
+- `run_with_saved_settings()` accurately applies saved configurations.
+- Saved settings persist correctly between sessions and can be overwritten or recreated.
+
+Manual testing confirmed successful integration with `scan.py`, ensuring accurate reuse of saved configurations and reliable creation of the `.mda/config.json` file.  
+All functionality works as expected on macOS and Linux systems.
+
+Reflection:
+- The new configuration feature made the program much more user-friendly, reducing repetitive inputs and improving session persistence.  
+- Collaboration and code review were smooth this week, and the README improvements helped clarify the project for new contributors.  
+- The testing process showed strong team coordination, and maintaining a clean PR workflow made merging new functionality straightforward.
+- We all had a busy week with midterms and will be looking to add more funcionality in the coming weeks
+
+Planning Activities (Week 8):  
+- Complete parsing functionality for complicated zipped folders (`#22`).  
+- Implement data access consent logic and integrate it into the workflow (`#21`).  
+- Add error handling for incorrect file formats (`#23`).  
+- Begin preparing for Milestone #1 submission by verifying all current modules meet functional requirements.  
+- Continue updating documentation as new features are finalized.
