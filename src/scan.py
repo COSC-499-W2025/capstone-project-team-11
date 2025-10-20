@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+from config import load_config, save_config, merge_settings
 
 def list_files_in_directory(path, recursive=False, file_type=None):
     """
@@ -51,10 +54,50 @@ def list_files_in_directory(path, recursive=False, file_type=None):
     print(f"Most recently modified: {newest} ({time.ctime(os.path.getmtime(newest))})")
     print(f"Least recently modified: {oldest} ({time.ctime(os.path.getmtime(oldest))})")
 
+# Use saved config as defaults, override with provided settings if given, optionally save the new settings back to config file.
+def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, save=False, config_path=None):
+    config = load_config(config_path)
+    final = merge_settings({"directory": directory, "recursive_choice": recursive_choice, "file_type": file_type}, config)
+
+    # Optionally save current settings for next time:
+    if save:
+        save_config(final, config_path)
+
+    # Run the scan:
+    list_files_in_directory(
+        final["directory"],
+        recursive=final["recursive_choice"],
+        file_type=final["file_type"]
+    )
 
 if __name__ == "__main__":
-    directory = input("Enter directory path: ").strip()
-    recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
-    file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
-    file_type = file_type if file_type else None
-    list_files_in_directory(directory, recursive_choice, file_type)
+    # Load current config
+    current = load_config(None)
+    # Ask the user if they would like to use the same settings from their last scan
+    use_saved = input(
+        "Would you like to use the settings from your most recent scan?\n"
+        f"  Scanned Directory:      {current.get('directory') or '<none>'}\n"
+        f"  Scan Nested Folders:    {current.get('recursive_choice')}\n"
+        f"  Only Scan File Type:    {current.get('file_type') or '<all>'}\n"
+        "Proceed with these settings? (y/n): "
+    ).strip().lower() == 'y'
+
+    if use_saved and current.get("directory"):
+        # Run with saved settings
+        run_with_saved_settings(directory=current.get("directory"), recursive_choice=current.get("recursive_choice"), file_type=current.get("file_type"), save=False)
+    else:
+        # Ask for new settings
+        directory = input("Enter directory path: ").strip()
+        recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
+        file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
+        file_type = file_type if file_type else None
+
+        # Ask if we should remember these settings for next time
+        remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
+        run_with_saved_settings(
+            directory=directory,
+            recursive_choice=recursive_choice,
+            file_type=file_type,
+            save=remember
+        )
+
