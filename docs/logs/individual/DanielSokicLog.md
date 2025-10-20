@@ -1,4 +1,4 @@
-# Week 3 Personal Log (15th-21st of September)
+<img width="814" height="474" alt="image" src="https://github.com/user-attachments/assets/f2ac0dc3-a5b0-49e7-855e-4005e518a606" /># Week 3 Personal Log (15th-21st of September)
 
 The main focus of this week was creating some requirements for our project as well as creating the repository. 
 
@@ -54,5 +54,25 @@ I have been involved with the following tasks either alone or helping my other c
 - Added additional details to the scan which displays details about the files scanned.
 - Wrote tests for the scan details.
 - Completed week 6 logs.
+
+
+# Week 7 (October 13th - October 19th)
+
+<img width="814" height="474" alt="image" src="https://github.com/user-attachments/assets/3da688b0-f75c-4a6a-9454-81b2ba3093cc" />
+
+## Tasks Completed
+- Reworked and updated the Reamde in order to be more informative and legible for Assignment Repo Readme Content #1.  (issue #68)
+- Tested Tanner's user configuration code.  (issue #26)
+- Reviewed Jaxson's pull request for adding to the Readme.
+
+## Tasks in progress
+- Parse Complicated Zipped Folder (issue #22)
+
+## Planned tasks for next sprint
+- Parse Complicated Zipped Folder (issue #22)
+- Data access consent (issue #21)
+- Return errors for incorrect file types (issue #23)
+<img width="1884" height="708" alt="image" src="https://github.com/user-attachments/assets/c9a9e0f4-3801-45ac-9a36-14645505a189" />
+
 
 
