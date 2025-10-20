@@ -57,3 +57,23 @@ I have been involved with the following tasks either alone or helping my other c
 - Finished peer reviews for week 6
 - Finished individual logs for week 6
 - Finished team logs for week 6
+
+# Tyler's Week 7 Personal Log (13-19 Oct.)
+
+<img width="950" height="542" alt="image" src="https://github.com/user-attachments/assets/f3004119-ebdd-48ce-820f-92a5281a442c" />
+
+
+## Tasks Completed:
+Most of our team had multiple midterms and exams this week so not as much productivity occured as we wouldve liked.
+Therefore I mostly worked on managing the pull requests and handling the merge conflict from development to main branch.
+- I reviewed the code completed by travis and the readme submitted by tanner
+- Merged team logs and multiple members individual logs
+- Pull requested ReadMe changes that tanner made directly to main to fix merge conflicts on pull request development to main
+- Handled the merge of development to main and all conflicts caused by that
+- Finished individual log for week 7
+- Finished peer reviews for week 7
+
+## Week 8 plans:
+- Work on and complete “Sort Projects Chronologically” (#39)
+<img width="1177" height="272" alt="image" src="https://github.com/user-attachments/assets/9b2fd2b0-1150-4803-ae20-db26305c1ea3" />
+
