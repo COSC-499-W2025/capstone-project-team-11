@@ -59,9 +59,7 @@ This WBS outlines the major functional modules and implementation tasks for the 
 The src folder is where we will keep our source code for the backend organized by functionality. Its purpose is to group the modules that implement scanning, metadata extraction, database interaction, reporting, and API endpoints. So far we only have a basic scan setup in the file scan.py.
 
 #### scan.py Breakdown:
-The program lists files in a specified directory and can optionally:
-- Recurse into subdirectories
-- Filter by file type
+The scan.py module is now a file and archive scanning script. It can scan directories or .zip archives to collect file statistics and metadata, forming the foundation for our project’s analysis and reporting system.
   
 After listing the matching files, it computes and displays:
 - Largest file
@@ -74,6 +72,13 @@ When run directly, it prompts for:
 1. Directory path
 2. Whether to scan subdirectories
 3. File type filter (optional)
+
+Functionality added with zip handling:
+- Support for nested .zip files when recursive mode is enabled (e.g., outer.zip:inner.zip:file.txt).
+- Consistent file type filtering across directory and zip scans.
+- Exclusion of macOS metadata such as .DS_Store and __MACOSX directories.
+- Enhanced error handling to skip corrupted or unreadable archive entries.
+- Maintains full backward compatibility with directory scanning.
 
 This feature is useful as a basic file system utility or a backend helper for metadata scanning, file statistics, or report generation.
 
@@ -109,6 +114,10 @@ The tests check that:
 3. File type filtering correctly restricts results (e.g., only .txt files).
 4. Invalid paths print an appropriate error message.
 5. File statistics (largest, smallest, newest, oldest) are correctly reported based on file size and modification time.
+6. Verifies that non-recursive scans only list top-level zip entries.
+7. Ensures that file type filters work correctly within zip archives
+8. Checks that recursive scans include files inside nested zips.
+9. Confirms that non-recursive scans skip nested zip contents.
 
 This ensures that the directory scanning utility behaves as expected in real-world scenarios, catches regressions, and provides confidence in file handling logic.
 
