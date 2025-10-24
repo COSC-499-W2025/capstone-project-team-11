@@ -5,7 +5,8 @@ import json
 DEFAULTS = {
     "directory": None,
     "recursive_choice": False,
-    "file_type": None
+    "file_type": None,
+    "data_consent": None
 }
 
 # Guards against invalid file_type inputs and normalizes/formats them properly
@@ -53,9 +54,14 @@ def save_config(data, path=None):
     config_dir = os.path.dirname(config_file)
     # Ensure the directory exists so the file can be written to
     os.makedirs(config_dir, exist_ok=True)
+    
+    # Load existing config to preserve any settings not being updated now
+    existing = load_config(config_file)
 
-    to_save = DEFAULTS.copy()
+    # Start from the existing saved settings, then overwrite using new values
+    to_save = existing.copy()
     to_save.update(data or {})
+
     # Normalize file_type before saving
     to_save["file_type"] = normalize_file_type(to_save.get("file_type"))
 
