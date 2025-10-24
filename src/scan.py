@@ -5,7 +5,7 @@ import zipfile
 import io
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path
-from consent import ask_for_data_consent
+from consent import ask_for_data_consent, ask_yes_no
 
 def _zip_mtime_to_epoch(dt_tuple):
     """
@@ -183,8 +183,18 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
 if __name__ == "__main__":
     # Load current config
     current = load_config(None)
-    # If user previously accepted consent, skip prompting. Otherwise, always prompt so users who previously denied can change their choice on later scans.
-    if current.get("data_consent") is not True:
+
+    # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
+    # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
+    if current.get("data_consent") is True:
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
+            current = load_config(None)
+            consent = ask_for_data_consent(config_path=default_config_path())
+            if not consent:
+                print("Data access consent not granted, aborting application.")
+                sys.exit(0)
+    else:
+        # If user hasn't explicitly accepted, always prompt so they can set or change their preference.
         consent = ask_for_data_consent(config_path=default_config_path())
         if not consent:
             print("Data access consent not granted, aborting application.")
