@@ -3,6 +3,8 @@ import sys
 import time
 import zipfile
 import io
+from detect_langs import detect_languages_and_frameworks
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings
 
