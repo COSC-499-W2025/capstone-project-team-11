@@ -4,7 +4,8 @@ import time
 import zipfile
 import io
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from config import load_config, save_config, merge_settings
+from config import load_config, save_config, merge_settings, config_path as default_config_path
+from consent import ask_for_data_consent
 
 def _zip_mtime_to_epoch(dt_tuple):
     """
@@ -182,7 +183,15 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
 if __name__ == "__main__":
     # Load current config
     current = load_config(None)
-    # Ask the user if they would like to use the same settings from their last scan
+    # If user previously accepted consent, skip prompting. Otherwise, always prompt so users who previously denied can change their choice on later scans.
+    if current.get("data_consent") is not True:
+        consent = ask_for_data_consent(config_path=default_config_path())
+        if not consent:
+            print("Data access consent not granted, aborting application.")
+            sys.exit(0)
+
+    # Ask user if they want to use saved settings or enter new ones
+    current = load_config(None)  # Reload in case ask_for_data_consent() saved a preference to config.json
     use_saved = input(
         "Would you like to use the settings from your most recent scan?\n"
         f"  Scanned Directory:      {current.get('directory') or '<none>'}\n"
@@ -191,11 +200,9 @@ if __name__ == "__main__":
         "Proceed with these settings? (y/n): "
     ).strip().lower() == 'y'
 
-    if use_saved and current.get("directory"):
-        # Run with saved settings
+    if use_saved and current.get("directory"): # Run with saved settings
         run_with_saved_settings(directory=current.get("directory"), recursive_choice=current.get("recursive_choice"), file_type=current.get("file_type"), save=False)
-    else:
-        # Ask for new settings
+    else: # Ask for new parameters 
         directory = input("Enter directory path or zip file path: ").strip()
         recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
