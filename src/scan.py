@@ -1,8 +1,10 @@
 import os
 import sys
 import time
+import subprocess
 import zipfile
 import io
+import tempfile
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings
 
@@ -30,10 +32,12 @@ def _is_macos_junk(name: str) -> bool:
         return True
     return False
 
-def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list):
+def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list, show_collaboration: bool = False, extract_root: str = None):
     """Internal: scan an already-open ZipFile and collect/print entries.
     - display_prefix: the accumulated path like "/path/to.zip" or "/path/to.zip:inner.zip"
     - files_found: list of tuples (display_path, size, mtime)
+    - show_collaboration: if True, attempt to resolve collaboration info using an extracted tree
+    - extract_root: path where the zip was extracted (or None)
     """
     for info in zf.infolist():
         # Skip directories
@@ -52,6 +56,13 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         if file_type is None or name.lower().endswith(file_type.lower()):
             files_found.append((display, info.file_size, _zip_mtime_to_epoch(info.date_time)))
             print(display)
+            if show_collaboration:
+                collab = "unknown"
+                if extract_root:
+                    candidate = os.path.join(extract_root, name)
+                    if os.path.exists(candidate):
+                        collab = get_collaboration_info(candidate)
+                print(f"  Collaboration: {collab}")
 
         # If recursive and this entry itself is a .zip, descend into it
         if recursive and name.lower().endswith('.zip'):
@@ -59,12 +70,23 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                 with zf.open(info) as nested_file:
                     nested_bytes = nested_file.read()
                 with zipfile.ZipFile(io.BytesIO(nested_bytes)) as nested_zf:
-                    _scan_zip(nested_zf, display, recursive, file_type, files_found)
+                     # Create a temp folder for nested extraction
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        nested_zf.extractall(tmpdir)
+                        _scan_zip(
+                            nested_zf,
+                            f"{display}",
+                            recursive,
+                            file_type,
+                            files_found,
+                            show_collaboration=show_collaboration,
+                            extract_root=tmpdir
+                        )
             except zipfile.BadZipFile:
                 # Ignore corrupt/unsupported nested zips
                 pass
 
-def list_files_in_zip(zip_path, recursive=False, file_type=None):
+def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False):
     """
     Prints file names inside a zip archive.
     If recursive=False, only top-level files (no '/') are listed.
@@ -81,7 +103,17 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None):
 
     files_found = []  # store (display_path, size, mtime)
     with zipfile.ZipFile(zip_path) as zf:
-        _scan_zip(zf, zip_path, recursive, file_type, files_found)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zf.extractall(tmpdir)
+            _scan_zip(
+                zf,
+                zip_path,
+                recursive,
+                file_type,
+                files_found,
+                show_collaboration=show_collaboration,
+                extract_root=tmpdir
+            )
 
     if not files_found:
         print("No files found matching your criteria.")
@@ -99,7 +131,63 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None):
     print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})")
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})")
 
-def list_files_in_directory(path, recursive=False, file_type=None):
+
+def get_collaboration_info(file_path: str) -> str:
+    """Return collaboration info for a file using git history when available.
+
+    Returns:
+      - 'unknown' if git is not available or file not tracked
+      - 'individual (Author Name)' if only one author
+      - 'collaborative (A, B, ...)' if multiple authors
+    """
+    def _find_git_root(start_path: str):
+        """Walk upward from start_path to find a .git directory. Return repo root or None."""
+        p = os.path.abspath(start_path)
+        if os.path.isfile(p):
+            p = os.path.dirname(p)
+        # Walk up until filesystem root
+        while True:
+            git_path = os.path.join(p, '.git')
+            # .git can be a directory (normal repo) or a file (worktree or gitfile)
+            if os.path.exists(git_path):
+                return p
+            parent = os.path.dirname(p)
+            if parent == p:
+                break
+            p = parent
+        return None
+
+    repo_root = _find_git_root(file_path)
+    if not repo_root:
+        # Not inside a git repo (or .git isn't present). Return unknown.
+        return "unknown"
+
+    rel_path = os.path.relpath(os.path.abspath(file_path), repo_root)
+    # Normalize path for git (use forward slashes)
+    rel_path_git = rel_path.replace(os.sep, '/')
+    try:
+        result = subprocess.run(
+            ["git", "log", "--pretty=format:%an", "--", rel_path_git],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            cwd=repo_root,
+            timeout=5,
+        )
+    except Exception:
+        return "unknown"
+
+    if result.returncode != 0 or not result.stdout:
+        return "unknown"
+
+    authors = sorted({a.strip() for a in result.stdout.splitlines() if a.strip()})
+    if not authors:
+        return "unknown"
+    if len(authors) == 1:
+        return f"individual ({authors[0]})"
+    return f"collaborative ({', '.join(authors)})"
+
+def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -111,7 +199,7 @@ def list_files_in_directory(path, recursive=False, file_type=None):
 
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
-        return list_files_in_zip(path, recursive=recursive, file_type=file_type)
+        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration)
 
     if not os.path.exists(path) or not os.path.isdir(path):
         print("Directory does not exist.")
@@ -135,6 +223,8 @@ def list_files_in_directory(path, recursive=False, file_type=None):
                     full_path = os.path.join(root, file)
                     files_found.append(full_path)
                     print(full_path)
+                    if show_collaboration:
+                        print(f"  Collaboration: {get_collaboration_info(full_path)}")
     # If user does not want to scan subdirectories
     else:
         for file in os.listdir(path):
@@ -145,6 +235,8 @@ def list_files_in_directory(path, recursive=False, file_type=None):
                 if file_type is None or file.lower().endswith(file_type.lower()):
                    files_found.append(full_path)
                    print(full_path)
+                   if show_collaboration:
+                       print(f"  Collaboration: {get_collaboration_info(full_path)}")
     # If no files found
     if not files_found:
         print("No files found matching your criteria.")
@@ -155,7 +247,7 @@ def list_files_in_directory(path, recursive=False, file_type=None):
     smallest = min(files_found, key=lambda f: os.path.getsize(f))
     newest = max(files_found, key=lambda f: os.path.getmtime(f))
     oldest = min(files_found, key=lambda f: os.path.getmtime(f))
-
+    
     # Print results
     print("\n=== File Statistics ===")
     print(f"Largest file: {largest} ({os.path.getsize(largest)} bytes)")
@@ -163,10 +255,13 @@ def list_files_in_directory(path, recursive=False, file_type=None):
     print(f"Most recently modified: {newest} ({time.ctime(os.path.getmtime(newest))})")
     print(f"Least recently modified: {oldest} ({time.ctime(os.path.getmtime(oldest))})")
 
+
+   
+
 # Use saved config as defaults, override with provided settings if given, optionally save the new settings back to config file.
-def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, save=False, config_path=None):
+def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, config_path=None):
     config = load_config(config_path)
-    final = merge_settings({"directory": directory, "recursive_choice": recursive_choice, "file_type": file_type}, config)
+    final = merge_settings({"directory": directory, "recursive_choice": recursive_choice, "file_type": file_type, "show_collaboration": show_collaboration}, config)
 
     # Optionally save current settings for next time:
     if save:
@@ -176,7 +271,8 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
     list_files_in_directory(
         final["directory"],
         recursive=final["recursive_choice"],
-        file_type=final["file_type"]
+        file_type=final["file_type"],
+        show_collaboration=final.get("show_collaboration", False),
     )
 
 if __name__ == "__main__":
@@ -193,7 +289,13 @@ if __name__ == "__main__":
 
     if use_saved and current.get("directory"):
         # Run with saved settings
-        run_with_saved_settings(directory=current.get("directory"), recursive_choice=current.get("recursive_choice"), file_type=current.get("file_type"), save=False)
+        run_with_saved_settings(
+            directory=current.get("directory"),
+            recursive_choice=current.get("recursive_choice"),
+            file_type=current.get("file_type"),
+            show_collaboration=current.get("show_collaboration"),
+            save=False,
+        )
     else:
         # Ask for new settings
         directory = input("Enter directory path or zip file path: ").strip()
@@ -203,10 +305,13 @@ if __name__ == "__main__":
 
         # Ask if we should remember these settings for next time
         remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
+        show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
             file_type=file_type,
+            show_collaboration=show_collab,
             save=remember
         )
 
+     
