@@ -83,3 +83,28 @@ This week, I focused on documentation and progress tracking for our milestone de
 - Continue supporting integration and testing efforts across modules
 
 ---
+
+# Week 8 Personal Log (Oct 20th – Oct 26th)
+
+This week I focused on implementing a new feature that validates file formats during directory and zip file scans. The update integrates the `is_valid_format` function into `scan.py`, ensuring that only supported file types are processed while unsupported ones are skipped with clear messages. I also added unit tests to verify correct behavior across valid, invalid, and edge-case filenames. In addition I continued contributing to code quality by reviewing teammates’ PRs and ensuring consistency across our testing and documentation standards.
+
+<img width="1094" height="630" alt="Screenshot 2025-10-26 at 3 42 39 PM" src="https://github.com/user-attachments/assets/48374d91-4fc0-4e8b-88b7-68e3c7e824ae" />
+
+## Tasks Completed
+
+- Implemented **File Format Validation** feature and tests (Issue #23, PR #92)  
+- Reviewed **Reusable User Consent Module** (Issue #21, PR #84)  
+- Reviewed **Data Access Consent Updates & Unit Tests** (Issue #21, PR #86)  
+- Reviewed **Collaboration Detection Feature** (Issue #27, PR #87)  
+- Updated individual log and synced progress with the project board
+
+<img width="1099" height="145" alt="Screenshot 2025-10-26 at 3 48 02 PM" src="https://github.com/user-attachments/assets/efa42e86-171e-4f5a-8be1-d431410d5c8c" />
+
+## Plans for Week 9
+- After review of my code is finished and merged, i will look to implement issue #29: "Identify Individual Contributions Within a Collaborative Project"
+- Help verify system-wide functionality with current features implemented
+- Continue reviewing PRs
+- Refine documentation for scanning and validation workflows  
+
+---
+
