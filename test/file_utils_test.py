@@ -1,5 +1,5 @@
 import unittest
-from src.file_utils import is_valid_format
+from file_utils import is_valid_format
 
 
 class TestFileUtils(unittest.TestCase):
