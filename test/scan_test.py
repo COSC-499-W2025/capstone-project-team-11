@@ -165,6 +165,12 @@ class TestListFilesInDirectory(unittest.TestCase):
         out = self.capture_output(outer_zip, recursive=False)
         self.assertNotIn('inner.txt', out)
 
+    def test_collaboration_info_unknown_when_no_git(self):
+        """When run in a non-git temp directory, collaboration info should be unknown."""
+        output = self.capture_output(self.test_dir, recursive=True, show_collaboration=True)
+        # Our implementation returns 'unknown' when git isn't available or file isn't tracked
+        self.assertIn('Collaboration: unknown', output)
+
 
 if __name__ == "__main__":
     unittest.main()
