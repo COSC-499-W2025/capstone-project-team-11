@@ -94,3 +94,36 @@ In week 8, I hope to:
 - Reuse code from deliverable #1 to create an early revision/framework for deliverable #4 (Request user permission before using external services (e.g., LLM) and provide implications on data privacy about the user's data)
 
 <img width="1247" height="576" alt="week7kanban" src="https://github.com/user-attachments/assets/c8b89e5c-ee60-4dc3-8950-fe9e16f74855" />
+
+# Week #8 - October 20th - October 26th
+
+<img width="715" height="539" alt="week8-tasks" src="https://github.com/user-attachments/assets/6c88dc26-cacb-43c2-b671-58dd2c56cd77" />
+
+## Tasks Completed:
+My main focus this week was on creating a reusable Python script that would help us create prompts for users in the terminal. The specific deliverable I hoped to solve with this implementation was 1. Data Access Consent. Here is an overview of what I contributed:
+
+I created consent.py, a file that hosts three main functions:
+- describe_data_access() acts as a modifiable template for printing non-interactive material to the console. Currently, it explains to the user what data our scanner has access to on their local machine during a scan. In the future, it will be useful for breaking down all potential data access policies for any third-party services our scanner is dependent on.
+- ask_yes_no() is a reusable function that handles all of the logic for printing, reading, and returning a boolean value based on the input from a (y/n)-answer question in the terminal. Currently, our scanner prompts the user with a series of yes/no questions to determine the information they would like to see in their report. This function will simplify and standardize that practice, and hopefully prove useful moving forward.
+- ask_for_data_consent() is another modifiable template that utilizes both of the functions above to handle the process of gaining data access consent into one simple, reusable function. It displays the data we have access to, asks for consent, and saves the user's preference to their config.json file using config.py's save_config() function. This ask_for_data_consent() function serves one purpose, but its structure can likely be repurposed for future deliverables.
+
+I also created consent_test.py, which hosts four unit tests for the main functions defined in consent.py:
+- Test 1 ensures that describe_data_access() functions correctly by affirming output matches the default items when no parameters are passed in the function call, and that items explicitly passed in the function call are found in the output.
+- Test 2 ensures that ask_yes_no() returns the correct boolean for accepted inputs, and re-prompts until a valid input is given
+- Test 3 ensures that ask_for_data_consent() correctly saves user preferences to config.json when requested
+- Test 4 ensures that ask_for_data_consent() does not save preferences to config.json when the user opts out
+
+In addition to these coding-centric contributions, I performed my usual responsibilities of:
+- Attending TA check-in lecture
+- Communicating regularly throughout the week in our Discord server and describing my implementations to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log updates as necessary
+- Completing both my individual log and peer review for week 8
+
+## Next Week (Week #9)
+Next week, I hope to start work on a simple implementation of an LLM-assisted scan, as well as deliverable 4. Request user permission before using external services (e.g., LLM) and provide implications on data privacy about the user's data (using the framework/functions I created this week in consent.py). It will be a difficult task as I have never worked with an LLM API before, and it may be out of scope for our project in its current state. 
+
+I believe another teammate is planning on getting our database operational next week, which will open up a lot of other deliverables that were previously unable to be completed due to us being unable to store scan information long-term. So the paragraph above is my tentative plan, but I will be ready to adapt if a non-LLM-based deliverable is deemed more important after we have our database functional. 
+
+## Kanban Board at End of Week #8
+
+<img width="2529" height="1193" alt="week8-kanban" src="https://github.com/user-attachments/assets/7a0da033-c9ab-493f-9490-51ad6e736ecf" />
