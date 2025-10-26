@@ -92,6 +92,13 @@ Manages simple persistent settings for the scanner:
 
 config.py is useful as it handles all of the logic around saving/storing, locating, and reading/loading scan configuration files.
 
+#### consent.py Breakdown:
+Hosts a few reusable and modifiable template functions to aid in printing information to the console, asking yes/no questions to the user, and saving the returned booleans to a user's local config.json file.
+- describe_data_access() allows us to print a formatted series of strings describing what the user will be consenting to
+- ask_yes_no() contains logic for handling a text-based "yes" or "no" prompt (ie. Please enter 'y' or 'n' (y/n):). Also allows for prompt looping until a valid input is reached, and allows us to set a default value to be returned when the response is an empty string.
+- ask_for_data_consent() is a modifiable template that combines the two above functions with the prompt asking the user if they would like to save their consent preference for all future scans. This results in a series of prompts to the user: here is what you are consenting to, do you want to consent to it (if yes, continue; If no, abort program), and do you want us to save this preference?
+
+I hope that consent.py will act as a living document for useful functions aiding in the retrieval of Boolean responses from users to our various prompts. These functions will likely be revisited and reused as we integrate third-party services into our scanner, which will also have access to a user's local data. We will need to display various privacy and/or data access policies to our users, and consent will be required before continuing. This file was built to streamline and standardize that process.
 
 [src folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/src)
 
@@ -136,5 +143,12 @@ scan.py Integration Tests:
 6. Tests that explicit arguments passed to run_with_saved_settings should override the saved config values.
 
 These unit tests serve us during development by ensuring the individual components of our larger delivered features continue to be operational as our project scope increases. These tests also help us during bug-fixing by pointing us in the right direction by isolating any broken functionalities.
+
+#### consent_test.py Breakdown:
+Unit test suite for consent.py using tempfile-based directories so tests are isolated and filesystem-safe. There are 4 unit tests within consent_test.py:
+1. Tests that describe_data_access() functions correctly by affirming output matches the default items when no parameters are passed in the function call, and that items explicitly passed in the function call are found in the output.
+2. Tests that ask_yes_no() returns the correct boolean for accepted inputs, and re-prompts until a valid input is given
+3. Tests that ask_for_data_consent() correctly saves user preferences to config.json when requested
+4. Tests that ask_for_data_consent() does not save preferences to config.json when the user opts out
 
 [test folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/test)
