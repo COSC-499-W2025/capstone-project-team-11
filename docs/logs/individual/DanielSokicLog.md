@@ -76,3 +76,19 @@ I have been involved with the following tasks either alone or helping my other c
 
 
 
+# Week 8 (October 20th - October 26th)
+<img width="1610" height="924" alt="image" src="https://github.com/user-attachments/assets/44760cb3-06c0-4233-ba64-afbff1311533" />
+
+## Tasks Completed:
+- Determine if projects are collaborative or individual. Added code in scan.py that determines if a scanned folder is a git repo, if it is then it lists the authors alongside every file that they worked on which also works on zipped files. If it is an individual folder (ie. not a git repo) then it displayhs unknown author next to each file. (Issue #27)
+- Added tests for the collaboration feature.
+- Reviewed code for file format validation (Issue #23)
+- Completed the team log for week 8
+- Completed individual logs for week 8
+
+## Week 9 Plans:
+- I will look into issue #29: "Identify Individual Contributions Within a Collaborative Project" alongside Travis by helping him since I started the identification of collaborative projects.
+- Look into issue #30: "Extract key contribution metrics within a project"
+- Continue to review PRs.
+- Help verify system-wide functionality with current features implemented.
+
