@@ -59,9 +59,7 @@ This WBS outlines the major functional modules and implementation tasks for the 
 The src folder is where we will keep our source code for the backend organized by functionality. Its purpose is to group the modules that implement scanning, metadata extraction, database interaction, reporting, and API endpoints. So far we only have a basic scan setup in the file scan.py.
 
 #### scan.py Breakdown:
-The program lists files in a specified directory and can optionally:
-- Recurse into subdirectories
-- Filter by file type
+The scan.py module is now a file and archive scanning script. It can scan directories or .zip archives to collect file statistics and metadata, forming the foundation for our project’s analysis and reporting system.
   
 After listing the matching files, it computes and displays:
 - Largest file
@@ -75,6 +73,13 @@ When run directly, it prompts for:
 2. Whether to scan subdirectories
 3. File type filter (optional)
 
+Functionality added with zip handling:
+- Support for nested .zip files when recursive mode is enabled (e.g., outer.zip:inner.zip:file.txt).
+- Consistent file type filtering across directory and zip scans.
+- Exclusion of macOS metadata such as .DS_Store and __MACOSX directories.
+- Enhanced error handling to skip corrupted or unreadable archive entries.
+- Maintains full backward compatibility with directory scanning.
+
 This feature is useful as a basic file system utility or a backend helper for metadata scanning, file statistics, or report generation.
 
 #### config.py Breakdown:
@@ -87,12 +92,13 @@ Manages simple persistent settings for the scanner:
 
 config.py is useful as it handles all of the logic around saving/storing, locating, and reading/loading scan configuration files.
 
-#### db.py Breakdown:
-The database module provides persistent storage for scan history and file metadata using SQLite:
-- `db.py` handles database initialization and connections.
+#### consent.py Breakdown:
+Hosts a few reusable and modifiable template functions to aid in printing information to the console, asking yes/no questions to the user, and saving the returned booleans to a user's local config.json file.
+- describe_data_access() allows us to print a formatted series of strings describing what the user will be consenting to
+- ask_yes_no() contains logic for handling a text-based "yes" or "no" prompt (ie. Please enter 'y' or 'n' (y/n):). Also allows for prompt looping until a valid input is reached, and allows us to set a default value to be returned when the response is an empty string.
+- ask_for_data_consent() is a modifiable template that combines the two above functions with the prompt asking the user if they would like to save their consent preference for all future scans. This results in a series of prompts to the user: here is what you are consenting to, do you want to consent to it (if yes, continue; If no, abort program), and do you want us to save this preference?
 
-This module ensures scan results and file metadata are safely stored, retrievable for reporting, and available for future analytics or export. It complements the scanning and configuration modules by persisting all relevant scan data in a structured, queryable format.
-
+I hope that consent.py will act as a living document for useful functions aiding in the retrieval of Boolean responses from users to our various prompts. These functions will likely be revisited and reused as we integrate third-party services into our scanner, which will also have access to a user's local data. We will need to display various privacy and/or data access policies to our users, and consent will be required before continuing. This file was built to streamline and standardize that process.
 
 [src folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/src)
 
@@ -115,6 +121,10 @@ The tests check that:
 3. File type filtering correctly restricts results (e.g., only .txt files).
 4. Invalid paths print an appropriate error message.
 5. File statistics (largest, smallest, newest, oldest) are correctly reported based on file size and modification time.
+6. Verifies that non-recursive scans only list top-level zip entries.
+7. Ensures that file type filters work correctly within zip archives
+8. Checks that recursive scans include files inside nested zips.
+9. Confirms that non-recursive scans skip nested zip contents.
 
 This ensures that the directory scanning utility behaves as expected in real-world scenarios, catches regressions, and provides confidence in file handling logic.
 
@@ -134,12 +144,11 @@ scan.py Integration Tests:
 
 These unit tests serve us during development by ensuring the individual components of our larger delivered features continue to be operational as our project scope increases. These tests also help us during bug-fixing by pointing us in the right direction by isolating any broken functionalities.
 
-#### test_db.py Breakdown:
-This Python file tests the database module:
-- Verifies the database initializes correctly using db.py.
-- Inserts dummy scan and file records linked to a scan.
-- Prints the scans and files tables to ensure schema correctness and data integrity.
-
-These tests confirm that the database layer integrates correctly with the scanning workflow, storing and retrieving metadata as expected.
+#### consent_test.py Breakdown:
+Unit test suite for consent.py using tempfile-based directories so tests are isolated and filesystem-safe. There are 4 unit tests within consent_test.py:
+1. Tests that describe_data_access() functions correctly by affirming output matches the default items when no parameters are passed in the function call, and that items explicitly passed in the function call are found in the output.
+2. Tests that ask_yes_no() returns the correct boolean for accepted inputs, and re-prompts until a valid input is given
+3. Tests that ask_for_data_consent() correctly saves user preferences to config.json when requested
+4. Tests that ask_for_data_consent() does not save preferences to config.json when the user opts out
 
 [test folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/test)
