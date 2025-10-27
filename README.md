@@ -87,6 +87,12 @@ Manages simple persistent settings for the scanner:
 
 config.py is useful as it handles all of the logic around saving/storing, locating, and reading/loading scan configuration files.
 
+#### db.py Breakdown:
+The database module provides persistent storage for scan history and file metadata using SQLite:
+- `db.py` handles database initialization and connections.
+
+This module ensures scan results and file metadata are safely stored, retrievable for reporting, and available for future analytics or export. It complements the scanning and configuration modules by persisting all relevant scan data in a structured, queryable format.
+
 
 [src folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/src)
 
@@ -127,5 +133,13 @@ scan.py Integration Tests:
 6. Tests that explicit arguments passed to run_with_saved_settings should override the saved config values.
 
 These unit tests serve us during development by ensuring the individual components of our larger delivered features continue to be operational as our project scope increases. These tests also help us during bug-fixing by pointing us in the right direction by isolating any broken functionalities.
+
+#### test_db.py Breakdown:
+This Python file tests the database module:
+- Verifies the database initializes correctly using db.py.
+- Inserts dummy scan and file records linked to a scan.
+- Prints the scans and files tables to ensure schema correctness and data integrity.
+
+These tests confirm that the database layer integrates correctly with the scanning workflow, storing and retrieving metadata as expected.
 
 [test folder](https://github.com/COSC-499-W2025/capstone-project-team-11/tree/main/test)
