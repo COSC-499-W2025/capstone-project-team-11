@@ -86,6 +86,38 @@ The week we focused on updating our system diagrams to reflect the final require
 
 <img width="1884" height="708" alt="Screenshot 2025-10-19 at 4 50 11 PM" src="https://github.com/user-attachments/assets/dd44a6ab-9613-4a34-80e6-26cf662c38b4" />
 
+# Week 8 Personal Logs (20th - 26th of October)
+<img width="950" height="555" alt="Screenshot 2025-10-26 at 7 05 29 PM" src="https://github.com/user-attachments/assets/e84d1bb0-86af-47f7-9246-b1f4e32914f6" />
 
+## Tasks Completed:
+This week, I focused on expanding the scanner’s capabilities to include .zip and nested .zip file handling while maintaining compatibility with existing directory scans.
+- Closed issue #83
 
+Additions and Features:
+- Zip File Support: The scanner can now process .zip archives in addition to directories. When a zip file is provided, its contents are listed and analyzed as if they were normal files.
+- Nested Zip Handling: With recursive mode enabled, the scanner automatically descends into nested .zip archives (e.g., outer.zip:inner.zip:file.txt) using in-memory extraction via BytesIO.
+- File Type Filtering: The existing file type filter (e.g., .py, .txt) now applies uniformly to both directories and zip files, ensuring consistent results.
+- macOS Metadata Filtering: Added logic to ignore unnecessary macOS files and folders such as .DS_Store and __MACOSX, both in directories and inside zip archives.
+- Timestamps and Metadata: Implemented _zip_mtime_to_epoch() to convert zip entry timestamps into a consistent format for accurate file age and modification tracking.
+- CLI Update: The program prompt now accepts either a directory path or a .zip file path, making it easier for users to scan compressed project archives.
+- Backward Compatibility: All original directory scanning functionality remains unchanged. Existing workflows, filters, and output formats are preserved.
+- Updated README documentation to reflect all changes I have made
 
+Testing:
+- Added four new unit tests verifying both recursive and non-recursive zip scanning behavior.
+- Confirmed filters, statistics, and metadata exclusion work consistently across all scan types.
+
+Reviews: 
+- Pri's Functionality to Detect Programming Languages and Frameworks in Scanned Directories PR #85
+- Tanner's Reusable User Consent Module PR #84
+- Tylers Sql db creation PR #95
+- Tylers Updated documentation PR #97
+  
+## In progress tasks
+- Add functionality for sorting projects chronologically based on their creation or modification dates. This feature will help users view their project history in a clear, time-ordered format (issue #39)
+
+## Planned tasks for next sprint
+- Summarize all Key Information for a Project (issue #32)
+- Rank Project Importance Based on User's Contributions (issue #36)
+
+<img width="887" height="644" alt="Screenshot 2025-10-26 at 7 20 13 PM" src="https://github.com/user-attachments/assets/9d560cb2-ee9d-4721-a186-4d183f5ccde6" />

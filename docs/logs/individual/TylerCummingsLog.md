@@ -77,3 +77,30 @@ Therefore I mostly worked on managing the pull requests and handling the merge c
 - Work on and complete “Sort Projects Chronologically” (#39)
 <img width="1177" height="272" alt="image" src="https://github.com/user-attachments/assets/9b2fd2b0-1150-4803-ae20-db26305c1ea3" />
 
+# Tyler's Week 8 Personal Log (20-26 Oct.)
+
+Focus of the week was implementing the database module for scan history and file metadata, and integrating it with the testing workflow.
+
+<img width="791" height="571" alt="image" src="https://github.com/user-attachments/assets/f060579b-e649-43b6-a76d-da32d47aed7a" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Implemented db.py to manage SQLite database connections and initialization. (#82)
+- Designed and tested database schema for scans and files tables. (#82)
+- Created test_db.py to insert dummy scan and file records and verify table outputs. (#82)
+- Ensured the database integrates with the scanning workflow for persistent storage of scan results and metadata. (#82)
+- Verified schema and data integrity by printing table outputs after dummy insertions. (#82)
+- Collaborated with team members to ensure database module complements scanning, configuration, and reporting features. (#82)
+- Reviewed and updated relevant documentation to include database functionality.
+- Finished individual log 8
+- Finished peer reviews for week 8
+
+Week 9 Plans:
+- Integrate database functionality into the full scanning workflow.
+- Store Project Information in our database (#33)
+- Continue collaboration with the team for upcoming project milestones.
+
+<img width="1222" height="643" alt="image" src="https://github.com/user-attachments/assets/b120a58a-d9df-4b97-abdb-f2fcbc8051cd" />
+
+
