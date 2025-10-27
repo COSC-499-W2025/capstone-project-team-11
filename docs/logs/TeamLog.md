@@ -168,10 +168,9 @@ Team Members    --> GitHub Username
 - Daniel Sokic    --> danielsokic
 
 Overview:
-This week, our team focused on expanding the core functionality of the file scanning system by implementing new modules and improving robustness across the codebase. Several new files were added includint consent.py, detect_langs.py, and file_utils.py which faciltate major enhacnements in order to handle consent validation, language detection, and file format checking. Additionally, scan.py was enhanced to be able to scan complicated zip files as well as determine collaboration in git repositories.
+This week, our team focused on expanding the core functionality of the file scanning system by implementing new modules and improving robustness across the codebase. Several new files were added includint consent.py, detect_langs.py, and file_utils.py which faciltate major enhacnements in order to handle consent validation, language detection, and file format checking. Additionally, scan.py was enhanced to be able to scan complicated zip files as well as determine collaboration in git repositories. The team also began developing a persistent storage system for scan history and file metadata. A new database schema and supporting scripts were introduced to establish the foundation for structured data management within the project.
 
-
-<img width="1200" height="864" alt="chart" src="https://github.com/user-attachments/assets/5c1091a5-5569-4efe-8305-4383f5d0cd32" />
+<img width="1200" height="864" alt="chart (1)" src="https://github.com/user-attachments/assets/619def54-ceae-4942-b708-292e33824582" />
 
 
 Table view of completed tasks on project board (by name):
@@ -185,6 +184,8 @@ Table view of completed tasks on project board (by name):
     - Daniel
 - Implement file format validation
     - Travis
+- Implement database schema and utilities for scan storage
+    - Tyler
 - Review Code
     - Jaxson, Tanner, Priyanshu, Daniel, Travis, Tyler
 - Update Readme
@@ -209,12 +210,18 @@ All unit tests passed successfully on multiple systems. The test suite was expan
     - Confirmed that file-type filters (e.g., .py, .txt) apply correctly inside ZIP archives.
     - Ensured recursive scanning correctly traverses nested ZIPs, displaying inner files with full          hierarchical paths.
     - Verified that in environments without a Git repository (such as a temporary directory), the          "Collaboration: unknown" instead of failing or returning incorrect data.scanner correctly              reports.
+  
+5. test_db.py
+   - Verified that the SQLite database initializes correctly with scans and files tables.
+   - Tested insertion of dummy scan and file records to confirm table structure and constraints.
+   - Ensured that table data can be retrieved and printed cleanly for debugging and validation.
 
 Reflection:
 - Our team made significant progress this week by integrating multiple independent features (consent validation, language detection, file format filtering, ZIP handling, and collaborator detection) into a cohesive and robust scanning workflow.
 - The modular design of new components like consent.py, file_utils.py, and detect_langs.py improved overall code organization and testability.
 - Handling complex nested ZIPs was a major technical challenge, but successful implementation and testing confirmed that the scanner can now reliably handle recursive archives.
 - Adding file format validation increased the system’s safety by preventing unsupported or unsafe files from being processed during scans.
+- The addition of the database schema introduced our first persistent data layer, helping us understand how to manage and query scan history efficiently.
 - The collaborator detection feature enhanced traceability and transparency by linking scanned files to their respective Git contributors.
 - The team demonstrated strong collaboration during pull request reviews, resolving merge conflicts efficiently and maintaining consistent code quality standards.
 - Comprehensive testing ensured that all new modules worked seamlessly across platforms, reinforcing the reliability of the codebase.
