@@ -6,6 +6,7 @@ import zipfile
 import io
 import tempfile
 from detect_langs import detect_languages_and_frameworks
+from file_utils import is_valid_format
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path
@@ -38,17 +39,29 @@ def _is_macos_junk(name: str) -> bool:
 
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
               show_collaboration: bool = False, extract_root: str = None):
-    """Internal: scan an already-open ZipFile and collect/print entries."""
+    """
+    Internal: scan an already-open ZipFile and collect/print entries.
+    - display_prefix: the accumulated path like "/path/to.zip" or "/path/to.zip:inner.zip"
+    - files_found: list of tuples (display_path, size, mtime)
+    - show_collaboration: whether to display collaboration info for files
+    - extract_root: the root directory where the zip contents are extracted
+    """
     for info in zf.infolist():
+        # Skip directories
         if hasattr(info, 'is_dir') and info.is_dir():
             continue
         name = info.filename
+        # Skip macOS junk files
         if _is_macos_junk(name):
             continue
+        # Skip unsupported file formats
+        if not is_valid_format(name):
+            print(f"Skipping unsupported file format in zip: {name}")
+            continue
+        # Respect non-recursive by including only root-level entries (no '/')
         if not recursive and ('/' in name or name.endswith('/')):
-            if '/' in name:
-                continue
-
+            continue
+        # Record this file if it matches the filter (or no filter)
         display = f"{display_prefix}:{name}"
         if file_type is None or name.lower().endswith(file_type.lower()):
             files_found.append((display, info.file_size, _zip_mtime_to_epoch(info.date_time)))
@@ -61,6 +74,7 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                         collab = get_collaboration_info(candidate)
                 print(f"  Collaboration: {collab}")
 
+        # If recursive and this entry itself is a .zip, descend into it
         if recursive and name.lower().endswith('.zip'):
             try:
                 with zf.open(info) as nested_file:
@@ -168,11 +182,16 @@ def get_collaboration_info(file_path: str) -> str:
 
 
 def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False):
-    """Prints file names in the given directory, or inside a .zip file."""
+    """
+    Prints file names in the given directory, or inside a .zip file.
+    If recursive=True, it scans subdirectories (or all nested zip entries).
+    If file_type is provided (e.g. '.txt'), only files of that type are shown.
+    """
     if not path:
         print("Directory does not exist.")
         return
 
+    # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
         return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration)
 
@@ -192,6 +211,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             for file in files:
                 if _is_macos_junk(file):
                     continue
+                if not is_valid_format(file):
+                    print(f"Skipping unsupported file format: {file}")
+                    continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     full_path = os.path.join(root, file)
                     files_found.append(full_path)
@@ -203,6 +225,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             full_path = os.path.join(path, file)
             if os.path.isfile(full_path):
                 if _is_macos_junk(file):
+                    continue
+                if not is_valid_format(file):
+                    print(f"Skipping unsupported file format: {file}")
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     files_found.append(full_path)
