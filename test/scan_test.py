@@ -7,6 +7,7 @@ import tempfile
 import shutil
 import time
 from io import StringIO
+import zipfile
 from contextlib import redirect_stdout
 
 from scan import list_files_in_directory
@@ -108,6 +109,67 @@ class TestListFilesInDirectory(unittest.TestCase):
         self.assertIn("Least recently modified", output)
         self.assertIn(os.path.basename(small), output)
 
+    def test_zip_non_recursive_lists_only_root_files(self):
+        """When given a zip file, non-recursive should list only top-level files."""
+        zip_path = os.path.join(self.test_dir, "archive.zip")
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.writestr('root.txt', 'root')
+            zf.writestr('subdir/nested.txt', 'nested')
+
+        output = self.capture_output(zip_path, recursive=False)
+        self.assertIn('root.txt', output)
+        self.assertNotIn('nested.txt', output)
+
+    def test_zip_respects_file_type_filter(self):
+        """Zip scanning should honor the file_type filter."""
+        zip_path = os.path.join(self.test_dir, "code.zip")
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.writestr('a.py', 'print(1)')
+            zf.writestr('a.txt', 'x')
+
+        output = self.capture_output(zip_path, recursive=True, file_type='.py')
+        self.assertIn('a.py', output)
+        self.assertNotIn('a.txt', output)
+
+    def test_nested_zip_recursive_lists_inner_files(self):
+        """Recursive zip scan should show files inside nested zip entries."""
+        outer_zip = os.path.join(self.test_dir, 'outer.zip')
+        # Build a nested zip in-memory first
+        import io as _io
+        inner_bytes = _io.BytesIO()
+        with zipfile.ZipFile(inner_bytes, 'w') as inner:
+            inner.writestr('inner.txt', 'hi')
+        inner_data = inner_bytes.getvalue()
+
+        with zipfile.ZipFile(outer_zip, 'w') as outer:
+            outer.writestr('level1/readme.md', 'readme')
+            outer.writestr('inner.zip', inner_data)
+
+        out = self.capture_output(outer_zip, recursive=True)
+        self.assertIn('inner.txt', out)
+        # Expect the displayed path to include both outer and inner zip
+        self.assertIn('outer.zip:inner.zip:inner.txt', out)
+
+    def test_nested_zip_non_recursive_does_not_list_inner_files(self):
+        """Non-recursive zip scan should not descend into nested zips."""
+        outer_zip = os.path.join(self.test_dir, 'outer_nr.zip')
+        import io as _io
+        inner_bytes = _io.BytesIO()
+        with zipfile.ZipFile(inner_bytes, 'w') as inner:
+            inner.writestr('inner.txt', 'hi')
+        inner_data = inner_bytes.getvalue()
+
+        with zipfile.ZipFile(outer_zip, 'w') as outer:
+            outer.writestr('inner.zip', inner_data)
+
+        out = self.capture_output(outer_zip, recursive=False)
+        self.assertNotIn('inner.txt', out)
+
+    def test_collaboration_info_unknown_when_no_git(self):
+        """When run in a non-git temp directory, collaboration info should be unknown."""
+        output = self.capture_output(self.test_dir, recursive=True, show_collaboration=True)
+        # Our implementation returns 'unknown' when git isn't available or file isn't tracked
+        self.assertIn('Collaboration: unknown', output)
 
 
 if __name__ == "__main__":
