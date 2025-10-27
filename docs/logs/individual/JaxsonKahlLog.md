@@ -121,5 +121,3 @@ Reviews:
 - Rank Project Importance Based on User's Contributions (issue #36)
 
 <img width="887" height="644" alt="Screenshot 2025-10-26 at 7 20 13 PM" src="https://github.com/user-attachments/assets/9d560cb2-ee9d-4721-a186-4d183f5ccde6" />
-
-
