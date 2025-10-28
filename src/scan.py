@@ -5,12 +5,12 @@ import subprocess
 import zipfile
 import io
 import tempfile
-from detect_langs import detect_languages_and_frameworks
-from file_utils import is_valid_format
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path
 from consent import ask_for_data_consent, ask_yes_no
+from detect_langs import detect_languages_and_frameworks
+from file_utils import is_valid_format
 
 
 def _zip_mtime_to_epoch(dt_tuple):
