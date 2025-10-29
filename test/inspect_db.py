@@ -1,4 +1,4 @@
-# scripts/inspect_db.py
+# test/inspect_db.py
 import os
 import sys
 import sqlite3
