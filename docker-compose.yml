@@ -11,7 +11,7 @@ services:
     stdin_open: true          #needed for input() in scan.py
     tty: true
     volumes:
-      - ./src:/app/src:rw
+      - ./:/app:rw
     command: python -m src.scan   #CLI mode (change when proj root changed)
 
     #FastAPI
@@ -29,6 +29,6 @@ services:
     container_name: tests
     working_dir: /app
     volumes:
-      - ./src:/app/src:rw
-      - ./test:/app/test:rw
-    command: pytest -q test
+      - ./:/app:rw
+    # Do not set SCANNER_NONINTERACTIVE here so unit tests that patch input() still work.
+    command: python -m unittest discover -s test -p "*_test.py"
