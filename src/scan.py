@@ -5,6 +5,10 @@ import subprocess
 import zipfile
 import io
 import tempfile
+import json
+import sqlite3
+
+from db import get_connection, init_db
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path
@@ -95,7 +99,58 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                 pass
 
 
-def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False):
+def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None):
+    """Persist a scan and its file records to the SQLite database.
+
+    files_found may be either:
+      - list of full file paths (directory scanning)
+      - list of tuples (display_path, size, mtime) for zip scanning
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    # Create scan record
+    cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
+    scan_id = cur.lastrowid
+
+    for item in files_found:
+        if isinstance(item, tuple):
+            display, size, mtime = item
+            # display looks like 'zip.zip:inner/path/file.txt' or similar
+            file_path = display
+            file_name = os.path.basename(display.split(':')[-1])
+            file_extension = os.path.splitext(file_name)[1]
+            file_size = int(size or 0)
+            modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime)) if mtime else None
+            created_at = None
+        else:
+            # filesystem path
+            file_path = item
+            file_name = os.path.basename(item)
+            file_extension = os.path.splitext(file_name)[1]
+            try:
+                file_size = os.path.getsize(item)
+                created_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(item)))
+                modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(item)))
+            except Exception:
+                file_size = None
+                created_at = None
+                modified_at = None
+
+        metadata = {}
+        try:
+            cur.execute(
+                "INSERT INTO files (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, None, json.dumps(metadata))
+            )
+        except Exception:
+            # ignore individual insert errors but continue
+            continue
+
+    conn.commit()
+    conn.close()
+
+
+def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
     """Prints file names inside a zip archive."""
     if not os.path.exists(zip_path) or not zipfile.is_zipfile(zip_path):
         print("Directory does not exist.")
@@ -122,7 +177,7 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
 
     if not files_found:
         print("No files found matching your criteria.")
-        return
+        return []
 
     largest = max(files_found, key=lambda t: t[1])
     smallest = min(files_found, key=lambda t: t[1])
@@ -134,6 +189,17 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
     print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})")
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})")
+    # Optionally persist results to DB
+    if save_to_db:
+        try:
+            _persist_scan(zip_path, files_found)
+        except sqlite3.OperationalError:
+            try:
+                init_db()
+                _persist_scan(zip_path, files_found)
+            except Exception:
+                print("Warning: failed to persist zip scan results to database.")
+    return files_found
 
 
 def get_collaboration_info(file_path: str) -> str:
@@ -181,7 +247,7 @@ def get_collaboration_info(file_path: str) -> str:
     return f"collaborative ({', '.join(authors)})"
 
 
-def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False):
+def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -193,7 +259,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
-        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration)
+        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration, save_to_db=save_to_db)
 
     if not os.path.exists(path) or not os.path.isdir(path):
         print("Directory does not exist.")
@@ -237,7 +303,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     if not files_found:
         print("No files found matching your criteria.")
-        return
+        return []
 
     largest = max(files_found, key=lambda f: os.path.getsize(f))
     smallest = min(files_found, key=lambda f: os.path.getsize(f))
@@ -249,9 +315,21 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"Smallest file: {smallest} ({os.path.getsize(smallest)} bytes)")
     print(f"Most recently modified: {newest} ({time.ctime(os.path.getmtime(newest))})")
     print(f"Least recently modified: {oldest} ({time.ctime(os.path.getmtime(oldest))})")
+    # Optionally persist scan results to the database
+    if save_to_db:
+        try:
+            _persist_scan(path, files_found)
+        except sqlite3.OperationalError:
+            # Try initializing DB and retry once
+            try:
+                init_db()
+                _persist_scan(path, files_found)
+            except Exception:
+                print("Warning: failed to persist scan results to database.")
+    return files_found
 
 
-def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, config_path=None):
+def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, save_to_db=False, config_path=None):
     config = load_config(config_path)
     final = merge_settings(
         {
@@ -271,6 +349,7 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
         recursive=final["recursive_choice"],
         file_type=final["file_type"],
         show_collaboration=final.get("show_collaboration", False),
+        save_to_db=save_to_db,
     )
 
 
@@ -308,6 +387,7 @@ if __name__ == "__main__":
             file_type=current.get("file_type"),
             show_collaboration=current.get("show_collaboration"),
             save=False,
+            save_to_db=input("Save scan results to database? (y/n): ").strip().lower() == 'y',
         )
     else:
         directory = input("Enter directory path or zip file path: ").strip()
@@ -317,10 +397,12 @@ if __name__ == "__main__":
 
         remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
         show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
+        save_db = input("Save scan results to database? (y/n): ").strip().lower() == 'y'
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
-            save=remember
+            save=remember,
+            save_to_db=save_db,
         )
