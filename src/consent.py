@@ -1,4 +1,5 @@
 import sys
+import os
 from typing import Iterable, Optional
 from config import save_config, load_config
 
@@ -19,6 +20,11 @@ def describe_data_access(items: Optional[Iterable[str]] = None) -> None:
 def ask_yes_no(prompt: str, default: Optional[bool] = None) -> bool:
     # prompt: text to present to the user (should include (y/n) suggestion).
     # default: if provided and user enters empty input, this value is returned.
+    # If running in non-interactive mode (e.g. inside CI or docker tests) return the default
+    # or False to avoid blocking on input(). The environment variable SCANNER_NONINTERACTIVE
+    # can be set to '1' or 'true' to enable this behavior.
+    if os.environ.get('SCANNER_NONINTERACTIVE', '').lower() in ('1', 'true'):
+        return default if default is not None else False
     while True:
         resp = input(prompt).strip().lower()
         if resp == "" and default is not None:
