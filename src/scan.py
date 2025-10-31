@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 from config import load_config, save_config, merge_settings, config_path as default_config_path
 from consent import ask_for_data_consent, ask_yes_no
 from detect_langs import detect_languages_and_frameworks
+from detect_skills import detect_skills
 from file_utils import is_valid_format
 
 
@@ -406,3 +407,9 @@ if __name__ == "__main__":
             save=remember,
             save_to_db=save_db,
         )
+        skills_summary = detect_skills(directory)
+        if skills_summary["skills"]:
+            print("\n=== Detected Skills Summary ===")
+            print(", ".join(skills_summary["skills"]))
+        else:
+            print("\nNo significant skills detected.")
