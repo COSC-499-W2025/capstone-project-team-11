@@ -354,6 +354,7 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
 
 
 if __name__ == "__main__":
+    # Handle data consent first
     current = load_config(None)
     # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
     # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
@@ -371,33 +372,43 @@ if __name__ == "__main__":
             print("Data access consent not granted, aborting application.")
             sys.exit(0)
 
+    # Load current settings
     current = load_config(None)
     use_saved = input(
         "Would you like to use the settings from your most recent scan?\n"
-        f"  Scanned Directory:      {current.get('directory') or '<none>'}\n"
-        f"  Scan Nested Folders:    {current.get('recursive_choice')}\n"
-        f"  Only Scan File Type:    {current.get('file_type') or '<all>'}\n"
+        f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
+        f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
+        f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
+        f"  Show Collaboration Info:    {current.get('show_collaboration') or '<all>'}\n"
         "Proceed with these settings? (y/n): "
     ).strip().lower() == 'y'
 
     if use_saved and current.get("directory"):
+        # Use saved settings and only ask about database
+        save_db = input("Save scan results to database? (y/n): ").strip().lower() == 'y'
+        
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=current.get("recursive_choice"),
             file_type=current.get("file_type"),
             show_collaboration=current.get("show_collaboration"),
             save=False,
-            save_to_db=input("Save scan results to database? (y/n): ").strip().lower() == 'y',
+            save_to_db=save_db,
         )
     else:
+        # Collect all scan settings first
         directory = input("Enter directory path or zip file path: ").strip()
         recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
-
-        remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
         show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
+
+        # Ask about saving settings after collecting all of them
+        remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
+        
+        # Ask about database last
         save_db = input("Save scan results to database? (y/n): ").strip().lower() == 'y'
+
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
