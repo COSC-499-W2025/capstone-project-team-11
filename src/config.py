@@ -6,7 +6,8 @@ DEFAULTS = {
     "directory": None,
     "recursive_choice": False,
     "file_type": None,
-    "data_consent": None
+    "data_consent": False,
+    "show_collaboration": False
 }
 
 # Guards against invalid file_type inputs and normalizes/formats them properly
@@ -60,10 +61,16 @@ def save_config(data, path=None):
 
     # Start from the existing saved settings, then overwrite using new values
     to_save = existing.copy()
-    to_save.update(data or {})
+    
+    # Explicitly handle each field that's present in the user's config file
+    # This ensures we can also set values to None/null when desired
+    for key in data:
+        if key in to_save:
+            to_save[key] = data[key]
 
-    # Normalize file_type before saving
-    to_save["file_type"] = normalize_file_type(to_save.get("file_type"))
+    # Normalize file_type before saving, but preserve "None" values
+    if to_save.get("file_type") is not None:
+        to_save["file_type"] = normalize_file_type(to_save.get("file_type"))
 
     # Write settings to local JSON config file
     with open(config_file, "w", encoding="utf-8") as f:
@@ -81,11 +88,13 @@ def merge_settings(args_dict, config_dict):
     result = DEFAULTS.copy()
     # Overwrite default settings with saved config values first
     result.update(config_dict or {})
-    # Then apply explicit arguments, but only when value is not empty/None
-    for key, value in (args_dict or {}).items():
-        if value is not None:
-            result[key] = value
+    # Then apply explicit arguments, including "None" values
+    if args_dict:
+        for key in result:
+            if key in args_dict:
+                result[key] = args_dict[key]
 
-    # Ensure the chosen file type to scan is in proper format
-    result["file_type"] = normalize_file_type(result.get("file_type"))
+    # Ensure the chosen file type to scan is in proper format, but only if NOT "None"
+    if result.get("file_type") is not None:
+        result["file_type"] = normalize_file_type(result.get("file_type"))
     return result

@@ -331,15 +331,18 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
 def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, save_to_db=False, config_path=None):
     config = load_config(config_path)
-    final = merge_settings(
-        {
-            "directory": directory,
-            "recursive_choice": recursive_choice,
-            "file_type": file_type,
-            "show_collaboration": show_collaboration
-        },
-        config
-    )
+    # Only include arguments that were explicitly provided (not None).
+    provided_args = {}
+    if directory is not None:
+        provided_args["directory"] = directory
+    if recursive_choice is not None:
+        provided_args["recursive_choice"] = recursive_choice
+    if file_type is not None:
+        provided_args["file_type"] = file_type
+    if show_collaboration is not None:
+        provided_args["show_collaboration"] = show_collaboration
+
+    final = merge_settings(provided_args, config)
 
     if save:
         save_config(final, config_path)
@@ -379,7 +382,7 @@ if __name__ == "__main__":
         f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
         f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
         f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
-        f"  Show Collaboration Info:    {current.get('show_collaboration') or '<all>'}\n"
+        f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
         "Proceed with these settings? (y/n): "
     ).strip().lower() == 'y'
 
