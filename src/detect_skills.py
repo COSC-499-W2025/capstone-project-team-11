@@ -5,15 +5,46 @@ from detect_langs import detect_languages_and_frameworks
 # Maps patterns in code or text to potential human or technical skills.
 # Helps us figure out what someone might be good at based on their files.
 CODE_SKILL_PATTERNS = {
-    "Object-Oriented Programming": [r"\bclass\b", r"\bextends\b", r"\bimplements\b", r"__init__", r"self\."],
-    "Recursion": [r"\bdef\b.*\b\(.*\).*:\s*.*\breturn\b.*\b\w+\(.*\)\b"],
-    "Testing": [r"\bassert\b", r"\btest_", r"unittest", r"pytest"],
-    # Example: if a file mentions 'Flask' or 'React', we assume they're using a web framework → shows Web Dev skills.
-    "Web Development": [r"flask", r"express", r"django", r"react", r"angular", r"vue"],
-    # for example finding SQL commands like SELECT or CREATE TABLE → skill in databases or SQL.
-    "Database / SQL": [r"\bSELECT\b", r"\bINSERT\b", r"\bCREATE TABLE\b", r"\bUPDATE\b"],
-    "Asynchronous Programming": [r"\basync\b", r"\bawait\b", r"\bthread", r"\bprocess"],
-    "Functional Programming": [r"\blambda\b", r"\bmap\(", r"\breduce\(", r"\bfilter\("],
+    # Detects basic OOP patterns (class definitions, inheritance, constructors, etc.)
+    "Object-Oriented Programming": [
+        r"\bclass\s+\w+",          # class declaration
+        r"\bself\.",               # instance attribute
+        r"__init__",               # constructor
+        r"\bextends\b",            # common in Java
+        r"\bimplements\b"          # Java interfaces
+    ],
+
+    # Detects recursion by finding a function calling itself
+    "Recursion": [
+        r"\bdef\s+(\w+)\(.*\):[\s\S]*?\b\1\s*\("   # captures def foo(): ... foo()
+    ],
+
+    # Detects test-related keywords
+    "Testing": [
+        r"\bassert\b",
+        r"\btest_", r"unittest", r"pytest"
+    ],
+
+    # Detects Web frameworks commonly used
+    "Web Development": [
+        r"\bflask\b", r"\bexpress\b", r"\bdjango\b", 
+        r"\breact\b", r"\bangular\b", r"\bvue\b"
+    ],
+
+    # Detects database/SQL commands
+    "Database / SQL": [
+        r"\bSELECT\b", r"\bINSERT\b", r"\bCREATE TABLE\b", r"\bUPDATE\b"
+    ],
+
+    # Detects async or threaded code
+    "Asynchronous Programming": [
+        r"\basync\b", r"\bawait\b", r"\bthread", r"\bprocess"
+    ],
+
+    # Detects functional programming syntax
+    "Functional Programming": [
+        r"\blambda\b", r"\bmap\(", r"\breduce\(", r"\bfilter\("
+    ],
 }
 
 WRITING_SKILL_PATTERNS = {
