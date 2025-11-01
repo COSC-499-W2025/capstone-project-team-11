@@ -15,6 +15,15 @@ from config import load_config, save_config, merge_settings, config_path as defa
 from consent import ask_for_data_consent, ask_yes_no
 from detect_langs import detect_languages_and_frameworks
 from file_utils import is_valid_format
+# Try to import contribution metrics module; support running as package or standalone
+try:
+    from contrib_metrics import analyze_repo, pretty_print_metrics
+except Exception:
+    try:
+        from .contrib_metrics import analyze_repo, pretty_print_metrics
+    except Exception:
+        analyze_repo = None
+        pretty_print_metrics = None
 
 
 def _zip_mtime_to_epoch(dt_tuple):
@@ -202,6 +211,30 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     return files_found
 
 
+def analyze_repo_path(path: str):
+    """Analyze a filesystem path or zip archive for contribution metrics.
+
+    If path is a zip archive, extract to a temporary directory and run analysis there.
+    Returns the metrics dict or None if analysis couldn't run.
+    """
+    if analyze_repo is None:
+        print("Contribution metrics module not available.")
+        return None
+
+    if os.path.isfile(path) and path.lower().endswith('.zip'):
+        with tempfile.TemporaryDirectory() as td:
+            try:
+                with zipfile.ZipFile(path) as zf:
+                    zf.extractall(td)
+            except Exception as e:
+                print(f"Failed to extract zip for analysis: {e}")
+                return None
+            # analyze extracted tree
+            return analyze_repo(td)
+    else:
+        return analyze_repo(path)
+
+
 def get_collaboration_info(file_path: str) -> str:
     """Return collaboration info for a file using git history when available."""
     def _find_git_root(start_path: str):
@@ -329,14 +362,15 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     return files_found
 
 
-def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, save_to_db=False, config_path=None):
+def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, show_contrib_metrics=None, save=False, save_to_db=False, config_path=None):
     config = load_config(config_path)
     final = merge_settings(
         {
             "directory": directory,
             "recursive_choice": recursive_choice,
             "file_type": file_type,
-            "show_collaboration": show_collaboration
+            "show_collaboration": show_collaboration,
+            "show_contrib_metrics": show_contrib_metrics,
         },
         config
     )
@@ -351,6 +385,11 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
         show_collaboration=final.get("show_collaboration", False),
         save_to_db=save_to_db,
     )
+    # Optionally analyze contribution metrics
+    if final.get("show_contrib_metrics"):
+        metrics = analyze_repo_path(final["directory"])
+        if metrics and pretty_print_metrics:
+            pretty_print_metrics(metrics)
 
 
 if __name__ == "__main__":
@@ -386,6 +425,7 @@ if __name__ == "__main__":
             recursive_choice=current.get("recursive_choice"),
             file_type=current.get("file_type"),
             show_collaboration=current.get("show_collaboration"),
+            show_contrib_metrics=current.get("show_contrib_metrics"),
             save=False,
             save_to_db=input("Save scan results to database? (y/n): ").strip().lower() == 'y',
         )
@@ -397,12 +437,14 @@ if __name__ == "__main__":
 
         remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
         show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
+        show_metrics = input("Show contribution metrics? (y/n): ").strip().lower() == 'y'
         save_db = input("Save scan results to database? (y/n): ").strip().lower() == 'y'
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
+            show_contrib_metrics=show_metrics,
             save=remember,
             save_to_db=save_db,
         )
