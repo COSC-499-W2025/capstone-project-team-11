@@ -50,33 +50,35 @@ def load_config(path=None):
 
 # Saves the provided scan settings to a local JSON file on the user's machine
 def save_config(data, path=None):
-    # Determine config file path
+    # Save scan settings to a JSON config file
     config_file = path or config_path()
     config_dir = os.path.dirname(config_file)
-    # Ensure the directory exists so the file can be written to
     os.makedirs(config_dir, exist_ok=True)
     
-    # Load existing config to preserve any settings not being updated now
+    # Load existing config
     existing = load_config(config_file)
-
-    # Start from the existing saved settings, then overwrite using new values
-    to_save = existing.copy()
     
-    # Explicitly handle each field that's present in the user's config file
-    # This ensures we can also set values to None/null when desired
-    for key in data:
-        if key in to_save:
+    # Create new config with explicit updates from data
+    to_save = {}
+    
+    # First, copy all DEFAULTS keys
+    for key in DEFAULTS:
+        # If key exists in data (even if None), use that value
+        if key in data:
             to_save[key] = data[key]
+        # Otherwise use existing value, falling back to DEFAULTS
+        else:
+            to_save[key] = existing.get(key, DEFAULTS[key])
+    
+    # Only normalize file_type if it's a non-None string
+    if isinstance(to_save.get("file_type"), str):
+        to_save["file_type"] = normalize_file_type(to_save["file_type"])
 
-    # Normalize file_type before saving, but preserve "None" values
-    if to_save.get("file_type") is not None:
-        to_save["file_type"] = normalize_file_type(to_save.get("file_type"))
-
-    # Write settings to local JSON config file
+    # Write to file
     with open(config_file, "w", encoding="utf-8") as f:
         json.dump(to_save, f, indent=2)
 
-    # On POSIX systems, restrict file permissions to owner read/write only
+    # Set POSIX permissions if applicable
     try:
         if os.name == 'posix':
             os.chmod(config_file, 0o600)
@@ -98,3 +100,15 @@ def merge_settings(args_dict, config_dict):
     if result.get("file_type") is not None:
         result["file_type"] = normalize_file_type(result.get("file_type"))
     return result
+
+# Check if the user's config.json contains only default values
+# This helper function allows us to determine if we should prompt the user to reuse their previous scan settings
+# If their config.json only contains default values, we skip the prompt since there's nothing useful to reuse
+def is_default_config(config_dict):
+    if not config_dict:
+        return True
+        
+    # Compare all fields except data_consent against their default values
+    # data_consent needs to be true (not its default value) in order to reach the scan prompt, so we ignore it here.
+    scan_settings = ['directory', 'recursive_choice', 'file_type', 'show_collaboration']
+    return all(config_dict.get(key) == DEFAULTS[key] for key in scan_settings)
