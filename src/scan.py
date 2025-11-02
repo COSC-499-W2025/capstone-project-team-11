@@ -11,9 +11,10 @@ import sqlite3
 from db import get_connection, init_db
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from config import load_config, save_config, merge_settings, config_path as default_config_path
+from config import load_config, save_config, merge_settings, config_path as default_config_path, is_default_config
 from consent import ask_for_data_consent, ask_yes_no
 from detect_langs import detect_languages_and_frameworks
+from detect_skills import detect_skills
 from file_utils import is_valid_format
 # Try to import contribution metrics module; support running as package or standalone
 try:
@@ -362,22 +363,39 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     return files_found
 
 
-def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, show_contrib_metrics=None, save=False, save_to_db=False, config_path=None):
+def run_with_saved_settings(
+    directory=None,
+    recursive_choice=None,
+    file_type=None,
+    show_collaboration=None,
+    show_contrib_metrics=None,
+    save=False,
+    save_to_db=False,
+    config_path=None,
+):
     config = load_config(config_path)
-    final = merge_settings(
-        {
-            "directory": directory,
-            "recursive_choice": recursive_choice,
-            "file_type": file_type,
-            "show_collaboration": show_collaboration,
-            "show_contrib_metrics": show_contrib_metrics,
-        },
-        config
-    )
 
+    # Create settings dict with only provided values
+    settings_to_save = {}
+    if directory is not None:
+        settings_to_save["directory"] = directory
+    if recursive_choice is not None:
+        settings_to_save["recursive_choice"] = recursive_choice
+    if file_type is not None or file_type == None:  # Explicit check for None
+        settings_to_save["file_type"] = file_type
+    if show_collaboration is not None:
+        settings_to_save["show_collaboration"] = show_collaboration
+    if show_contrib_metrics is not None:
+        settings_to_save["show_contrib_metrics"] = show_contrib_metrics
+
+    # Save settings if requested
     if save:
-        save_config(final, config_path)
+        save_config(settings_to_save, config_path)
 
+    # Merge for current run
+    final = merge_settings(settings_to_save, config)
+
+    # Run scan
     list_files_in_directory(
         final["directory"],
         recursive=final["recursive_choice"],
@@ -385,19 +403,21 @@ def run_with_saved_settings(directory=None, recursive_choice=None, file_type=Non
         show_collaboration=final.get("show_collaboration", False),
         save_to_db=save_to_db,
     )
+
     # Optionally analyze contribution metrics
     if final.get("show_contrib_metrics"):
         metrics = analyze_repo_path(final["directory"])
-        if metrics and pretty_print_metrics:
+        if metrics and 'pretty_print_metrics' in globals():
             pretty_print_metrics(metrics)
 
 
 if __name__ == "__main__":
+    # Handle data consent first
     current = load_config(None)
     # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
     # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
             current = load_config(None)
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
@@ -410,16 +430,26 @@ if __name__ == "__main__":
             print("Data access consent not granted, aborting application.")
             sys.exit(0)
 
+    # Load current settings
     current = load_config(None)
-    use_saved = input(
-        "Would you like to use the settings from your most recent scan?\n"
-        f"  Scanned Directory:      {current.get('directory') or '<none>'}\n"
-        f"  Scan Nested Folders:    {current.get('recursive_choice')}\n"
-        f"  Only Scan File Type:    {current.get('file_type') or '<all>'}\n"
-        "Proceed with these settings? (y/n): "
-    ).strip().lower() == 'y'
+    
+    # Only prompt for reuse of scan settings if config.json has at least one non-default value.
+    if not is_default_config(current):
+        use_saved = ask_yes_no(
+            "Would you like to use the settings from your most recent scan?\n"
+            f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
+            f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
+            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
+            f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
+            "Proceed with these settings? (y/n): "
+        )
+    else:
+        use_saved = False
 
     if use_saved and current.get("directory"):
+        # Use saved settings and only ask about database
+        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=current.get("recursive_choice"),
@@ -427,18 +457,24 @@ if __name__ == "__main__":
             show_collaboration=current.get("show_collaboration"),
             show_contrib_metrics=current.get("show_contrib_metrics"),
             save=False,
-            save_to_db=input("Save scan results to database? (y/n): ").strip().lower() == 'y',
+            save_to_db=save_db,
         )
+
     else:
+        # Collect all scan settings first
         directory = input("Enter directory path or zip file path: ").strip()
-        recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
+        directory = directory if directory else None
+        recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
+        show_collab = ask_yes_no("Show collaboration info? (y/n): ", False)
+        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ", False)
 
-        remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
-        show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
-        show_metrics = input("Show contribution metrics? (y/n): ").strip().lower() == 'y'
-        save_db = input("Save scan results to database? (y/n): ").strip().lower() == 'y'
+        # Ask about saving settings and database
+        remember = ask_yes_no("Save these settings for next time? (y/n): ", False)
+        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+
+        # Run scan with provided settings
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
@@ -448,3 +484,11 @@ if __name__ == "__main__":
             save=remember,
             save_to_db=save_db,
         )
+
+    # After scan, summarize detected skills
+    skills_summary = detect_skills(directory)
+    if skills_summary["skills"]:
+        print("\n=== Detected Skills Summary ===")
+        print(", ".join(skills_summary["skills"]))
+    else:
+        print("\nNo significant skills detected.")
