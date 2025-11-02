@@ -18,6 +18,13 @@ from collections import defaultdict, Counter
 from typing import Dict, List, Tuple
 import re
 
+# aliases map: canonical_key -> preferred display name
+ALIASES = {
+    'tylerc3042': 'Tyler Cummings',
+    'tylercummings': 'Tyler Cummings',
+}
+import re
+
 
 CATEGORY_MAP = {
     'code': {'.py', '.js', '.ts', '.java', '.c', '.cpp', '.go', '.rb', '.rs'},
@@ -187,15 +194,37 @@ def analyze_repo(path: str) -> Dict:
         for c in touched_categories:
             activity_counts_per_category[c] += 1
 
+    # apply alias merging based on canonical keys (strip non-alnum, lowercase)
+    def canonical_key(name: str) -> str:
+        return re.sub(r'[^0-9A-Za-z]+', '', name).lower()
+
+    merged_commits = {}
+    for author, cnt in commits_per_author.items():
+        key = canonical_key(author)
+        display = ALIASES.get(key, author)
+        merged_commits[display] = merged_commits.get(display, 0) + cnt
+
+    merged_lines_added = {}
+    for author, cnt in lines_added_per_author.items():
+        key = canonical_key(author)
+        display = ALIASES.get(key, author)
+        merged_lines_added[display] = merged_lines_added.get(display, 0) + cnt
+
+    merged_lines_removed = {}
+    for author, cnt in lines_removed_per_author.items():
+        key = canonical_key(author)
+        display = ALIASES.get(key, author)
+        merged_lines_removed[display] = merged_lines_removed.get(display, 0) + cnt
+
     return {
         'repo_root': repo_root,
         'project_start': project_start,
         'project_end': project_end,
         'duration_days': duration_days,
         'total_commits': total_commits,
-        'commits_per_author': dict(commits_per_author),
-        'lines_added_per_author': dict(lines_added_per_author),
-        'lines_removed_per_author': dict(lines_removed_per_author),
+        'commits_per_author': merged_commits,
+        'lines_added_per_author': merged_lines_added,
+        'lines_removed_per_author': merged_lines_removed,
         'activity_counts_per_category': dict(activity_counts_per_category),
         'commits_per_week': dict(commits_per_week),
     }
