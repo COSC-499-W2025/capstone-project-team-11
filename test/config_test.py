@@ -16,20 +16,26 @@ class TestConfigSimple(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             config_file = os.path.join(td, "nope.json")
             config = load_config(config_file)
-            self.assertEqual(config["directory"], None)
-            self.assertEqual(config["recursive_choice"], False)
-            self.assertEqual(config["file_type"], None)
+            self.assertEqual(config, DEFAULTS)
 
     # Tests that saving a config and then loading it is functional (also verify formatting of file_type) 
     def test_save_then_load_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             config_file = os.path.join(td, "config.json")
-            data = {"directory": "/tmp/data", "recursive_choice": True, "file_type": ".TXT"}
+            data = {
+                "directory": "/tmp/data",
+                "recursive_choice": True,
+                "file_type": ".TXT",
+                "data_consent": True,
+                "show_collaboration": True
+            }
             save_config(data, config_file)
             loaded = load_config(config_file)
             self.assertEqual(loaded["directory"], "/tmp/data")
             self.assertEqual(loaded["recursive_choice"], True)
             self.assertEqual(loaded["file_type"], ".txt")
+            self.assertEqual(loaded["data_consent"], True)
+            self.assertEqual(loaded["show_collaboration"], True)
 
     # Tests that if the config file contains invalid JSON, load_config should fall back to the default scan settings
     def test_bad_json_falls_back_to_defaults(self):
@@ -42,12 +48,37 @@ class TestConfigSimple(unittest.TestCase):
 
     # Tests that merge_settings should let explicit arguments override values from the saved config
     def test_merge_settings_prefers_args_when_present(self):
-        config = {"directory": "/from_config", "recursive_choice": False, "file_type": ".py"}
-        args = {"directory": "/from_args", "recursive_choice": True, "file_type": None}
+        config = {
+            "directory": "/from_config",
+            "recursive_choice": False,
+            "file_type": ".py",
+            "data_consent": False,
+            "show_collaboration": False
+        }
+        args = {
+            "directory": "/from_args",
+            "recursive_choice": True,
+            "file_type": None,
+            "data_consent": True,
+            "show_collaboration": True
+        }
         merged = merge_settings(args, config)
         self.assertEqual(merged["directory"], "/from_args")
         self.assertEqual(merged["recursive_choice"], True)
-        self.assertEqual(merged["file_type"], ".py")
+        self.assertEqual(merged["file_type"], None)
+        self.assertEqual(merged["data_consent"], True)
+        self.assertEqual(merged["show_collaboration"], True)
+
+# Add new test for handling default values
+    def test_partial_config_uses_defaults(self):
+        config = {"directory": "/some/path"}
+        args = {}
+        merged = merge_settings(args, config)
+        self.assertEqual(merged["directory"], "/some/path")
+        self.assertEqual(merged["recursive_choice"], DEFAULTS["recursive_choice"])
+        self.assertEqual(merged["file_type"], DEFAULTS["file_type"])
+        self.assertEqual(merged["data_consent"], DEFAULTS["data_consent"])
+        self.assertEqual(merged["show_collaboration"], DEFAULTS["show_collaboration"])
 
 # Unit tests for config.py's integration with scan.py
 class TestScanConfigIntegration(unittest.TestCase):
@@ -57,7 +88,7 @@ class TestScanConfigIntegration(unittest.TestCase):
             fn(*args, **kwargs)
         return buf.getvalue()
 
-    # Tests that when arguments are omitted, run_with_saved_settings should use the saved config values
+    # Tests that when arguments are not provided, run_with_saved_settings should use the saved config values
     def test_uses_config_when_args_missing(self):
         with tempfile.TemporaryDirectory() as td:
             # Create a simple directory with a single .txt file
@@ -71,14 +102,14 @@ class TestScanConfigIntegration(unittest.TestCase):
             config_file = os.path.join(td, "config.json")
             save_config({"directory": d, "recursive_choice": False, "file_type": ".txt"}, config_file)
 
-            # run_with_saved_settings reads the saved config (via config_path argument) and prints results
+            # run_with_saved_settings reads the saved config and prints the results
             out = self.capture(run_with_saved_settings, config_path=config_file)
             self.assertIn("a.txt", out)
 
     # Tests that explicit arguments passed to run_with_saved_settings should override the saved config values
     def test_args_override_config(self):
         with tempfile.TemporaryDirectory() as td:
-            # Prepare files: one .py and one .txt in the same directory
+            # Prepare one .py and one .txt file in the same directory
             d = os.path.join(td, "data")
             os.makedirs(d, exist_ok=True)
             py = os.path.join(d, "a.py")
