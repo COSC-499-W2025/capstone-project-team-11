@@ -96,7 +96,8 @@ I have been involved with the following tasks either alone or helping my other c
 
 # Week 9 (October 27th - November 2nd)
 
-This week's Peer Evaluation closed prematurely on Sunday without any notice, so we were unable to include the appropriate screenshots.
+<img width="790" height="466" alt="image" src="https://github.com/user-attachments/assets/c2e0e25d-3b1f-4ca3-ade1-b2a5fab9460c" />
+
 
 ## Tasks Completed
 - Added contribution metrics extraction and printing (issue #30)
@@ -117,3 +118,4 @@ I will be very busy with several midterms this week so I will be a little limite
 - Contribution metrics do not save from previous scan when user saves info
 
 I will also continue to help review prs and complete my logs. 
+
