@@ -125,7 +125,7 @@ Reviews:
 
 # Week 9 Personal Logs (27th Oct - 2nd Nov)
 
-This week's Peer Evaluation closed prematurely on Sunday without any notice, so we were unable to include the appropriate screenshots.
+<img width="960" height="565" alt="Screenshot 2025-11-02 at 6 45 09 PM" src="https://github.com/user-attachments/assets/c05cfc35-20aa-49af-b9df-2ffcc9cc9114" />
 
 ## Tasks Completed:
 This week, I focused on integrating our database into our scanning script and implementing a project ranking feature.
@@ -167,3 +167,4 @@ scan_db_test.py:
 - Output all Key Information for a Project (issue #32)
 
 <img width="1151" height="688" alt="Screenshot 2025-11-02 at 6 04 22 PM" src="https://github.com/user-attachments/assets/f0663ecf-ac3f-4a4b-ac12-be4c8a23e0e1" />
+
