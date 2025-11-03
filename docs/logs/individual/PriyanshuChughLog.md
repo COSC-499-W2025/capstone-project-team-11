@@ -114,8 +114,32 @@ Begin development for Issue #31: Extract Key “Skills” From a Given Project �
 Collaborate with teammates to clarify requirements and define measurable indicators for different skill domains (e.g., testing proficiency, documentation quality, or code structure).
 
 
+# Week 9 (October 27th - November 2nd)
 
 
+<img width="1056" height="621" alt="Screenshot 2025-11-02 at 8 31 01 PM" src="https://github.com/user-attachments/assets/2e4741ce-f360-4db6-95d7-6d40663d376b" />
+
+
+## Tasks Completed
+-Added skill extraction feature to detect technical and writing-based skills from scanned projects (issue #31).
+
+-Implemented regex pattern matching to identify programming concepts like recursion, OOP, and async, as well as writing-focused skills such as analytical and technical writing.
+
+-Integrated results with detect_langs.py to produce a combined summary of Languages, Frameworks, and Skills.
+
+-Created unit tests in test_detect_skills.py to validate accuracy across mixed project types and ensure no false positives.
+
+-Reviewed and approved code for Individual contributions within collaborative project issue(29) and Added functionality for ranking project scans chronologically issue (39)
+
+-week 9 team log
+
+-individual logs
+
+  ## Week 10 plans
+
+- Sort "Skills Exercised" Chronologically#40
+- modify my past features with suggestions left on pull requests
+- help the team out with prs and anything they might need help with 
 
 
 
