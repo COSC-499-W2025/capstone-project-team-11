@@ -131,6 +131,9 @@ Reviews:
 This week, I focused on integrating our database into our scanning script and implementing a project ranking feature.
 - Closed issue #104
 
+### Reflection of the past week:
+This week was very good for our group. Everyone in the group committed some code and reviewed pull requests. We faced some issues with merge conflicts and missing code with our contribution code, but that was solved, and all code and tests run as they should. Next week, we could improve on committing code on time rather than late Sunday night, which would result in less stress and complications merging to main for grading.
+
 ### Additions and Features:
 - Integrated optional database persistence into the scanner
 - Mounted the entire repository into containers
@@ -167,4 +170,5 @@ scan_db_test.py:
 - Output all Key Information for a Project (issue #32)
 
 <img width="1151" height="688" alt="Screenshot 2025-11-02 at 6 04 22 PM" src="https://github.com/user-attachments/assets/f0663ecf-ac3f-4a4b-ac12-be4c8a23e0e1" />
+
 
