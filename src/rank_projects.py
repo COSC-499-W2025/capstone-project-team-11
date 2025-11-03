@@ -1,13 +1,4 @@
-"""Rank projects recorded in the scans database and display them chronologically.
-
-This script aggregates entries in the `scans` table by `project` and prints
-the project's first scan time, last scan time, and number of scans. By
-default it sorts by the most recent scan (descending). Use --order asc to
-show oldest-first.
-
-Usage:
-  python src/rank_projects.py [--order asc|desc] [--limit N]
-"""
+# Rank projects recorded in the scans database and display them chronologically.
 from __future__ import annotations
 
 import argparse
