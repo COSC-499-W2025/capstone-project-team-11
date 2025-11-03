@@ -370,25 +370,23 @@ def run_with_saved_settings(
     recursive_choice=None,
     file_type=None,
     show_collaboration=None,
-    show_contrib_metrics=None,
+    show_contribution_metrics=None,
+    show_contribution_summary=None,
     save=False,
     save_to_db=False,
     config_path=None,
 ):
     config = load_config(config_path)
 
-    # Create settings dict with only provided values
-    settings_to_save = {}
-    if directory is not None:
-        settings_to_save["directory"] = directory
-    if recursive_choice is not None:
-        settings_to_save["recursive_choice"] = recursive_choice
-    if file_type is not None or file_type == None:  # Explicit check for None
-        settings_to_save["file_type"] = file_type
-    if show_collaboration is not None:
-        settings_to_save["show_collaboration"] = show_collaboration
-    if show_contrib_metrics is not None:
-        settings_to_save["show_contrib_metrics"] = show_contrib_metrics
+    # Create settings dict with all provided values
+    settings_to_save = {
+        "directory": directory,
+        "recursive_choice": recursive_choice,
+        "file_type": file_type,
+        "show_collaboration": show_collaboration,
+        "show_contribution_metrics": show_contribution_metrics,
+        "show_contribution_summary": show_contribution_summary
+    }
 
     # Save settings if requested
     if save:
@@ -406,11 +404,28 @@ def run_with_saved_settings(
         save_to_db=save_to_db,
     )
 
-    # Optionally analyze contribution metrics
-    if final.get("show_contrib_metrics"):
-        metrics = analyze_repo_path(final["directory"])
-        if metrics and 'pretty_print_metrics' in globals():
-            pretty_print_metrics(metrics)
+    # After scan, summarize detected skills first
+    print("\n=== Detecting Skills ===")
+    skills_summary = detect_skills(directory)
+    if skills_summary["skills"]:
+        print("\n=== Detected Skills Summary ===")
+        print(", ".join(skills_summary["skills"]))
+    else:
+        print("\nNo significant skills detected.")
+
+    # Then show contribution metrics if requested
+    if final.get("show_contribution_metrics"):
+        try:
+            print("\n=== Contribution Metrics ===")
+            metrics = analyze_repo_path(final["directory"])
+            if metrics and 'pretty_print_metrics' in globals():
+                pretty_print_metrics(metrics)
+        except Exception as e:
+            print(f"Error analyzing contribution metrics: {e}")
+
+    # Show contribution summary if requested
+    if final.get("show_contribution_summary"):
+        summarize_project_contributions(final["directory"])
 
 
 if __name__ == "__main__":
@@ -443,6 +458,8 @@ if __name__ == "__main__":
             f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
+            f"  Show Contribution Metrics:  {current.get('show_contribution_metrics')}\n"
+            f"  Show Contribution Summary:  {current.get('show_contribution_summary')}\n"
             "Proceed with these settings? (y/n): "
         )
     else:
@@ -458,7 +475,8 @@ if __name__ == "__main__":
             recursive_choice=current.get("recursive_choice"),
             file_type=current.get("file_type"),
             show_collaboration=current.get("show_collaboration"),
-            show_contrib_metrics=current.get("show_contrib_metrics"),
+            show_contribution_metrics=current.get("show_contribution_metrics"),
+            show_contribution_summary=current.get("show_contribution_summary"),
             save=False,
             save_to_db=save_db,
         )
@@ -469,41 +487,23 @@ if __name__ == "__main__":
         recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
-        show_collab = ask_yes_no("Show collaboration info? (y/n): ", False)
-        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ", False)
-        remember = ask_yes_no("Save these settings for next time? (y/n): ", False)
-        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
-        
+        show_collab = ask_yes_no("Show collaboration info? (y/n): ")
+        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ")
+        show_summary = ask_yes_no("Show contribution summary? (y/n): ")
 
-        # Run the scan
+        # Ask about saving settings after collecting all of them
+        remember = ask_yes_no("Save these settings for next time? (y/n): ")
+        
+        # Ask about database last
+        save_db = ask_yes_no("Save scan results to database? (y/n): ")
+
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
-            show_contrib_metrics=show_metrics,
+            show_contribution_metrics=show_metrics,
+            show_contribution_summary=show_summary,
             save=remember,
             save_to_db=save_db,
         )
-
-        
-    # After scan, summarize detected skills
-    skills_summary = detect_skills(directory)
-    if skills_summary["skills"]:
-        print("\n=== Detected Skills Summary ===")
-        print(", ".join(skills_summary["skills"]))
-    else:
-        print("\nNo significant skills detected.")
-    
-    if show_metrics:
-        try:
-            metrics = analyze_repo(directory)
-            if metrics:
-                pretty_print_metrics(metrics)
-        except Exception as e:
-            print(f"Error analyzing contribution metrics: {e}")
-
-    # Add this block to prompt for contribution summary
-    summarize_contribs = ask_yes_no("Would you like to summarize contributions for this scan? (y/n): ", False)
-    if summarize_contribs:
-        summarize_project_contributions(directory)
