@@ -108,3 +108,27 @@ This week I focused on implementing a new feature that validates file formats du
 
 ---
 
+# Week 9 Personal Log (Oct 27th – Nov 2nd)
+
+This week I began implementing **Issue #29: Identify Individual Contributions Within a Collaborative Project**, which focuses on mapping file authorship and contributions across Git repositories. I also reviewed **PR #107** (Development bug fixes) and **PR #109** (Issue #19: Solve Projects Chronologically), providing feedback to ensure smooth functionality and consistent testing coverage. In addition, I resolved merge conflicts between the **Contribution Metrics** feature branch and the **Development** branch to maintain alignment across ongoing feature work. Lastly, I completed my individual log for this cycle.
+
+**Unable to show screenshot from peer eval because they closed at 7:50am for some reason?**
+<img width="1073" height="70" alt="Screenshot 2025-11-02 at 5 39 36 PM" src="https://github.com/user-attachments/assets/9dff1742-87c8-4dd2-a178-7b35681c90da" />
+
+## Tasks Completed
+
+- Implemented **Issue #29: Identify Individual Contributions Within a Collaborative Project**  
+- Reviewed **PR #107 (Development bug fixes)**  
+- Reviewed **PR #109 (Issue #19 – Solve Projects Chronologically)**  
+- Fixed merge conflict between **Contribution Metrics feature** and **Development branch** (PR #109, Issue #10)  
+- Completed individual log for this cycle
+- Minor bug fixes on my Issue#23 from last week fixing module import error in test suite
+
+<img width="1275" height="154" alt="Screenshot 2025-11-02 at 5 37 15 PM" src="https://github.com/user-attachments/assets/c0f7708f-6d55-4760-85af-184bc3431ca3" />
+
+## Plans for Week 10
+- Begin implementation of **Issue #37: Summarize the User’s Top-Ranked Projects**  
+- Go over and apply small fixes and refinements in **Issue #29**  
+- Add further test cases for collaboration detection and contribution metrics  
+- Continue reviewing PRs and verifying system integration before next milestone  
+- Contribute to documentation updates for contribution and collaboration modules
