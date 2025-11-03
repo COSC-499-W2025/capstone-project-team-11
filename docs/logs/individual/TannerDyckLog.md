@@ -127,3 +127,38 @@ I believe another teammate is planning on getting our database operational next 
 ## Kanban Board at End of Week #8
 
 <img width="2529" height="1193" alt="week8-kanban" src="https://github.com/user-attachments/assets/7a0da033-c9ab-493f-9490-51ad6e736ecf" />
+
+# Week #9 - October 27th - November 2th
+
+<img width="699" height="538" alt="week9-tasks" src="https://github.com/user-attachments/assets/57aebefd-793b-429d-92d6-63f3544df3af" />
+
+## Tasks Completed:
+My main focus this week was on fixing bugs and inconsistencies that I found after all of our Week 8 implementations were finalized. I performed thorough testing of our program by running a plethora of scans with unique scan settings across multiple unique projects. I was able to compile the following list of issues to be prioritized:
+- Should ask if user wants to save scan settings AFTER user gives response to "show collaboration info", NOT before.
+- If a specific file type filter has been saved from a previous scan (.py, .json, .txt, etc.), leaving it blank on the next scan (to not filter by file types) and selecting to save the info, does not overwrite the saved file type filter by making it null/none/empty. (Essentially, config.json's file_type field does not seem to be able to be overwritten back to null, but can be overwritten with new explicit file extensions).
+- All yes/no prompts could be remade using the ask_yes_no() function from consent.py for consistency.
+- Users should not be prompted to reuse scan settings from last time if they have not scanned before (ie. the config.json has its default values).
+
+I then implemented fixes for a series of similar bugs/inconsistencies that appeared after the implementations from this week (Week 9):
+- Show contribution metrics choice does not save from the previous scan when the user chooses to save scan settings (add field to config.json and ensure saving/overwriting works properly).
+- Show contribution summary choice does not save from the previous scan when the user chooses to save scan settings (add field to config.json and ensure saving/overwriting works properly).
+- Fix if-condition logic on a line within scan.py that reads "if file_type is not None or file_type == None:", essentially always running it's code block. The issue came from an oversight and from being too overcautious with what scan setting values are able to be saved.
+- Update config_tests.py unit tests to ensure they cover the two additional fields I added to config.json.
+- One complete overpass to ensure that any yes/no prompt asked in the terminal should be asked before the "save settings for next time" prompt, and that each yes/no question has a boolean field in the user's config.
+
+*All implementations of fixes to the bugs listed above are explained more thoroughly in PR templates #107 and #120
+
+In addition to these bug fixes, I performed my usual responsibilities of:
+- Attending TA check-in lecture
+- Communicating regularly throughout the week in our Discord server and describing my fixes to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log updates as necessary
+- Completing both my individual log and peer review for week 9
+
+## Next Week (Week #10)
+In terms of new features, I still need to tackle issue #24: (4. Request User Permission Before Use Of External Services), however, we are still not using any third-party services in our scanner. I have already created an empty template to solve this issue, but in order to make it truly valuable, I hope to look into the implementation of an LLM at least at a basic-level. The group is still unsure if LLM integration is worth it at this point, so in case it is not required, I would like to shift my focus to the following:
+
+We are quickly running out of deliverables to work on for milestone 1. So I think it is important for us to start looking backwards at what we have already implemented and giving our features more depth, accuracy, consistency, and stability. Some of our implementations serve as excellent first revisions, but could become more useful with future revisions. More specifically, I would like to re-examine language and framework identification to see if we can come up with a solution that actively parses files in search of more nuanced words that may be able to provide more accurate results. I also feel I need to get a better handle on how our database implementation works, and potentially add additional fields to the schema to accommodate information we are now able to store after the past two weeks of feature implementations.
+
+## Kanban Board at End of Week #9
+
+<img width="1301" height="1220" alt="week9-kanban" src="https://github.com/user-attachments/assets/d92de0e2-69d1-44bf-bf7c-56d73f8cc2e8" />
