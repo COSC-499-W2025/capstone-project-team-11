@@ -231,4 +231,105 @@ Planning Activities (Week 9):
 - Extract key contribution metrics in a project (#30)
 - Extract key skills from a given project (#31)
 - Output all key information for a project (#32)
-  
+
+
+  # Team #11 - Week 8 Team Log (October 27th through November 2nd)
+Team Members    --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
+
+  Overview: This week,our team focused on advancing collaboration features, database integration, and skill analysis within the file scanning system. Several new modules were added, including collab_summary.py, contrib_metrics.py, and rank_projects.py, which collectively enhance collaboration insights and data visibility. These updates enable detection of individual contributions across Git and non-Git projects, commit-level analytics, and chronological project ranking based on scan activity. The detect_skills.py module was also introduced to automatically infer technical and writing-based skills using regex pattern matching, extending the functionality of the language detection system.
+In addition, improvements were made to database persistence and Docker reliability, ensuring consistent behavior between local and containerized environments. The team resolved multiple configuration and prompt-related bugs, streamlined scan logic, and refined user interaction flows. Together, these contributions significantly expanded the project’s analytical capabilities—allowing for integrated tracking of languages, skills, collaboration, and scan data persistence within a unified workflow.
+
+<img width="1018" height="518" alt="Screenshot 2025-11-02 at 7 02 27 PM" src="https://github.com/user-attachments/assets/0659f507-7ad2-48f1-af85-949f76d2cf57" />
+
+
+Table view of completed tasks on project board (by name):
+
+Bug Fixes from Week 8’s Implementations
+ -Tanner
+
+Added contribution metrics to a repo scan
+- Daniel
+
+Added functionality for ranking project scans chronologically
+- Jaxson
+
+Implemented collaboration summary for Git and non-Git projects
+- Travis
+
+Extract skills from scanned projects
+- Priyanshu
+
+Database integration and persistent storage for scan results
+ -Daniel
+
+Code review and verification
+ -Tanner, Jaxson, Priyanshu, Daniel, Travis
+
+
+Testing Report:
+All new and existing unit tests passed successfully across both local and Docker environments. The testing suite was expanded to cover database persistence, collaboration summaries, skill detection, and ranking functionality. Validation was conducted through both automated and manual testing.
+
+config_test.py
+-Verified corrected behavior for None and empty field overwriting in config.json.
+-Confirmed that all yes/no prompts now consistently use ask_yes_no() for standardized input handling.
+-Ensured users are prompted to reuse settings only after performing an initial scan.
+
+contrib_metrics_test.py
+-Validated analyze_repo() accuracy for commit tracking, line changes, and author normalization.
+-Confirmed correct aggregation of commits-per-author, categorized activity counts, and commits-per-week.
+-Tested isolated Git repositories with both single and multiple authors to ensure reproducibility.
+
+scan_db_test.py
+-Verified that scan and file records persist correctly when save_to_db=True.
+-Ensured no unintended writes occur when persistence is disabled.
+-Confirmed schema auto-initialization, valid JSON formatting, and proper file path recording.
+
+test_rank_projects.py
+-Tested ordering and limiting behavior for chronological project ranking (--order, --limit).
+-Simulated missing database conditions to confirm graceful handling without crashes.
+-Verified accurate aggregation of project names, first/last scan dates, and total scans.
+
+collab_summary_test.py
+-Validated contributor detection for both Git-based and non-Git projects.
+-Ensured correct JSON export structure for per-author contribution summaries.
+-Tested inline Author: tag parsing and commit-based author extraction.
+
+test_detect_skills.py
+-Verified accurate detection of programming and writing-based skills using regex pattern matching.
+-Tested recursion, OOP, web development, and analytical writing recognition across file types.
+-Confirmed no false positives in empty or irrelevant files, with consistent multi-skill output merging.
+
+file_utils_test.py
+-Ensured all import paths and module references work across local and Docker environments.
+-Validated test discovery and module loading for stable CI/CD test execution.
+
+Reflection:
+
+Our team made strong progress this week by introducing several new analytical and collaborative features that expanded the project’s depth and reliability.
+The addition of the Collaboration Summary and Contribution Metrics features allowed the scanner to identify and summarize individual contributions across both Git and non-Git projects, giving better insight into team activity.
+The new Project Ranking utility added chronological tracking for scans, helping visualize project progress over time.
+We also refined database integration to ensure scans and file data are stored persistently, making historical data easy to access and analyze.
+The Skill Extraction feature extended our language detection system to recognize both technical and writing-based skills, offering a broader understanding of user expertise.
+Alongside these additions, several bug fixes improved configuration handling, prompt sequencing, and cross-platform stability, creating a smoother overall experience.
+The team maintained steady collaboration through pull request reviews and testing, confirming that all new modules worked properly in both local and Docker environments.
+Overall, this week brought us closer to a polished and feature-complete prototype with more reliable analytics and stronger performance.
+
+
+Planning Activities (Week 10):
+- Retrieve Previously-Generated Résumé #35
+- Delete Previously Generated Insights #38
+- Sort "Skills Exercised" Chronologically #40
+- bug fixes 
+
+
+
+
+
+
+
