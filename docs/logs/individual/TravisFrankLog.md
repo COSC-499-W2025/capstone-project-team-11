@@ -112,8 +112,7 @@ This week I focused on implementing a new feature that validates file formats du
 
 This week I began implementing **Issue #29: Identify Individual Contributions Within a Collaborative Project**, which focuses on mapping file authorship and contributions across Git repositories. I also reviewed **PR #107** (Development bug fixes) and **PR #109** (Issue #19: Solve Projects Chronologically), providing feedback to ensure smooth functionality and consistent testing coverage. In addition, I resolved merge conflicts between the **Contribution Metrics** feature branch and the **Development** branch to maintain alignment across ongoing feature work. Lastly, I completed my individual log for this cycle.
 
-**Unable to show screenshot from peer eval because they closed at 7:50am for some reason?**
-<img width="1073" height="70" alt="Screenshot 2025-11-02 at 5 39 36 PM" src="https://github.com/user-attachments/assets/9dff1742-87c8-4dd2-a178-7b35681c90da" />
+<img width="1068" height="619" alt="Screenshot 2025-11-02 at 10 38 19 PM" src="https://github.com/user-attachments/assets/e2c6104a-1f3d-4763-8170-597a01b045d6" />
 
 ## Tasks Completed
 
