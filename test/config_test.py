@@ -27,7 +27,9 @@ class TestConfigSimple(unittest.TestCase):
                 "recursive_choice": True,
                 "file_type": ".TXT",
                 "data_consent": True,
-                "show_collaboration": True
+                "show_collaboration": False,
+                "show_contribution_metrics": True,
+                "show_contribution_summary": False
             }
             save_config(data, config_file)
             loaded = load_config(config_file)
@@ -35,7 +37,9 @@ class TestConfigSimple(unittest.TestCase):
             self.assertEqual(loaded["recursive_choice"], True)
             self.assertEqual(loaded["file_type"], ".txt")
             self.assertEqual(loaded["data_consent"], True)
-            self.assertEqual(loaded["show_collaboration"], True)
+            self.assertEqual(loaded["show_collaboration"], False)
+            self.assertEqual(loaded["show_contribution_metrics"], True)
+            self.assertEqual(loaded["show_contribution_summary"], False)
 
     # Tests that if the config file contains invalid JSON, load_config should fall back to the default scan settings
     def test_bad_json_falls_back_to_defaults(self):
@@ -53,14 +57,18 @@ class TestConfigSimple(unittest.TestCase):
             "recursive_choice": False,
             "file_type": ".py",
             "data_consent": False,
-            "show_collaboration": False
+            "show_collaboration": False,
+            "show_contribution_metrics": False,
+            "show_contribution_summary": False
         }
         args = {
             "directory": "/from_args",
             "recursive_choice": True,
             "file_type": None,
             "data_consent": True,
-            "show_collaboration": True
+            "show_collaboration": True,
+            "show_contribution_metrics": True,
+            "show_contribution_summary": True
         }
         merged = merge_settings(args, config)
         self.assertEqual(merged["directory"], "/from_args")
@@ -68,8 +76,10 @@ class TestConfigSimple(unittest.TestCase):
         self.assertEqual(merged["file_type"], None)
         self.assertEqual(merged["data_consent"], True)
         self.assertEqual(merged["show_collaboration"], True)
+        self.assertEqual(merged["show_contribution_metrics"], True)
+        self.assertEqual(merged["show_contribution_summary"], True)
 
-# Add new test for handling default values
+    # Test for handling default values
     def test_partial_config_uses_defaults(self):
         config = {"directory": "/some/path"}
         args = {}
@@ -79,6 +89,8 @@ class TestConfigSimple(unittest.TestCase):
         self.assertEqual(merged["file_type"], DEFAULTS["file_type"])
         self.assertEqual(merged["data_consent"], DEFAULTS["data_consent"])
         self.assertEqual(merged["show_collaboration"], DEFAULTS["show_collaboration"])
+        self.assertEqual(merged["show_contribution_metrics"], DEFAULTS["show_contribution_metrics"])
+        self.assertEqual(merged["show_contribution_summary"], DEFAULTS["show_contribution_summary"])
 
 # Unit tests for config.py's integration with scan.py
 class TestScanConfigIntegration(unittest.TestCase):
@@ -100,10 +112,22 @@ class TestScanConfigIntegration(unittest.TestCase):
 
             # Persist a config that points at the directory and filters to .txt files
             config_file = os.path.join(td, "config.json")
-            save_config({"directory": d, "recursive_choice": False, "file_type": ".txt"}, config_file)
+            save_config({
+                "directory": d,
+                "recursive_choice": False,
+                "file_type": ".txt",
+                "show_collaboration": False,
+                "show_contribution_metrics": False,
+                "show_contribution_summary": False,
+                "data_consent": True
+            }, config_file)
 
-            # run_with_saved_settings reads the saved config and prints the results
-            out = self.capture(run_with_saved_settings, config_path=config_file)
+            # Pass directory explicitly since skills detection requires it
+            out = self.capture(
+                run_with_saved_settings, 
+                directory=d,  # Add this line
+                config_path=config_file
+            )
             self.assertIn("a.txt", out)
 
     # Tests that explicit arguments passed to run_with_saved_settings should override the saved config values
@@ -121,7 +145,15 @@ class TestScanConfigIntegration(unittest.TestCase):
 
             # Save a config that would normally filter to .txt
             config_file = os.path.join(td, "config.json")
-            save_config({"directory": d, "recursive_choice": False, "file_type": ".txt"}, config_file)
+            save_config({
+                "directory": d,
+                "recursive_choice": False,
+                "file_type": ".txt",
+                "show_collaboration": False,
+                "show_contribution_metrics": False,
+                "show_contribution_summary": False,
+                "data_consent": True
+            }, config_file)
 
             # Call run_with_saved_settings with explicit arguments (file_type=".py") to override the saved .txt filter
             out = self.capture(run_with_saved_settings, directory=d, file_type=".py", recursive_choice=False, config_path=config_file)
