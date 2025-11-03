@@ -103,4 +103,33 @@ Week 9 Plans:
 
 <img width="1222" height="643" alt="image" src="https://github.com/user-attachments/assets/b120a58a-d9df-4b97-abdb-f2fcbc8051cd" />
 
+# Tyler's Week 9 Personal Log (27 Oct. - 03 Nov.)
+
+Focus of the week was Outputting all key information gathered on a project
+
+<img width="1225" height="703" alt="image" src="https://github.com/user-attachments/assets/e3b2f411-fff9-4fd6-b573-debaabbf8d2b" /
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Implemented projet_info_output.py to use all extraction files and then output them into a clean text output (json/txt) (#32)
+- Created test_project_info_output.py to verify that the output was working from the project_info_output file (#32)
+- Collaborated with team members to ensure key data outputted included all extracted information from other files/teammates code
+- Reviewed teammates pull requests and code
+- Finished individual log 9
+- Finished peer reviews for week 9
+
+Week 9 Plans:
+- Work on any bug fixes that come up
+- Discuss with team on how to distribute the last 2 milestones
+
+All completed: 
+<img width="1432" height="735" alt="image" src="https://github.com/user-attachments/assets/8c7b0972-0449-4bf3-8ebf-14e7586384a0" />
+
+Completed this week:
+<img width="1775" height="622" alt="image" src="https://github.com/user-attachments/assets/9d167d07-a3db-40e9-ac7a-b06007f2d86c" />
+
+To do:
+<img width="1887" height="440" alt="image" src="https://github.com/user-attachments/assets/90db28d4-41c9-429a-b5cf-5de06d250fa5" />
+
 
