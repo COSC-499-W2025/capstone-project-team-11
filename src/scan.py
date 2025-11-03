@@ -450,6 +450,7 @@ if __name__ == "__main__":
 
     if use_saved and current.get("directory"):
         # Use saved settings and only ask about database
+        
         save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
         
         run_with_saved_settings(
@@ -469,17 +470,23 @@ if __name__ == "__main__":
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
         show_collab = ask_yes_no("Show collaboration info? (y/n): ", False)
+        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ", False)
+        remember = ask_yes_no("Save these settings for next time? (y/n): ", False)
         save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        
 
         # Run the scan
-        list_files_in_directory(
-            directory,
-            recursive=recursive_choice,
+        run_with_saved_settings(
+            directory=directory,
+            recursive_choice=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
+            show_contrib_metrics=show_metrics,
+            save=remember,
             save_to_db=save_db,
         )
 
+        
     # After scan, summarize detected skills
     skills_summary = detect_skills(directory)
     if skills_summary["skills"]:
@@ -487,6 +494,14 @@ if __name__ == "__main__":
         print(", ".join(skills_summary["skills"]))
     else:
         print("\nNo significant skills detected.")
+    
+    if show_metrics:
+        try:
+            metrics = analyze_repo(directory)
+            if metrics:
+                pretty_print_metrics(metrics)
+        except Exception as e:
+            print(f"Error analyzing contribution metrics: {e}")
 
     # Add this block to prompt for contribution summary
     summarize_contribs = ask_yes_no("Would you like to summarize contributions for this scan? (y/n): ", False)
