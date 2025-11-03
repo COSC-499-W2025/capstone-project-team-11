@@ -121,3 +121,49 @@ Reviews:
 - Rank Project Importance Based on User's Contributions (issue #36)
 
 <img width="887" height="644" alt="Screenshot 2025-10-26 at 7 20 13 PM" src="https://github.com/user-attachments/assets/9d560cb2-ee9d-4721-a186-4d183f5ccde6" />
+
+
+# Week 9 Personal Logs (27th Oct - 2nd Nov)
+
+This week's Peer Evaluation closed prematurely on Sunday without any notice, so we were unable to include the appropriate screenshots.
+
+## Tasks Completed:
+This week, I focused on integrating our database into our scanning script and implementing a project ranking feature.
+- Closed issue #104
+
+### Additions and Features:
+- Integrated optional database persistence into the scanner
+- Mounted the entire repository into containers
+- Updated the Docker setup to make running tests and non-interactive scans inside containers reliable and consistent with local development.
+- Displays project name, first scan, last scan, and total scans.
+- Supports ordering (--order asc|desc) and limiting results (--limit N).
+- Gracefully handles missing or uninitialized databases.
+- Uses get_connection() from db.py for consistent DB access
+
+### Testing:
+test_rank_projects.py:
+- Uses an in-memory SQLite database to verify logic.
+- Tests ordering, limiting, and formatted output.
+- Patches DB connection to avoid external dependencies.
+
+scan_db_test.py:
+- Scans and file records are correctly persisted when save_to_db=True.
+- No DB writes occur when save_to_db=False.
+- Persisted metadata_json is valid JSON (or {} when NULL).
+- File path values are recorded as expected.
+- Schema initialization works on first-run (auto-retries once)
+
+### Reviews: 
+- Travis's Individual contributions within collaborative project (PR #110)
+- Daniel's Added contribution metrics to a repo scan (PR #108)
+- Tanner's Bug Fixes From Week 8's Implementations (PR #107)
+- Travis's Allowed files (PR #103)
+  
+## In progress tasks
+- Retrieve Previously-Generated Portfolio Information (issue #34)
+- Fix bugs found by Travis in Ranking projects chronologically
+
+## Planned tasks for next sprint
+- Output all Key Information for a Project (issue #32)
+
+<img width="1151" height="688" alt="Screenshot 2025-11-02 at 6 04 22 PM" src="https://github.com/user-attachments/assets/f0663ecf-ac3f-4a4b-ac12-be4c8a23e0e1" />
