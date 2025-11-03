@@ -8,7 +8,6 @@ import tempfile
 import json
 import sqlite3
 
-from db import get_connection, init_db
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path, is_default_config
@@ -16,6 +15,9 @@ from consent import ask_for_data_consent, ask_yes_no
 from detect_langs import detect_languages_and_frameworks
 from detect_skills import detect_skills
 from file_utils import is_valid_format
+from db import get_connection, init_db
+from collab_summary import summarize_project_contributions
+
 # Try to import contribution metrics module; support running as package or standalone
 try:
     from contrib_metrics import analyze_repo, pretty_print_metrics
@@ -459,7 +461,6 @@ if __name__ == "__main__":
             save=False,
             save_to_db=save_db,
         )
-
     else:
         # Collect all scan settings first
         directory = input("Enter directory path or zip file path: ").strip()
@@ -468,20 +469,14 @@ if __name__ == "__main__":
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
         show_collab = ask_yes_no("Show collaboration info? (y/n): ", False)
-        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ", False)
-
-        # Ask about saving settings and database
-        remember = ask_yes_no("Save these settings for next time? (y/n): ", False)
         save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
 
-        # Run scan with provided settings
-        run_with_saved_settings(
-            directory=directory,
-            recursive_choice=recursive_choice,
+        # Run the scan
+        list_files_in_directory(
+            directory,
+            recursive=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
-            show_contrib_metrics=show_metrics,
-            save=remember,
             save_to_db=save_db,
         )
 
@@ -492,3 +487,8 @@ if __name__ == "__main__":
         print(", ".join(skills_summary["skills"]))
     else:
         print("\nNo significant skills detected.")
+
+    # Add this block to prompt for contribution summary
+    summarize_contribs = ask_yes_no("Would you like to summarize contributions for this scan? (y/n): ", False)
+    if summarize_contribs:
+        summarize_project_contributions(directory)

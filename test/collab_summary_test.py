@@ -6,9 +6,10 @@ import tempfile
 import shutil
 import subprocess
 import json
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from collab_summary import identify_contributions
+from collab_summary import identify_contributions, summarize_contributions_non_git, is_git_repo
 
 
 class TestCollaborationSummary(unittest.TestCase):
@@ -37,13 +38,22 @@ class TestCollaborationSummary(unittest.TestCase):
             with self.subTest(content=content):
                 with open(os.path.join(self.test_dir, "example.txt"), "w") as f:
                     f.write(content)
-                result = identify_contributions(self.test_dir)
+                result = summarize_contributions_non_git(self.test_dir)
                 self.assertIn(expected_author, result)
+
+    def test_non_git_multiple_authors(self):
+        """Detects multiple authors in a single file."""
+        content = "# Author: Alice\n# Author: Bob\nprint('test')"
+        with open(os.path.join(self.test_dir, "example.txt"), "w") as f:
+            f.write(content)
+        result = summarize_contributions_non_git(self.test_dir)
+        self.assertIn("Alice", result)
+        self.assertIn("Bob", result)
 
     def test_empty_folder_returns_empty_dict(self):
         """Empty folder returns {}."""
         empty_dir = tempfile.mkdtemp()
-        result = identify_contributions(empty_dir)
+        result = summarize_contributions_non_git(empty_dir)
         self.assertEqual(result, {})
 
     def test_git_repo_detects_commits(self):
@@ -54,7 +64,9 @@ class TestCollaborationSummary(unittest.TestCase):
         subprocess.run(["git", "add", "."], cwd=self.test_dir, check=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=self.test_dir, check=True)
 
-        result = identify_contributions(self.test_dir)
+        # Use strict_git=True so we don't walk up into the real repo
+        result = identify_contributions(self.test_dir, strict_git=True)
+
         self.assertIn("John Doe", result)
         self.assertGreaterEqual(result["John Doe"]["commits"], 1)
 
@@ -63,20 +75,13 @@ class TestCollaborationSummary(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             identify_contributions("fake_path_123")
 
-    def test_json_output_file_created(self):
-        """Should export a JSON summary file."""
+    def test_json_output_file(self):
+        """Should export a JSON summary file and verify its content."""
         with tempfile.TemporaryDirectory() as output_dir:
-            identify_contributions(self.test_dir, output_dir=output_dir)
-            files = glob.glob(os.path.join(output_dir, "contributions_*.json"))
-            self.assertTrue(len(files) > 0, "Expected at least one JSON file output")
-
-    def test_json_output_file_content(self):
-        """Should verify the content of the JSON summary file."""
-        with tempfile.TemporaryDirectory() as output_dir:
-            identify_contributions(self.test_dir, output_dir=output_dir)
-            files = glob.glob(os.path.join(output_dir, "contributions_*.json"))
-            self.assertTrue(len(files) > 0, "Expected at least one JSON file output")
-            with open(files[0], "r") as f:
+            identify_contributions(self.test_dir, output_dir=output_dir, strict_git=True)
+            files = os.listdir(output_dir)
+            self.assertTrue(any(f.endswith(".json") for f in files))
+            with open(os.path.join(output_dir, files[0]), "r") as f:
                 data = json.load(f)
                 self.assertIn("John", data)
 
