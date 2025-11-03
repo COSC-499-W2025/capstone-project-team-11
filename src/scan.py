@@ -5,12 +5,28 @@ import subprocess
 import zipfile
 import io
 import tempfile
-from detect_langs import detect_languages_and_frameworks
-from file_utils import is_valid_format
+import json
+import sqlite3
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from config import load_config, save_config, merge_settings, config_path as default_config_path
+from config import load_config, save_config, merge_settings, config_path as default_config_path, is_default_config
 from consent import ask_for_data_consent, ask_yes_no
+from detect_langs import detect_languages_and_frameworks
+from detect_skills import detect_skills
+from file_utils import is_valid_format
+from db import get_connection, init_db
+from collab_summary import summarize_project_contributions
+
+# Try to import contribution metrics module; support running as package or standalone
+try:
+    from contrib_metrics import analyze_repo, pretty_print_metrics
+except Exception:
+    try:
+        from .contrib_metrics import analyze_repo, pretty_print_metrics
+    except Exception:
+        analyze_repo = None
+        pretty_print_metrics = None
 
 
 def _zip_mtime_to_epoch(dt_tuple):
@@ -95,7 +111,58 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                 pass
 
 
-def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False):
+def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None):
+    """Persist a scan and its file records to the SQLite database.
+
+    files_found may be either:
+      - list of full file paths (directory scanning)
+      - list of tuples (display_path, size, mtime) for zip scanning
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    # Create scan record
+    cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
+    scan_id = cur.lastrowid
+
+    for item in files_found:
+        if isinstance(item, tuple):
+            display, size, mtime = item
+            # display looks like 'zip.zip:inner/path/file.txt' or similar
+            file_path = display
+            file_name = os.path.basename(display.split(':')[-1])
+            file_extension = os.path.splitext(file_name)[1]
+            file_size = int(size or 0)
+            modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime)) if mtime else None
+            created_at = None
+        else:
+            # filesystem path
+            file_path = item
+            file_name = os.path.basename(item)
+            file_extension = os.path.splitext(file_name)[1]
+            try:
+                file_size = os.path.getsize(item)
+                created_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(item)))
+                modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(item)))
+            except Exception:
+                file_size = None
+                created_at = None
+                modified_at = None
+
+        metadata = {}
+        try:
+            cur.execute(
+                "INSERT INTO files (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, None, json.dumps(metadata))
+            )
+        except Exception:
+            # ignore individual insert errors but continue
+            continue
+
+    conn.commit()
+    conn.close()
+
+
+def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
     """Prints file names inside a zip archive."""
     if not os.path.exists(zip_path) or not zipfile.is_zipfile(zip_path):
         print("Directory does not exist.")
@@ -122,7 +189,7 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
 
     if not files_found:
         print("No files found matching your criteria.")
-        return
+        return []
 
     largest = max(files_found, key=lambda t: t[1])
     smallest = min(files_found, key=lambda t: t[1])
@@ -134,6 +201,41 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
     print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})")
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})")
+    # Optionally persist results to DB
+    if save_to_db:
+        try:
+            _persist_scan(zip_path, files_found)
+        except sqlite3.OperationalError:
+            try:
+                init_db()
+                _persist_scan(zip_path, files_found)
+            except Exception:
+                print("Warning: failed to persist zip scan results to database.")
+    return files_found
+
+
+def analyze_repo_path(path: str):
+    """Analyze a filesystem path or zip archive for contribution metrics.
+
+    If path is a zip archive, extract to a temporary directory and run analysis there.
+    Returns the metrics dict or None if analysis couldn't run.
+    """
+    if analyze_repo is None:
+        print("Contribution metrics module not available.")
+        return None
+
+    if os.path.isfile(path) and path.lower().endswith('.zip'):
+        with tempfile.TemporaryDirectory() as td:
+            try:
+                with zipfile.ZipFile(path) as zf:
+                    zf.extractall(td)
+            except Exception as e:
+                print(f"Failed to extract zip for analysis: {e}")
+                return None
+            # analyze extracted tree
+            return analyze_repo(td)
+    else:
+        return analyze_repo(path)
 
 
 def get_collaboration_info(file_path: str) -> str:
@@ -181,7 +283,7 @@ def get_collaboration_info(file_path: str) -> str:
     return f"collaborative ({', '.join(authors)})"
 
 
-def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False):
+def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -193,7 +295,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
-        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration)
+        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration, save_to_db=save_to_db)
 
     if not os.path.exists(path) or not os.path.isdir(path):
         print("Directory does not exist.")
@@ -237,7 +339,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     if not files_found:
         print("No files found matching your criteria.")
-        return
+        return []
 
     largest = max(files_found, key=lambda f: os.path.getsize(f))
     smallest = min(files_found, key=lambda f: os.path.getsize(f))
@@ -249,37 +351,90 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"Smallest file: {smallest} ({os.path.getsize(smallest)} bytes)")
     print(f"Most recently modified: {newest} ({time.ctime(os.path.getmtime(newest))})")
     print(f"Least recently modified: {oldest} ({time.ctime(os.path.getmtime(oldest))})")
+    # Optionally persist scan results to the database
+    if save_to_db:
+        try:
+            _persist_scan(path, files_found)
+        except sqlite3.OperationalError:
+            # Try initializing DB and retry once
+            try:
+                init_db()
+                _persist_scan(path, files_found)
+            except Exception:
+                print("Warning: failed to persist scan results to database.")
+    return files_found
 
 
-def run_with_saved_settings(directory=None, recursive_choice=None, file_type=None, show_collaboration=None, save=False, config_path=None):
+def run_with_saved_settings(
+    directory=None,
+    recursive_choice=None,
+    file_type=None,
+    show_collaboration=None,
+    show_contribution_metrics=None,
+    show_contribution_summary=None,
+    save=False,
+    save_to_db=False,
+    config_path=None,
+):
     config = load_config(config_path)
-    final = merge_settings(
-        {
-            "directory": directory,
-            "recursive_choice": recursive_choice,
-            "file_type": file_type,
-            "show_collaboration": show_collaboration
-        },
-        config
-    )
 
+    # Create settings dict with all provided values
+    settings_to_save = {
+        "directory": directory,
+        "recursive_choice": recursive_choice,
+        "file_type": file_type,
+        "show_collaboration": show_collaboration,
+        "show_contribution_metrics": show_contribution_metrics,
+        "show_contribution_summary": show_contribution_summary
+    }
+
+    # Save settings if requested
     if save:
-        save_config(final, config_path)
+        save_config(settings_to_save, config_path)
 
+    # Merge for current run
+    final = merge_settings(settings_to_save, config)
+
+    # Run scan
     list_files_in_directory(
         final["directory"],
         recursive=final["recursive_choice"],
         file_type=final["file_type"],
         show_collaboration=final.get("show_collaboration", False),
+        save_to_db=save_to_db,
     )
+
+    # After scan, summarize detected skills first
+    print("\n=== Detecting Skills ===")
+    skills_summary = detect_skills(directory)
+    if skills_summary["skills"]:
+        print("\n=== Detected Skills Summary ===")
+        print(", ".join(skills_summary["skills"]))
+    else:
+        print("\nNo significant skills detected.")
+
+    # Then show contribution metrics if requested
+    if final.get("show_contribution_metrics"):
+        try:
+            print("\n=== Contribution Metrics ===")
+            metrics = analyze_repo_path(final["directory"])
+            if metrics and 'pretty_print_metrics' in globals():
+                pretty_print_metrics(metrics)
+        except Exception as e:
+            print(f"Error analyzing contribution metrics: {e}")
+
+    # Show contribution summary if requested
+    if final.get("show_contribution_summary"):
+        summarize_project_contributions(final["directory"])
 
 
 if __name__ == "__main__":
+    # Handle data consent first
     current = load_config(None)
     # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
     # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
             current = load_config(None)
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
@@ -292,35 +447,63 @@ if __name__ == "__main__":
             print("Data access consent not granted, aborting application.")
             sys.exit(0)
 
+    # Load current settings
     current = load_config(None)
-    use_saved = input(
-        "Would you like to use the settings from your most recent scan?\n"
-        f"  Scanned Directory:      {current.get('directory') or '<none>'}\n"
-        f"  Scan Nested Folders:    {current.get('recursive_choice')}\n"
-        f"  Only Scan File Type:    {current.get('file_type') or '<all>'}\n"
-        "Proceed with these settings? (y/n): "
-    ).strip().lower() == 'y'
+    
+    # Only prompt for reuse of scan settings if config.json has at least one non-default value.
+    if not is_default_config(current):
+        use_saved = ask_yes_no(
+            "Would you like to use the settings from your most recent scan?\n"
+            f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
+            f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
+            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
+            f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
+            f"  Show Contribution Metrics:  {current.get('show_contribution_metrics')}\n"
+            f"  Show Contribution Summary:  {current.get('show_contribution_summary')}\n"
+            "Proceed with these settings? (y/n): "
+        )
+    else:
+        use_saved = False
 
     if use_saved and current.get("directory"):
+        # Use saved settings and only ask about database
+        
+        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=current.get("recursive_choice"),
             file_type=current.get("file_type"),
             show_collaboration=current.get("show_collaboration"),
+            show_contribution_metrics=current.get("show_contribution_metrics"),
+            show_contribution_summary=current.get("show_contribution_summary"),
             save=False,
+            save_to_db=save_db,
         )
     else:
+        # Collect all scan settings first
         directory = input("Enter directory path or zip file path: ").strip()
-        recursive_choice = input("Scan subdirectories too? (y/n): ").strip().lower() == 'y'
+        directory = directory if directory else None
+        recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
+        show_collab = ask_yes_no("Show collaboration info? (y/n): ")
+        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ")
+        show_summary = ask_yes_no("Show contribution summary? (y/n): ")
 
-        remember = input("Save these settings for next time? (y/n): ").strip().lower() == 'y'
-        show_collab = input("Show collaboration info? (y/n): ").strip().lower() == 'y'
+        # Ask about saving settings after collecting all of them
+        remember = ask_yes_no("Save these settings for next time? (y/n): ")
+        
+        # Ask about database last
+        save_db = ask_yes_no("Save scan results to database? (y/n): ")
+
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
             file_type=file_type,
             show_collaboration=show_collab,
-            save=remember
+            show_contribution_metrics=show_metrics,
+            show_contribution_summary=show_summary,
+            save=remember,
+            save_to_db=save_db,
         )
