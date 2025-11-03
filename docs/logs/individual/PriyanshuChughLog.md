@@ -79,6 +79,50 @@ The week we focused on updating our system diagrams to reflect final requirement
 
 <img width="1512" height="982" alt="Screenshot 2025-10-19 at 5 41 25 PM" src="https://github.com/user-attachments/assets/780a3abc-7f44-4091-9062-d346928924c8" />
 
+# Week 8 Personal Log (20th-26th of October)
+
+This week, I implemented a new feature to automatically detect programming languages and frameworks within project directories. The new module, detect_langs.py, scans file extensions and configuration files (like package.json and requirements.txt) to identify frameworks such as Express, React, Flask, and more. I also created test_detect_langs.py to validate detection accuracy across multiple cases, including multi-framework projects, empty directories, and invalid inputs.
+In addition to development work, I reviewed teammates pull requests,specifically the User Consent Module (PR #84) and Database Schema & Setup (PR #88) , providing feedback on structure, clarity, and integration with the existing system.
+
+
+<img width="1512" height="982" alt="Screenshot 2025-10-26 at 6 53 00 PM" src="https://github.com/user-attachments/assets/4adfe1e2-ae24-4c8f-8183-99c583afa82c" />
+
+## Tasks Completed
+
+-Implemented Language & Framework Detection feature (detect_langs.py) (Issue #25, PR #91)
+
+-Created unit tests for framework and language detection (test_detect_langs.py)
+
+-Added  documentation and comments for clarity
+
+-Reviewed User Consent Module PR (#84)
+
+-Reviewed Database Schema and Setup PR (#88)
+
+-Updated .gitignore to exclude __pycache__ folders
+
+-Updated individual log and synced progress with the project board
+
+
+<img width="1097" height="36" alt="Screenshot 2025-10-26 at 7 16 37 PM" src="https://github.com/user-attachments/assets/4176de1b-1b05-4b3f-ad1c-aceec0ca73c0" />
+
+
+## Next Week (Week #9)
+
+Begin development for Issue #31: Extract Key “Skills” From a Given Project — implement functionality to analyze a project’s outputs (such as code quality, test coverage, or writing accuracy) and infer an individual’s key skills.
+
+Collaborate with teammates to clarify requirements and define measurable indicators for different skill domains (e.g., testing proficiency, documentation quality, or code structure).
+
+
+
+
+
+
+
+
+
+
+
 
 
 
