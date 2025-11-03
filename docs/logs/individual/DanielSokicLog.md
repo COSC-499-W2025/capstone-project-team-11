@@ -1,4 +1,4 @@
-<img width="814" height="474" alt="image" src="https://github.com/user-attachments/assets/f2ac0dc3-a5b0-49e7-855e-4005e518a606" /># Week 3 Personal Log (15th-21st of September)
+# Week 3 Personal Log (15th-21st of September)
 
 The main focus of this week was creating some requirements for our project as well as creating the repository. 
 
@@ -91,4 +91,31 @@ I have been involved with the following tasks either alone or helping my other c
 - Look into issue #30: "Extract key contribution metrics within a project"
 - Continue to review PRs.
 - Help verify system-wide functionality with current features implemented.
+
+
+
+# Week 9 (October 27th - November 2nd)
+
+<img width="790" height="466" alt="image" src="https://github.com/user-attachments/assets/c2e0e25d-3b1f-4ca3-ade1-b2a5fab9460c" />
+
+
+## Tasks Completed
+- Added contribution metrics extraction and printing (issue #30)
+  - project start/end/duration.
+  - total commits and commits-per-author
+  - lines added/removed per author
+  - activity counts by category (code/test/docs/design)
+  - commits-per-week
+- Tests for contribution metrics
+  - contrib_metrics.py: new/modified logic (parsing, flush at commit boundaries, name normalization)
+  - contrib_metrics_test.py: new tests, robust cleanup, resilient assertions
+- Reviewed and approved code for extracting skills from a scan (issue #31)
+- Individual logs
+
+## Week 10 plans
+I will be very busy with several midterms this week so I will be a little limited with the work I can do however, I will continue to improve contribution metrics in order to fix the following bugs:
+- Collaboration data does not save from previous scan when user saves info
+- Contribution metrics do not save from previous scan when user saves info
+
+I will also continue to help review prs and complete my logs. 
 
