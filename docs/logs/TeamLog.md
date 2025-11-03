@@ -268,8 +268,11 @@ Extract skills from scanned projects
 Database integration and persistent storage for scan results
  -Daniel
 
+Implemented output of key information of projects
+- Tyler
+
 Code review and verification
- -Tanner, Jaxson, Priyanshu, Daniel, Travis
+ -Tanner, Jaxson, Priyanshu, Daniel, Travis, Tyler
 
 
 Testing Report:
@@ -308,6 +311,10 @@ test_detect_skills.py
 file_utils_test.py
 -Ensured all import paths and module references work across local and Docker environments.
 -Validated test discovery and module loading for stable CI/CD test execution.
+
+test_project_info_output.py
+-Verifies that a non-Git project correctly generates JSON and TXT outputs with detected languages, skills, and contributions, including placeholder “Unknown” contributors.
+-Ensures that a Git project includes proper Git metrics (total commits, contributors, activity breakdown) in both JSON and TXT outputs.
 
 Reflection:
 
