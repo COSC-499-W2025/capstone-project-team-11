@@ -99,6 +99,7 @@ def analyze_repo(path: str) -> Dict:
     commits_per_author = Counter()
     lines_added_per_author = Counter()
     lines_removed_per_author = Counter()
+    files_changed_per_author = defaultdict(set)
     activity_counts_per_category = Counter()
     commits_per_week = Counter()
 
@@ -176,6 +177,7 @@ def analyze_repo(path: str) -> Dict:
 
             lines_added_per_author[current_author] += a
             lines_removed_per_author[current_author] += r
+            files_changed_per_author[current_author].add(fpath)
 
             category = classify_file(fpath)
             touched_categories.add(category)
@@ -216,6 +218,12 @@ def analyze_repo(path: str) -> Dict:
         display = ALIASES.get(key, author)
         merged_lines_removed[display] = merged_lines_removed.get(display, 0) + cnt
 
+    merged_files_changed = defaultdict(set)
+    for author, files in files_changed_per_author.items():
+        key = canonical_key(author)
+        display = ALIASES.get(key, author)
+        merged_files_changed[display].update(files)
+        
     return {
         'repo_root': repo_root,
         'project_start': project_start,
@@ -227,6 +235,7 @@ def analyze_repo(path: str) -> Dict:
         'lines_removed_per_author': merged_lines_removed,
         'activity_counts_per_category': dict(activity_counts_per_category),
         'commits_per_week': dict(commits_per_week),
+        'files_changed_per_author': {a: sorted(list(f)) for a, f in merged_files_changed.items()},
     }
 
 

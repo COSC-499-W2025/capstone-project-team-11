@@ -44,21 +44,17 @@ def summarize_contributions_non_git(path: str) -> dict:
         try:
             with open(file, "r", errors="ignore") as f:
                 content = f.read()
-                matches = re.findall(
-                    r"(?:#|//|/\*|\*)\s*Author\s*:\s*([A-Za-z]+)",
-                    content,
-                    re.IGNORECASE,
-                )
+                matches = re.findall(r"(?:#|//|/\*|\*)\s*Author\s*:\s*([A-Za-z]+)", content, re.IGNORECASE)
                 if matches:
                     for author in matches:
                         author = author.strip()
                         if author not in contributions:
-                            contributions[author] = {"commits": 0, "files": 0}
-                        contributions[author]["files"] += 1
+                            contributions[author] = {"commits": 0, "files": []}
+                        contributions[author]["files"].append(str(file))
                 else:
                     if "Unknown" not in contributions:
-                        contributions["Unknown"] = {"commits": 0, "files": 0}
-                    contributions["Unknown"]["files"] += 1
+                        contributions["Unknown"] = {"commits": 0, "files": []}
+                    contributions["Unknown"]["files"].append(str(file))
         except Exception:
             pass
 
@@ -78,16 +74,20 @@ def identify_contributions(project_path: str, output_dir: str = "output", strict
         detailed_metrics = analyze_repo(project_path)
         contributions = {}
         commits_per_author = detailed_metrics.get("commits_per_author", {})
-        files_per_author = detailed_metrics.get("files_modified_per_author", {})
+        files_per_author = detailed_metrics.get("files_changed_per_author", {})
 
         for author, commits in commits_per_author.items():
+            modified_files = files_per_author.get(author, [])
             contributions[author] = {
                 "commits": commits,
-                "files": len(files_per_author.get(author, [])),
+                "files": modified_files,
+                "file_count": len(modified_files),
             }
         project_type = "git"
     else:
         contributions = summarize_contributions_non_git(project_path)
+        for author in contributions:
+            contributions[author]["file_count"] = len(contributions[author]["files"])
         project_type = "non_git"
 
     os.makedirs(output_dir, exist_ok=True)
@@ -112,7 +112,11 @@ def summarize_project_contributions(directory: str, output_dir: str = "output"):
             return
 
         for author, stats in contributions.items():
-            print(f"{author}: {stats.get('commits', 0)} commits, {stats.get('files', 0)} files")
+            print(f"{author}: {stats.get('commits', 0)} commits, {stats.get('file_count', len(stats.get('files', [])))} files")
+            if stats.get("files"):
+                print("  Changed files:")
+                for f in stats["files"]:
+                    print(f"    - {f}")
     except FileNotFoundError:
         print(f"[Error] The directory '{directory}' does not exist.")
     except Exception as e:
