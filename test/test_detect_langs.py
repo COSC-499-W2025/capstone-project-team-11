@@ -6,7 +6,7 @@ import unittest
 # Add src directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from detect_langs import detect_languages_and_frameworks
+from detect_langs import detect_languages_and_frameworks, scan_file_content, calculate_confidence
 
 # These check that language and framework detection works correctly
 # for different types of simple example projects.
@@ -84,6 +84,46 @@ class TestDetectLangs(unittest.TestCase):
             self.assertIn("React", results["frameworks"])
             self.assertIn("Vue", results["frameworks"])
             self.assertIn("Express", results["frameworks"])
+
+    # Should detect Python patterns in a Python file
+    def test_scan_file_content_detects_patterns(self):
+        with tempfile.TemporaryDirectory() as td:
+            py_file = os.path.join(td, "test.py")
+            with open(py_file, "w") as f:
+                f.write("def hello():\n    import os\n    class MyClass:\n        pass")
+
+            pattern_matches = scan_file_content(py_file)
+            self.assertIn("Python", pattern_matches)
+            self.assertGreater(pattern_matches["Python"], 0)
+
+    # Should calculate correct confidence levels based on presence of syntax patterns and file extensions
+    def test_calculate_confidence_logic(self):
+        # High confidence: 5+ patterns
+        self.assertEqual(calculate_confidence(5, False), "high")
+        # High confidence: extension + 2+ patterns
+        self.assertEqual(calculate_confidence(2, True), "high")
+        # Medium confidence: 3-4 patterns
+        self.assertEqual(calculate_confidence(3, False), "medium")
+        # Medium confidence: extension + 1 pattern
+        self.assertEqual(calculate_confidence(1, True), "medium")
+        # Low confidence: 1-2 patterns only
+        self.assertEqual(calculate_confidence(1, False), "low")
+
+    # Should include confidence levels in detection results
+    def test_language_details_includes_confidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            py_file = os.path.join(td, "app.py")
+            with open(py_file, "w") as f:
+                f.write("def main():\n    import sys\n    class App:\n        pass")
+
+            results = detect_languages_and_frameworks(td)
+            # Should have language_details with confidence
+            self.assertIn("language_details", results)
+            self.assertIn("Python", results["language_details"])
+            self.assertIn("confidence", results["language_details"]["Python"])
+            # Python with extension should have high confidence
+            self.assertEqual(results["language_details"]["Python"]["confidence"], "high")
+
 # Let the test run directly if this file is executed
 if __name__ == "__main__":
     unittest.main()
