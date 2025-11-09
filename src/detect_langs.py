@@ -29,6 +29,8 @@ LANGUAGE_MAP = {
 
 # Regex patterns for detecting languages by file content (imported "re" at top of this file).
 # Each pattern is designed to match distinctive syntax unique to that language.
+# NOTE: Some patterns may still produce false positives from comments/documentation.
+# Future improvement: Consider adding comment/string filtering before pattern matching.
 LANGUAGE_PATTERNS = {
     "Python": [
         r'\bdef\s+\w+\s*\(',                            # function definitions
@@ -61,6 +63,90 @@ LANGUAGE_PATTERNS = {
         r'\bstd::',             # standard library namespace
         r'\bcout\s*<<',         # cout usage
         r'\bnamespace\s+\w+',   # namespace declarations
+    ],
+    "C": [
+        r'#include\s*<\w+\.h>',         # C header includes (stdio.h, stdlib.h)
+        r'\bprintf\s*\(',               # printf function
+        r'\bmalloc\s*\(',               # malloc function
+        r'\bstruct\s+\w+\s*\{',         # struct definitions
+        r'\btypedef\s+struct',          # typedef struct
+    ],
+    "C#": [
+        r'\busing\s+System',            # using System namespace
+        r'\bnamespace\s+\w+',           # namespace declarations
+        r'\bpublic\s+class\s+\w+',      # public class
+        r'\bprivate\s+void\s+\w+',      # private methods
+        r'Console\.WriteLine',          # Console.WriteLine
+    ],
+    "Ruby": [
+        r'\bdef\s+\w+',                 # method definitions
+        r'\bend\b',                     # end keyword (very common in Ruby)
+        r'\brequire\s+["\']',           # require statements
+        r'\bputs\s+',                   # puts for output
+        r'@\w+\s*=',                    # instance variables
+    ],
+    "PHP": [
+        r'<\?php',                      # PHP opening tag
+        r'\$\w+\s*=',                   # PHP variables
+        r'\bfunction\s+\w+\s*\(',       # function declarations
+        r'\becho\s+',                   # echo statement
+        r'->\w+',                       # object method calls
+    ],
+    "Go": [
+        r'\bpackage\s+\w+',             # package declarations
+        r'\bfunc\s+\w+\s*\(',           # function declarations
+        r'\bimport\s+\(',               # import blocks
+        r':=',                          # short variable declaration
+        r'\bfmt\.Print',                # fmt.Print functions
+    ],
+    "Rust": [
+        r'\bfn\s+\w+\s*\(',             # function declarations
+        r'\blet\s+mut\s+\w+',           # mutable variable declarations
+        r'\bimpl\s+\w+',                # impl blocks
+        r'\bpub\s+fn\s+\w+',            # public functions
+        r'println!\s*\(',               # println! macro
+    ],
+    "Swift": [
+        r'\bfunc\s+\w+\s*\(',           # function declarations
+        r'\bvar\s+\w+\s*:',             # variable with type annotation
+        r'\blet\s+\w+\s*=',             # constant declarations
+        r'\bimport\s+\w+',              # import statements
+        r'\bclass\s+\w+\s*:\s*\w+',     # class with inheritance
+    ],
+    "Kotlin": [
+        r'\bfun\s+\w+\s*\(',            # function declarations
+        r'\bval\s+\w+\s*=',             # val (immutable) declarations
+        r'\bvar\s+\w+\s*=',             # var (mutable) declarations
+        r'\bdata\s+class\s+\w+',        # data classes
+        r'\bprintln\s*\(',              # println function
+    ],
+    "SQL": [
+        r'\bSELECT\s+.+\s+FROM\b',      # SELECT...FROM (full statement)
+        r'\bINSERT\s+INTO\s+\w+',       # INSERT INTO
+        r'\bCREATE\s+TABLE\s+\w+',      # CREATE TABLE
+        r'\bUPDATE\s+\w+\s+SET\b',      # UPDATE...SET
+        r'\bJOIN\s+\w+\s+ON\b',         # JOIN...ON
+    ],
+    "Shell Script": [
+        r'^#!/bin/(ba)?sh',             # shebang line
+        r'\bif\s+\[\[',                 # if [[ condition
+        r'\bfor\s+\w+\s+in\b',          # for loops
+        r'\becho\s+[\$"]',              # echo with variables or strings
+        r'\bexport\s+\w+=',             # export variables
+    ],
+    "HTML": [
+        r'<html\b',                     # <html tag
+        r'<!DOCTYPE html>',             # DOCTYPE declaration
+        r'<head>',                      # <head> tag
+        r'<body\b',                     # <body> tag
+        r'<div\s+class=',               # <div> with class
+    ],
+    "CSS": [
+        r'\{\s*[\w-]+\s*:\s*.+;\s*\}',  # CSS rule blocks
+        r'@media\s+',                   # media queries
+        r'\.[\w-]+\s*\{',               # class selectors
+        r'#[\w-]+\s*\{',                # id selectors
+        r':\s*(hover|focus|active)\b',  # pseudo-classes
     ],
 }
 
