@@ -1,6 +1,13 @@
 -- Drop old tables if they exist
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS scans;
+DROP TABLE IF EXISTS project_skills;
+DROP TABLE IF EXISTS file_languages;
+DROP TABLE IF EXISTS file_contributors;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS contributors;
+DROP TABLE IF EXISTS languages;
+DROP TABLE IF EXISTS skills;
 
 -- Table to store scan history
 CREATE TABLE scans (
@@ -29,3 +36,59 @@ CREATE TABLE files (
 CREATE INDEX idx_file_path ON files (file_path);
 CREATE INDEX idx_file_name ON files (file_name);
 CREATE INDEX idx_files_scan_id ON files (scan_id);
+
+-- Projects table to group scans and files under a named project
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE,
+    repo_url TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Contributors (commit authors). We intentionally do not store emails to keep privacy.
+CREATE TABLE IF NOT EXISTS contributors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE
+);
+
+-- Languages and skills detected per project
+CREATE TABLE IF NOT EXISTS languages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE
+);
+
+-- Join tables
+CREATE TABLE IF NOT EXISTS file_contributors (
+    file_id INTEGER NOT NULL,
+    contributor_id INTEGER NOT NULL,
+    PRIMARY KEY (file_id, contributor_id),
+    FOREIGN KEY (file_id) REFERENCES files(id),
+    FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+);
+
+CREATE TABLE IF NOT EXISTS file_languages (
+    file_id INTEGER NOT NULL,
+    language_id INTEGER NOT NULL,
+    PRIMARY KEY (file_id, language_id),
+    FOREIGN KEY (file_id) REFERENCES files(id),
+    FOREIGN KEY (language_id) REFERENCES languages(id)
+);
+
+CREATE TABLE IF NOT EXISTS project_skills (
+    project_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    PRIMARY KEY (project_id, skill_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (skill_id) REFERENCES skills(id)
+);
+
+-- Helpful indexes
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name);
+CREATE INDEX IF NOT EXISTS idx_contributors_name ON contributors (name);
+CREATE INDEX IF NOT EXISTS idx_languages_name ON languages (name);
+CREATE INDEX IF NOT EXISTS idx_skills_name ON skills (name);

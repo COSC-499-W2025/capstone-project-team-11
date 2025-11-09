@@ -1,8 +1,10 @@
 import sqlite3
 import os
+import time
+import json
 
-# Path to your database file (it will be created in the project root)
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+# Allow overriding database path via environment for tests or custom locations
+DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
 
 def get_connection():
     """Return a connection to the SQLite database."""
@@ -21,3 +23,161 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+
+
+def _get_or_create(conn, table: str, name: str):
+    """Return id for name in table (creates row if missing)."""
+    cur = conn.cursor()
+    cur.execute(f"INSERT OR IGNORE INTO {table} (name) VALUES (?)", (name,))
+    conn.commit()
+    cur.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
+    row = cur.fetchone()
+    return row['id'] if row else None
+
+
+def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
+              detected_languages: list = None, detected_skills: list = None, contributors: list = None,
+              file_metadata: dict = None):
+    """Persist a scan and related metadata into the DB in a single transaction.
+
+    - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
+    - detected_languages: list of language strings
+    - detected_skills: list of skill strings
+    - contributors: list of contributor names (strings)
+    Returns scan_id
+    """
+    conn = get_connection()
+    # Ensure foreign keys and sensible journaling
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        # create scan
+        cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
+        scan_id = cur.lastrowid
+
+        # link or create project row if provided
+        project_id = None
+        if project:
+            cur.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (project,))
+            cur.execute("SELECT id FROM projects WHERE name = ?", (project,))
+            r = cur.fetchone()
+            project_id = r['id'] if r else None
+
+        # insert files (batch). file_metadata is a mapping of file_path -> dict
+        file_rows = []
+        for item in files_found:
+            if isinstance(item, tuple):
+                display, size, mtime = item
+                file_path = display
+                file_name = os.path.basename(display.split(':')[-1])
+                file_extension = os.path.splitext(file_name)[1]
+                file_size = int(size or 0)
+                modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime)) if mtime else None
+                created_at = None
+            else:
+                file_path = item
+                file_name = os.path.basename(item)
+                file_extension = os.path.splitext(file_name)[1]
+                try:
+                    file_size = os.path.getsize(item)
+                    created_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(item)))
+                    modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(item)))
+                except Exception:
+                    file_size = None
+                    created_at = None
+                    modified_at = None
+
+            # pull owner/metadata if provided
+            meta = {}
+            if file_metadata and file_path in file_metadata:
+                # copy only serializable fields
+                try:
+                    meta = dict(file_metadata[file_path])
+                except Exception:
+                    meta = {}
+
+            owner_val = meta.get('owner') if isinstance(meta, dict) else None
+            file_rows.append((scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner_val, json.dumps(meta)))
+
+        cur.executemany(
+            "INSERT INTO files (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            file_rows
+        )
+
+        # Fetch inserted file ids to use for linking (simple approach: query files for this scan)
+        cur.execute("SELECT id, file_path FROM files WHERE scan_id = ?", (scan_id,))
+        file_id_map = {row['file_path']: row['id'] for row in cur.fetchall()}
+
+        # Languages: prefer per-file language from file_metadata; fall back to detected_languages at project-level
+        if file_metadata:
+            for fp, fid in file_id_map.items():
+                meta = file_metadata.get(fp) or {}
+                lang = meta.get('language') if isinstance(meta, dict) else None
+                if lang:
+                    cur.execute("INSERT OR IGNORE INTO languages (name) VALUES (?)", (lang,))
+                    cur.execute("SELECT id FROM languages WHERE name = ?", (lang,))
+                    lang_id = cur.fetchone()['id']
+                    cur.execute("INSERT OR IGNORE INTO file_languages (file_id, language_id) VALUES (?, ?)", (fid, lang_id))
+        elif detected_languages:
+            for lang in detected_languages:
+                if not lang:
+                    continue
+                cur.execute("INSERT OR IGNORE INTO languages (name) VALUES (?)", (lang,))
+                cur.execute("SELECT id FROM languages WHERE name = ?", (lang,))
+                lang_id = cur.fetchone()['id']
+                for fp, fid in file_id_map.items():
+                    cur.execute("INSERT OR IGNORE INTO file_languages (file_id, language_id) VALUES (?, ?)", (fid, lang_id))
+
+        # Skills (project-level)
+        if detected_skills and project_id:
+            for skill in detected_skills:
+                if not skill:
+                    continue
+                cur.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", (skill,))
+                cur.execute("SELECT id FROM skills WHERE name = ?", (skill,))
+                skill_id = cur.fetchone()['id']
+                cur.execute("INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)", (project_id, skill_id))
+
+        # Contributors: if file-level owner metadata exists, parse & link per-file; else fall back to project-wide contributors
+        def _parse_owner_string(s: str):
+            # Expected formats: 'individual (Name)' or 'collaborative (A, B)'
+            if not s or s == 'unknown':
+                return []
+            if s.startswith('individual (') and s.endswith(')'):
+                return [s[len('individual ('):-1].strip()]
+            if s.startswith('collaborative (') and s.endswith(')'):
+                inner = s[len('collaborative ('):-1]
+                return [p.strip() for p in inner.split(',') if p.strip()]
+            # fallback: return the whole string as a single name (cleaned)
+            return [s.strip()]
+
+        if file_metadata:
+            for fp, fid in file_id_map.items():
+                meta = file_metadata.get(fp) or {}
+                owner_val = meta.get('owner') if isinstance(meta, dict) else None
+                names = _parse_owner_string(owner_val)
+                for name in names:
+                    if not name:
+                        continue
+                    cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (name,))
+                    cur.execute("SELECT id FROM contributors WHERE name = ?", (name,))
+                    contrib_id = cur.fetchone()['id']
+                    cur.execute("INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (fid, contrib_id))
+        elif contributors:
+            for contrib in contributors:
+                if not contrib:
+                    continue
+                cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (contrib,))
+                cur.execute("SELECT id FROM contributors WHERE name = ?", (contrib,))
+                contrib_id = cur.fetchone()['id']
+                for fp, fid in file_id_map.items():
+                    cur.execute("INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (fid, contrib_id))
+
+        conn.commit()
+        return scan_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

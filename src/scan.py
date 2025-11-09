@@ -12,10 +12,10 @@ import sqlite3
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path, is_default_config
 from consent import ask_for_data_consent, ask_yes_no
-from detect_langs import detect_languages_and_frameworks
+from detect_langs import detect_languages_and_frameworks, LANGUAGE_MAP
 from detect_skills import detect_skills
 from file_utils import is_valid_format
-from db import get_connection, init_db
+from db import get_connection, init_db, save_scan
 from collab_summary import summarize_project_contributions
 
 # Try to import contribution metrics module; support running as package or standalone
@@ -111,55 +111,25 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                 pass
 
 
-def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None):
-    """Persist a scan and its file records to the SQLite database.
+def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None, file_metadata: dict = None,
+                  detected_languages: list = None, detected_skills: list = None, contributors: list = None):
+    """Persist a scan and its file records to the database using db.save_scan.
 
-    files_found may be either:
-      - list of full file paths (directory scanning)
-      - list of tuples (display_path, size, mtime) for zip scanning
+    This now also attempts to persist detected languages, skills and contributors
+    if they are provided by the caller or can be detected prior to calling.
     """
-    conn = get_connection()
-    cur = conn.cursor()
-    # Create scan record
-    cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
-    scan_id = cur.lastrowid
-
-    for item in files_found:
-        if isinstance(item, tuple):
-            display, size, mtime = item
-            # display looks like 'zip.zip:inner/path/file.txt' or similar
-            file_path = display
-            file_name = os.path.basename(display.split(':')[-1])
-            file_extension = os.path.splitext(file_name)[1]
-            file_size = int(size or 0)
-            modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime)) if mtime else None
-            created_at = None
-        else:
-            # filesystem path
-            file_path = item
-            file_name = os.path.basename(item)
-            file_extension = os.path.splitext(file_name)[1]
-            try:
-                file_size = os.path.getsize(item)
-                created_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(item)))
-                modified_at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(item)))
-            except Exception:
-                file_size = None
-                created_at = None
-                modified_at = None
-
-        metadata = {}
-        try:
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, None, json.dumps(metadata))
-            )
-        except Exception:
-            # ignore individual insert errors but continue
-            continue
-
-    conn.commit()
-    conn.close()
+    # Delegate to db.save_scan which handles transactions and upserts
+    # Delegate to db.save_scan which handles transactions and upserts
+    return save_scan(
+        scan_source,
+        files_found,
+        project=project,
+        notes=notes,
+        detected_languages=detected_languages,
+        detected_skills=detected_skills,
+        contributors=contributors,
+        file_metadata=file_metadata,
+    )
 
 
 def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
@@ -187,30 +157,67 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 extract_root=tmpdir
             )
 
+            # Optionally persist results to DB (collect metadata first)
+            if save_to_db and files_found:
+                # prepare placeholder for file metadata in case of failures
+                file_meta = {}
+                try:
+                    # detect languages/skills/contributors from extracted tree
+                    langs = detect_languages_and_frameworks(tmpdir).get('languages', [])
+                    skills = detect_skills(tmpdir).get('skills', [])
+                    metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
+                    contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
+
+                    # Build per-file metadata (owner) where possible
+                    for item in files_found:
+                        display = item[0] if isinstance(item, tuple) else item
+                        # display format: zip_path:inner/path
+                        inner = display.split(':', 1)[1] if ':' in display else None
+                        owner = None
+                        if inner:
+                            candidate = os.path.join(tmpdir, inner)
+                            if os.path.exists(candidate):
+                                owner = get_collaboration_info(candidate)
+                            # also infer language from filename extension
+                            lang = None
+                            try:
+                                _, ext = os.path.splitext(inner or display)
+                                if ext:
+                                    lang = LANGUAGE_MAP.get(ext.lower())
+                            except Exception:
+                                lang = None
+                            file_meta[display] = {'owner': owner, 'language': lang}
+
+                    _persist_scan(zip_path, files_found, project=None, notes=None,
+                                  file_metadata=file_meta,
+                                  detected_languages=langs,
+                                  detected_skills=skills,
+                                  contributors=contributors)
+                except sqlite3.OperationalError:
+                    try:
+                        init_db()
+                        _persist_scan(zip_path, files_found, project=None, notes=None,
+                                      file_metadata=file_meta,
+                                      detected_languages=langs,
+                                      detected_skills=skills,
+                                      contributors=contributors)
+                    except Exception:
+                        print("Warning: failed to persist zip scan results to database.")
+
     if not files_found:
         print("No files found matching your criteria.")
         return []
 
-    largest = max(files_found, key=lambda t: t[1])
-    smallest = min(files_found, key=lambda t: t[1])
-    newest = max(files_found, key=lambda t: t[2])
-    oldest = min(files_found, key=lambda t: t[2])
+    largest = max(files_found, key=lambda t: t[1] or 0)
+    smallest = min(files_found, key=lambda t: t[1] or 0)
+    newest = max(files_found, key=lambda t: t[2] or 0)
+    oldest = min(files_found, key=lambda t: t[2] or 0)
 
     print("\n=== File Statistics ===")
     print(f"Largest file: {largest[0]} ({largest[1]} bytes)")
     print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
-    print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})")
-    print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})")
-    # Optionally persist results to DB
-    if save_to_db:
-        try:
-            _persist_scan(zip_path, files_found)
-        except sqlite3.OperationalError:
-            try:
-                init_db()
-                _persist_scan(zip_path, files_found)
-            except Exception:
-                print("Warning: failed to persist zip scan results to database.")
+    print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2]) if newest[2] else 'unknown'})")
+    print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
     return files_found
 
 
@@ -318,7 +325,15 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     full_path = os.path.join(root, file)
-                    files_found.append(full_path)
+                    try:
+                        size = os.path.getsize(full_path)
+                    except Exception:
+                        size = None
+                    try:
+                        mtime = os.path.getmtime(full_path)
+                    except Exception:
+                        mtime = None
+                    files_found.append((full_path, size, mtime))
                     print(full_path)
                     if show_collaboration:
                         print(f"  Collaboration: {get_collaboration_info(full_path)}")
@@ -332,7 +347,15 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     print(f"Skipping unsupported file format: {file}")
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
-                    files_found.append(full_path)
+                    try:
+                        size = os.path.getsize(full_path)
+                    except Exception:
+                        size = None
+                    try:
+                        mtime = os.path.getmtime(full_path)
+                    except Exception:
+                        mtime = None
+                    files_found.append((full_path, size, mtime))
                     print(full_path)
                     if show_collaboration:
                         print(f"  Collaboration: {get_collaboration_info(full_path)}")
@@ -341,25 +364,68 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         print("No files found matching your criteria.")
         return []
 
-    largest = max(files_found, key=lambda f: os.path.getsize(f))
-    smallest = min(files_found, key=lambda f: os.path.getsize(f))
-    newest = max(files_found, key=lambda f: os.path.getmtime(f))
-    oldest = min(files_found, key=lambda f: os.path.getmtime(f))
+    # files_found entries are tuples (path, size, mtime)
+    largest = max(files_found, key=lambda t: t[1] or 0)
+    smallest = min(files_found, key=lambda t: t[1] or 0)
+    newest = max(files_found, key=lambda t: t[2] or 0)
+    oldest = min(files_found, key=lambda t: t[2] or 0)
 
     print("\n=== File Statistics ===")
-    print(f"Largest file: {largest} ({os.path.getsize(largest)} bytes)")
-    print(f"Smallest file: {smallest} ({os.path.getsize(smallest)} bytes)")
-    print(f"Most recently modified: {newest} ({time.ctime(os.path.getmtime(newest))})")
-    print(f"Least recently modified: {oldest} ({time.ctime(os.path.getmtime(oldest))})")
+    print(f"Largest file: {largest[0]} ({largest[1]} bytes)")
+    print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
+    print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2]) if newest[2] else 'unknown'})")
+    print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
     # Optionally persist scan results to the database
     if save_to_db:
         try:
-            _persist_scan(path, files_found)
+            # Detect project-level metadata and persist with the scan
+            try:
+                langs = detect_languages_and_frameworks(path).get('languages', [])
+            except Exception:
+                langs = None
+            try:
+                skills = detect_skills(path).get('skills', [])
+            except Exception:
+                skills = None
+            try:
+                metrics = analyze_repo_path(path) if analyze_repo is not None else None
+                contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
+            except Exception:
+                contributors = None
+
+            # build file metadata (owner) for each file
+            file_meta = {}
+            for item in files_found:
+                display = item[0] if isinstance(item, tuple) else item
+                owner = None
+                try:
+                    owner = get_collaboration_info(display)
+                except Exception:
+                    owner = None
+                # infer language from extension for filesystem files
+                lang = None
+                try:
+                    _, ext = os.path.splitext(display)
+                    if ext:
+                        lang = LANGUAGE_MAP.get(ext.lower())
+                except Exception:
+                    lang = None
+                file_meta[display] = {'owner': owner, 'language': lang}
+
+            _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
+                          file_metadata=file_meta,
+                          detected_languages=langs,
+                          detected_skills=skills,
+                          contributors=contributors)
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
             try:
                 init_db()
-                _persist_scan(path, files_found)
+                _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
+                              file_metadata=file_meta,
+                              detected_languages=langs,
+                              detected_skills=skills,
+                              contributors=contributors)
             except Exception:
                 print("Warning: failed to persist scan results to database.")
     return files_found
