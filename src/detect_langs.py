@@ -99,14 +99,36 @@ def scan_file_content(file_path):
 
     return pattern_matches
 
+# Calculates confidence level (low, medium, high) based on pattern matches and file extension presence
+# Logic:
+    # Low: 1-2 pattern matches only
+    # Medium: 3-4 pattern matches OR file extension + 1 pattern
+    # High: 5+ pattern matches OR file extension + 2+ patterns
+def calculate_confidence(pattern_count, has_file_extension):
+    # High confidence
+    if pattern_count >= 5:
+        return "high"
+    if has_file_extension and pattern_count >= 2:
+        return "high"
+
+    # Medium confidence
+    if pattern_count >= 3:
+        return "medium"
+    if has_file_extension and pattern_count >= 1:
+        return "medium"
+
+    # If NOT High or Medium: Low confidence
+    return "low"
+
 # Goes through a project folder and figures out which languages and frameworks are being used. It does this by checking file extensions
 # and looking inside config/dependency files for framework names
 def detect_languages_and_frameworks(directory):
     # Scan a directory and identify programming languages and frameworks used.
-    languages_found = set()
     frameworks_found = set()
-    # Track total pattern matches across all files for debugging
-    total_pattern_matches = {}
+
+    # Track language detection with confidence levels
+    # Structure: language: {"pattern_count": int, "has_extension": bool, "confidence": str}
+    language_data = {}
 
     # Traverse through all sub folders and files in the directory
     for root, _, files in os.walk(directory):
@@ -116,15 +138,19 @@ def detect_languages_and_frameworks(directory):
             # Detect languages by file extension
             ext = os.path.splitext(file)[1].strip().lower()
             if ext in LANGUAGE_MAP:
-                languages_found.add(LANGUAGE_MAP[ext])
-                print(f"Detected {LANGUAGE_MAP[ext]} from file extension: {file_path}")
+                lang = LANGUAGE_MAP[ext]
+                if lang not in language_data:
+                    language_data[lang] = {"pattern_count": 0, "has_extension": False}
+                language_data[lang]["has_extension"] = True
+                print(f"Detected {lang} from file extension: {file_path}")
 
             # Detect languages by using syntax patterns
             pattern_results = scan_file_content(file_path)
             for language, match_count in pattern_results.items():
-                languages_found.add(language)
+                if language not in language_data:
+                    language_data[language] = {"pattern_count": 0, "has_extension": False}
                 # Keep track of total matches for this language
-                total_pattern_matches[language] = total_pattern_matches.get(language, 0) + match_count
+                language_data[language]["pattern_count"] += match_count
                 print(f"Detected {language} from content patterns ({match_count} matches): {file_path}")
 
             # Look for known config files to detect frameworks
@@ -145,12 +171,20 @@ def detect_languages_and_frameworks(directory):
                     except Exception:
                         # Skip files we can't read (binary files, etc.)
                         pass
-    
+
+    # Calculate confidence for each detected language
+    for language in language_data:
+        confidence = calculate_confidence(
+            language_data[language]["pattern_count"],
+            language_data[language]["has_extension"]
+        )
+        language_data[language]["confidence"] = confidence
+
     # Sort results to keep output consistent for testing
     return {
-        "languages": sorted(languages_found),
+        "languages": sorted(language_data.keys()),
         "frameworks": sorted(frameworks_found),
-        "pattern_matches": total_pattern_matches
+        "language_details": language_data
     }
 
 # Allows this file to be run directly in the terminal
@@ -164,8 +198,15 @@ if __name__ == "__main__":
         print(f"Languages detected: {', '.join(results['languages']) or 'None'}")
         print(f"Frameworks detected: {', '.join(results['frameworks']) or 'None'}")
 
-        # Show pattern match counts
-        if results['pattern_matches']:
-            print("\n=== Pattern Match Details ===")
-            for lang, count in sorted(results['pattern_matches'].items()):
-                print(f"{lang}: {count} pattern matches found")
+        # Show detailed information with confidence levels
+        if results['language_details']:
+            print("\n=== Language Confidence Details ===")
+            for lang in sorted(results['language_details'].keys()):
+                details = results['language_details'][lang]
+                confidence = details['confidence']
+                pattern_count = details['pattern_count']
+                has_ext = details['has_extension']
+
+                # Format output nicely
+                ext_indicator = " [Extension Match]" if has_ext else ""
+                print(f"{lang}: {confidence.upper()} confidence ({pattern_count} patterns){ext_indicator}")
