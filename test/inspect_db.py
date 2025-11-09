@@ -137,6 +137,32 @@ def main():
     else:
         print(' No scans to show details for')
 
+    # Skills exercised chronologically:
+    # We look at the earliest scan date where each skill was detected in a project.
+    # MIN(scanned_at) gives the first time that skill appeared in any scan.
+    # Sorting by first_seen shows a "timeline" of when skills were exercised.   
+    print_header('Skills Exercised (Chronologically)')
+    skill_rows = safe_query(cur, """
+        SELECT sk.name AS skill,
+               MIN(s.scanned_at) AS first_seen,
+               p.name AS project
+        FROM skills sk
+        JOIN project_skills ps ON sk.id = ps.skill_id
+        JOIN projects p ON ps.project_id = p.id
+        JOIN scans s ON s.project = p.name
+        GROUP BY sk.name, p.name
+        ORDER BY first_seen ASC
+    """)
+
+    if not skill_rows:
+        print(' No recorded skills')
+    else:
+        for r in skill_rows:
+            print(f"  {r['first_seen']} — {r['skill']} (project: {r['project']})")
+
+    
+    
+    
     conn.close()
 
 
