@@ -60,22 +60,28 @@ def _run_git_log(repo_root: str) -> List[str]:
 
 def canonical_username(name: str, email: str = "") -> str:
     """
-    Normalize author identity using email (preferred) or name.
-    Handles GitHub noreply addresses like 12345+username@users.noreply.github.com.
+    Automatically normalize author identity for any git repo.
+    - GitHub noreply emails: use the username part after '+'
+    - Regular emails: use local part before '@'
+    - Otherwise: use cleaned name
     """
+    base = None
+
     if email:
-        base = email.split("@")[0]
-        # Handle GitHub noreply pattern: '12345+username'
+        base = email.split("@")[0].lower()
+        # GitHub noreply emails like 12345+username@users.noreply.github.com
         match = re.match(r"\d+\+([a-z0-9-]+)", base)
         if match:
             base = match.group(1)
-    elif name:
-        base = name
-    else:
+    if not base and name:
+        base = name.lower()
+
+    if not base:
         return "unknown"
 
-    # Clean and lowercase
-    return re.sub(r"[^0-9a-z]+", "", base.strip().lower())
+    # remove non-alphanumeric characters
+    base = re.sub(r"[^0-9a-z]+", "", base.strip())
+    return base
 
 
 
@@ -123,7 +129,7 @@ def analyze_repo(path: str) -> Dict:
                 if project_end is None or dt > project_end:
                     project_end = dt
 
-                # ✅ Use canonical username for all metrics
+                #  Use canonical username for all metrics
                 current_author = canonical_username(author)
 
                 total_commits += 1
@@ -180,7 +186,7 @@ def analyze_repo(path: str) -> Dict:
 
 
 def pretty_print_metrics(metrics: Dict) -> None:
-    """Print a human-friendly summary of the metrics."""
+    """Print a human-friendly summary of the metrics, ignoring zero-commit authors."""
     print('Repository:', metrics.get('repo_root'))
     ps = metrics.get('project_start')
     pe = metrics.get('project_end')
@@ -188,26 +194,34 @@ def pretty_print_metrics(metrics: Dict) -> None:
     print('Duration (days):', metrics.get('duration_days'))
     print('Total commits:', metrics.get('total_commits'))
 
+    # Filter authors with commits > 0
+    commits = {a: c for a, c in metrics.get('commits_per_author', {}).items() if c > 0}
+    added = {a: c for a, c in metrics.get('lines_added_per_author', {}).items() if commits.get(a, 0) > 0}
+    removed = {a: c for a, c in metrics.get('lines_removed_per_author', {}).items() if commits.get(a, 0) > 0}
+    files = {a: f for a, f in metrics.get('files_changed_per_author', {}).items() if commits.get(a, 0) > 0}
+
     print('\nCommits per author:')
-    for a, c in sorted(metrics.get('commits_per_author', {}).items(), key=lambda x: -x[1]):
+    for a, c in sorted(commits.items(), key=lambda x: -x[1]):
         print(f'  {a}: {c}')
 
     print('\nLines added per author:')
-    for a, c in sorted(metrics.get('lines_added_per_author', {}).items(), key=lambda x: -x[1]):
+    for a, c in sorted(added.items(), key=lambda x: -x[1]):
         print(f'  {a}: +{c}')
 
     print('\nLines removed per author:')
-    for a, c in sorted(metrics.get('lines_removed_per_author', {}).items(), key=lambda x: -x[1]):
-        print(f'  {a}: -{c}')
+    for a, c in sorted(removed.items(), key=lambda x: -x[1]):
+        print(f'  {a}: {c}')  # already positive
 
     print('\nActivity counts by category (commits touching category):')
-    for cat, n in metrics.get('activity_counts_per_category', {}).items():
+    activity = {cat: n for cat, n in metrics.get('activity_counts_per_category', {}).items() if n > 0}
+    for cat, n in activity.items():
         print(f'  {cat}: {n}')
 
     print('\nCommits per week (recent 12):')
     weeks = sorted(metrics.get('commits_per_week', {}).items(), key=lambda x: x[0])
     for wk, cnt in weeks[-12:]:
-        print(f'  {wk}: {cnt}')
+        if cnt > 0:
+            print(f'  {wk}: {cnt}')
 
 
 if __name__ == '__main__':
