@@ -119,7 +119,7 @@ Tasks Completed:
 - Finished individual log 9
 - Finished peer reviews for week 9
 
-Week 9 Plans:
+Week 10 Plans:
 - Work on any bug fixes that come up
 - Discuss with team on how to distribute the last 2 milestones
 
@@ -131,5 +131,26 @@ Completed this week:
 
 To do:
 <img width="1887" height="440" alt="image" src="https://github.com/user-attachments/assets/90db28d4-41c9-429a-b5cf-5de06d250fa5" />
+
+# Tyler's Week 10 Personal Log (03-09 Nov.)
+
+Focus of the week was fixing the Outputting all key information gathered on a project and adding it to our scan.py file and orgainze the output into folders
+
+<img width="963" height="563" alt="image" src="https://github.com/user-attachments/assets/0f83fbfa-275f-44c4-af7d-7bd42bcbd590" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Added to scan.py to use project_info_output so it will be done in that file instead of its own(#137)
+- Modified output of the key information extractor so it adds them to a folder with folder names as the projects/files analyzed. (#137)
+- Reviewed teammates pull requests and code
+- Finished individual log 10
+- Finished peer reviews for week 10
+
+Week 11 Plans:
+- Work on any bug fixes that come up
+- Discuss with team on how to distribute the last ramining milestones
+
+<img width="1896" height="778" alt="image" src="https://github.com/user-attachments/assets/b2d131ba-1356-4acb-a8b8-1142066119df" />
 
 
