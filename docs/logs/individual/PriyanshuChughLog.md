@@ -143,6 +143,30 @@ Collaborate with teammates to clarify requirements and define measurable indicat
 
 
 
+# Week 10 Personal Log (Nov 3rd – Nov 9th)
+
+This week, I implemented the feature for sorting skills exercised chronologically. I updated inspect_db.py so the database can display each detected skill in time order, along with the project where it first appeared. This lets us show how a user’s skills evolve across project scans. I tested the feature by running scans with save_to_db=True and verifying that the chronological output was correct, including edge cases where no skills are present.
+I also spent time reviewing team pull requests,” Updated database functionality for all scanning functions” #131
+and “Fix: file count always 0 & add per-author file tracking in collaboration summary “#133
+Both reviews focused on verifying database consistency, preventing incorrect data in summary features, and making sure the new persistence layer supports upcoming analysis tools like this skills timeline. Overall, the week was productive and helped advance both stability and reporting features for the project.
+
+
+<img width="1028" height="605" alt="Screenshot 2025-11-09 at 6 16 35 PM" src="https://github.com/user-attachments/assets/affed10e-3fca-47a4-bdc6-b5673e5fb734" />
+
+## Tasks Completed
+-Implemented chronological skill tracking by updating inspect_db.py to list skills in the order they first appeared across scans (PR #135)
+-Tested new feature using multiple scan runs with save_to_db=True to verify correct ordering and fallback behavior
+-Reviewed Updated Database Functionality for All Scanning Functions (PR #131)
+-Reviewed Fix: file count always 0 & add per-author file tracking in collaboration summary (PR #133)
+-Updated personal log and ensured progress was reflected on project board
+
+<img width="1234" height="51" alt="Screenshot 2025-11-09 at 6 34 47 PM" src="https://github.com/user-attachments/assets/c60f1321-0f6b-4b0e-9373-9405601409a6" />
+
+
+## Plans for Week 11
+- Start modifying and improving past functions with suggestions of peers left on pull requests 
+- Continue reviewing teammate PRs 
+- Contribute to documentation updates
 
 
 
