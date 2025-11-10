@@ -133,3 +133,29 @@ Overall, the week went well, I made pretty good progress on my assigned issue, b
 - Add further test cases for collaboration detection and contribution metrics  
 - Continue reviewing PRs and verifying system integration before next milestone  
 - Contribute to documentation updates for contribution and collaboration modules
+
+---
+
+# Week 10 Personal Log (Nov 3rd – Nov 9th)
+
+This week i had some midterms so I focused on implementing a bug fix for my previous task related to the contribution summary. My fix (PR #133) refined the data handling and ensured that the contribution summary correctly reports the number of files changed and which specific files were modified per contributor. This update aligned the results with the latest database persistence changes and improved overall reporting accuracy. After applying the fix, all related tests passed successfully, confirming stable integration across modules. 
+
+In addition to the bug fix, I participated in peer code reviews for PR #131 (Database persistence integration) and PR #134 (File metadata handling improvements). These reviews focused on verifying data consistency, testing reliability, and adherence to project design standards. Overall, the week was productive in maintaining stability and supporting team progress toward our milestone, as are starting to deepen the analysis of out features
+
+<img width="1109" height="643" alt="Screenshot 2025-11-09 at 4 42 55 PM" src="https://github.com/user-attachments/assets/a8b1a43e-8a3a-4b59-aee6-e606d6a4424f" />
+
+## Tasks Completed
+ - Fixed incorrect summary output by ensuring correct reporting of file count and file names per contributor (PR #133) 
+- Reviewed **Database Funcionality update** (PR #131)
+- Reviewed **FLang/Framework detection revision** (PR #134)
+- Verified tests for contribution metrics and database schema compatibility  
+- Synced progress with project board and updated individual log  
+
+<img width="1238" height="140" alt="Screenshot 2025-11-09 at 5 47 06 PM" src="https://github.com/user-attachments/assets/638277fa-f83c-4c9a-ae4d-2622aa85b8c3" />
+
+
+## Plans for Week 11
+- Begin planning integration for project summary reporting feature (Issue #37)  
+- Continue reviewing teammate PRs ahead of Milestone 1 submission  
+- Contribute to documentation updates
+- Support final debugging and consistency checks across merged feature
