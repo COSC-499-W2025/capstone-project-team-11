@@ -15,14 +15,7 @@ import os
 import subprocess
 import datetime
 from collections import defaultdict, Counter
-from typing import Dict, List, Tuple
-import re
-
-# aliases map: canonical_key -> preferred display name
-ALIASES = {
-    'tylerc3042': 'Tyler Cummings',
-    'tylercummings': 'Tyler Cummings',
-}
+from typing import Dict, List
 import re
 
 
@@ -35,25 +28,16 @@ CATEGORY_MAP = {
 
 
 def classify_file(path: str) -> str:
-    """Return a category for a file path: 'test', 'code', 'docs', 'design', or 'other'.
-
-    Heuristics used:
-    - If the path contains a test directory ("/test/" or startswith "test_") or
-      filename matches common test patterns, mark as 'test'.
-    - Otherwise map by file extension to code/docs/design.
-    """
+    """Return a category for a file path: 'test', 'code', 'docs', 'design', or 'other'."""
     p = path.replace('\\', '/')
     fname = os.path.basename(p)
     lower = fname.lower()
-    if '/test/' in p or p.startswith('test_') or lower.startswith('test') or lower.endswith('_test.py') or '/tests/' in p:
+    if '/test/' in p or '/tests/' in p or lower.startswith('test') or lower.endswith('_test.py'):
         return 'test'
 
     ext = os.path.splitext(fname)[1].lower()
     for cat, exts in CATEGORY_MAP.items():
         if ext in exts:
-            # test-files are a subset of code extensions; we handled tests above
-            if cat == 'code':
-                return 'code'
             return cat
     return 'other'
 
@@ -74,23 +58,36 @@ def _run_git_log(repo_root: str) -> List[str]:
     return proc.stdout.splitlines()
 
 
-def analyze_repo(path: str) -> Dict:
-    """Analyze the git repo at `path` and return a metrics dict.
-
-    Metrics include:
-      - project_start (datetime), project_end (datetime), duration_days
-      - total_commits
-      - commits_per_author
-      - lines_added_per_author, lines_removed_per_author
-      - activity_counts_per_category (commits touching that category)
-      - commits_per_week (Counter mapping yyyy-WW -> count)
+def canonical_username(name: str, email: str = "") -> str:
     """
-    repo_root = os.path.abspath(path)
-    # ensure it's a git repo
-    if not os.path.isdir(os.path.join(repo_root, '.git')):
-        # allow .git being a file (worktrees); rely on git itself to fail if not a repo
-        pass
+    Automatically normalize author identity for any git repo.
+    - GitHub noreply emails: use the username part after '+'
+    - Regular emails: use local part before '@'
+    - Otherwise: use cleaned name
+    """
+    base = None
 
+    if email:
+        base = email.split("@")[0].lower()
+        # GitHub noreply emails like 12345+username@users.noreply.github.com
+        match = re.match(r"\d+\+([a-z0-9-]+)", base)
+        if match:
+            base = match.group(1)
+    if not base and name:
+        base = name.lower()
+
+    if not base:
+        return "unknown"
+
+    # remove non-alphanumeric characters
+    base = re.sub(r"[^0-9a-z]+", "", base.strip())
+    return base
+
+
+
+def analyze_repo(path: str) -> Dict:
+    """Analyze the git repo at `path` and return a metrics dict."""
+    repo_root = os.path.abspath(path)
     lines = _run_git_log(repo_root)
 
     project_start = None
@@ -110,24 +107,21 @@ def analyze_repo(path: str) -> Dict:
 
     for line in lines:
         if line.startswith('--GIT-COMMIT--'):
-            # New commit marker. Flush previous commit's touched categories (if any)
+            # flush previous commit
             if touched_categories and current_author:
                 for c in touched_categories:
                     activity_counts_per_category[c] += 1
-            # commit header follows on next line(s) but our format puts the payload after marker
             in_commit = True
-            # reset per-commit
             touched_categories = set()
             continue
+
         if in_commit and '|' in line:
-            # header line like <hash>|<author>|<date>
             parts = line.split('|')
             if len(parts) >= 3:
                 _, author, date_str = parts[0], parts[1].strip(), parts[2].strip()
                 try:
                     dt = datetime.datetime.fromisoformat(date_str)
                 except Exception:
-                    # fallback parse
                     dt = datetime.datetime.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S')
 
                 if project_start is None or dt < project_start:
@@ -135,34 +129,18 @@ def analyze_repo(path: str) -> Dict:
                 if project_end is None or dt > project_end:
                     project_end = dt
 
-                # normalize author names to merge obvious variants (hyphens, camelcase,
-                # punctuation, extra whitespace). This prevents duplicate entries like
-                # 'TannerDyck' and 'Tanner Dyck' or 'travis-frank' and 'Travis Frank'.
-                def normalize_author(name: str) -> str:
-                    if not name:
-                        return name
-                    # insert space before camelcase boundary: 'TannerDyck' -> 'Tanner Dyck'
-                    s = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
-                    # replace non-alphanumeric characters with space
-                    s = re.sub(r'[^0-9A-Za-z]+', ' ', s)
-                    # collapse whitespace and strip
-                    s = ' '.join(s.split()).strip()
-                    # title-case but preserve all-caps acronyms
-                    return s.title()
+                #  Use canonical username for all metrics
+                current_author = canonical_username(author)
 
-                normalized_author = normalize_author(author)
                 total_commits += 1
-                commits_per_author[normalized_author] += 1
-                current_author = normalized_author
+                commits_per_author[current_author] += 1
                 current_date = dt
-                # week key
+
                 week_key = f"{dt.isocalendar()[0]}-W{dt.isocalendar()[1]:02d}"
                 commits_per_week[week_key] += 1
-                # after header, following lines are numstat until next commit marker
                 in_commit = False
             continue
 
-        # numstat lines: added<TAB>removed<TAB>path
         parts = line.split('\t')
         if len(parts) == 3 and current_author:
             added, removed, fpath = parts
@@ -181,92 +159,69 @@ def analyze_repo(path: str) -> Dict:
 
             category = classify_file(fpath)
             touched_categories.add(category)
-            # continue to next numstat
             continue
 
-        # other lines are ignored; we purposely don't flush here because we
-        # flush when we encounter the next commit marker (above) or at loop end.
-
-    duration_days = None
     if project_start and project_end:
         duration_days = (project_end - project_start).days
+    else:
+        duration_days = None
 
-    # flush last commit's categories (if any)
     if touched_categories and current_author:
         for c in touched_categories:
             activity_counts_per_category[c] += 1
 
-    # apply alias merging based on canonical keys (strip non-alnum, lowercase)
-    def canonical_key(name: str) -> str:
-        return re.sub(r'[^0-9A-Za-z]+', '', name).lower()
-
-    merged_commits = {}
-    for author, cnt in commits_per_author.items():
-        key = canonical_key(author)
-        display = ALIASES.get(key, author)
-        merged_commits[display] = merged_commits.get(display, 0) + cnt
-
-    merged_lines_added = {}
-    for author, cnt in lines_added_per_author.items():
-        key = canonical_key(author)
-        display = ALIASES.get(key, author)
-        merged_lines_added[display] = merged_lines_added.get(display, 0) + cnt
-
-    merged_lines_removed = {}
-    for author, cnt in lines_removed_per_author.items():
-        key = canonical_key(author)
-        display = ALIASES.get(key, author)
-        merged_lines_removed[display] = merged_lines_removed.get(display, 0) + cnt
-
-    merged_files_changed = defaultdict(set)
-    for author, files in files_changed_per_author.items():
-        key = canonical_key(author)
-        display = ALIASES.get(key, author)
-        merged_files_changed[display].update(files)
-        
     return {
         'repo_root': repo_root,
         'project_start': project_start,
         'project_end': project_end,
         'duration_days': duration_days,
         'total_commits': total_commits,
-        'commits_per_author': merged_commits,
-        'lines_added_per_author': merged_lines_added,
-        'lines_removed_per_author': merged_lines_removed,
+        'commits_per_author': dict(commits_per_author),
+        'lines_added_per_author': dict(lines_added_per_author),
+        'lines_removed_per_author': dict(lines_removed_per_author),
         'activity_counts_per_category': dict(activity_counts_per_category),
         'commits_per_week': dict(commits_per_week),
-        'files_changed_per_author': {a: sorted(list(f)) for a, f in merged_files_changed.items()},
+        'files_changed_per_author': {a: sorted(list(f)) for a, f in files_changed_per_author.items()},
     }
 
 
 def pretty_print_metrics(metrics: Dict) -> None:
-    """Print a human-friendly summary of the metrics."""
+    """Print a human-friendly summary of the metrics, ignoring zero-commit authors."""
     print('Repository:', metrics.get('repo_root'))
     ps = metrics.get('project_start')
     pe = metrics.get('project_end')
     print('Project period:', f"{ps} -> {pe}")
     print('Duration (days):', metrics.get('duration_days'))
     print('Total commits:', metrics.get('total_commits'))
+
+    # Filter authors with commits > 0
+    commits = {a: c for a, c in metrics.get('commits_per_author', {}).items() if c > 0}
+    added = {a: c for a, c in metrics.get('lines_added_per_author', {}).items() if commits.get(a, 0) > 0}
+    removed = {a: c for a, c in metrics.get('lines_removed_per_author', {}).items() if commits.get(a, 0) > 0}
+    files = {a: f for a, f in metrics.get('files_changed_per_author', {}).items() if commits.get(a, 0) > 0}
+
     print('\nCommits per author:')
-    for a, c in sorted(metrics.get('commits_per_author', {}).items(), key=lambda x: -x[1]):
+    for a, c in sorted(commits.items(), key=lambda x: -x[1]):
         print(f'  {a}: {c}')
 
     print('\nLines added per author:')
-    for a, c in sorted(metrics.get('lines_added_per_author', {}).items(), key=lambda x: -x[1]):
+    for a, c in sorted(added.items(), key=lambda x: -x[1]):
         print(f'  {a}: +{c}')
 
     print('\nLines removed per author:')
-    for a, c in sorted(metrics.get('lines_removed_per_author', {}).items(), key=lambda x: -x[1]):
-        print(f'  {a}: -{c}')
+    for a, c in sorted(removed.items(), key=lambda x: -x[1]):
+        print(f'  {a}: {c}')  # already positive
 
     print('\nActivity counts by category (commits touching category):')
-    for cat, n in metrics.get('activity_counts_per_category', {}).items():
+    activity = {cat: n for cat, n in metrics.get('activity_counts_per_category', {}).items() if n > 0}
+    for cat, n in activity.items():
         print(f'  {cat}: {n}')
 
     print('\nCommits per week (recent 12):')
     weeks = sorted(metrics.get('commits_per_week', {}).items(), key=lambda x: x[0])
     for wk, cnt in weeks[-12:]:
-        print(f'  {wk}: {cnt}')
+        if cnt > 0:
+            print(f'  {wk}: {cnt}')
 
 
 if __name__ == '__main__':

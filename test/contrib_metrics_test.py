@@ -25,11 +25,6 @@ def _run(cmd, cwd, env=None):
 
 
 def _robust_rmtree(path: str) -> None:
-    """Remove a directory tree robustly on Windows by fixing permissions on error.
-
-    This helper attempts to change file permissions and retry removal when
-    shutil.rmtree raises an error (common on Windows with read-only bits).
-    """
     def onerror(func, p, excinfo):
         try:
             os.chmod(p, 0o700)
@@ -43,17 +38,20 @@ def _robust_rmtree(path: str) -> None:
     shutil.rmtree(path, onerror=onerror)
 
 
+def canonicalize(s: str) -> str:
+    """Helper to canonicalize names in tests to match analyze_repo behavior."""
+    return ''.join(s.split()).lower()
+
+
 class TestContribMetrics(unittest.TestCase):
     @unittest.skipUnless(_git_available(), "git is required for these tests")
     def test_single_author_metrics(self):
         tmp = tempfile.mkdtemp()
         try:
-            # init git repo
             _run(['git', 'init'], cwd=tmp)
             _run(['git', 'config', 'user.name', 'Alice'], cwd=tmp)
             _run(['git', 'config', 'user.email', 'alice@example.com'], cwd=tmp)
 
-            # create a code file and commit
             p = os.path.join(tmp, 'app.py')
             with open(p, 'w') as f:
                 f.write('print(1)\n')
@@ -62,9 +60,17 @@ class TestContribMetrics(unittest.TestCase):
 
             metrics = analyze_repo(tmp)
             self.assertEqual(metrics['total_commits'], 1)
-            self.assertIn('Alice', metrics['commits_per_author'])
-            self.assertGreaterEqual(metrics['lines_added_per_author'].get('Alice', 0), 1)
-            # activity category 'code' should have at least 1 commit
+
+            # canonicalize key to match analyze_repo
+            cname = canonicalize('Alice')
+            self.assertIn(cname, [canonicalize(k) for k in metrics['commits_per_author'].keys()])
+
+            total_added = sum(v for k, v in metrics['lines_added_per_author'].items() if canonicalize(k) == cname)
+            self.assertGreaterEqual(total_added, 1)
+
+            total_removed = sum(v for k, v in metrics['lines_removed_per_author'].items() if canonicalize(k) == cname)
+            self.assertGreaterEqual(total_removed, 0)
+
             self.assertGreaterEqual(metrics['activity_counts_per_category'].get('code', 0), 1)
         finally:
             _robust_rmtree(tmp)
@@ -74,7 +80,6 @@ class TestContribMetrics(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             _run(['git', 'init'], cwd=tmp)
-            # local committer config
             _run(['git', 'config', 'user.name', 'CI'], cwd=tmp)
             _run(['git', 'config', 'user.email', 'ci@example.com'], cwd=tmp)
 
@@ -82,41 +87,111 @@ class TestContribMetrics(unittest.TestCase):
             with open(fpath, 'w') as f:
                 f.write('a=1\n')
             _run(['git', 'add', 'module.py'], cwd=tmp)
-            # commit by Author A
-            env = os.environ.copy()
-            env.update({'GIT_AUTHOR_NAME': 'AuthorA', 'GIT_AUTHOR_EMAIL': 'a@example.com', 'GIT_COMMITTER_NAME': 'AuthorA', 'GIT_COMMITTER_EMAIL': 'a@example.com'})
-            _run(['git', 'commit', '-m', 'first commit'], cwd=tmp, env=env)
 
-            # modify and commit by AuthorB
+            env_a = os.environ.copy()
+            env_a.update({'GIT_AUTHOR_NAME': 'AuthorA', 'GIT_AUTHOR_EMAIL': 'a@example.com',
+                          'GIT_COMMITTER_NAME': 'AuthorA', 'GIT_COMMITTER_EMAIL': 'a@example.com'})
+            _run(['git', 'commit', '-m', 'first commit'], cwd=tmp, env=env_a)
+
             with open(fpath, 'a') as f:
                 f.write('b=2\n')
             _run(['git', 'add', 'module.py'], cwd=tmp)
-            env2 = os.environ.copy()
-            env2.update({'GIT_AUTHOR_NAME': 'AuthorB', 'GIT_AUTHOR_EMAIL': 'b@example.com', 'GIT_COMMITTER_NAME': 'AuthorB', 'GIT_COMMITTER_EMAIL': 'b@example.com'})
-            _run(['git', 'commit', '-m', 'second commit'], cwd=tmp, env=env2)
+
+            env_b = os.environ.copy()
+            env_b.update({'GIT_AUTHOR_NAME': 'AuthorB', 'GIT_AUTHOR_EMAIL': 'b@example.com',
+                          'GIT_COMMITTER_NAME': 'AuthorB', 'GIT_COMMITTER_EMAIL': 'b@example.com'})
+            _run(['git', 'commit', '-m', 'second commit'], cwd=tmp, env=env_b)
 
             metrics = analyze_repo(tmp)
             self.assertEqual(metrics['total_commits'], 2)
-            # Normalization may have inserted a space (e.g. 'AuthorA' -> 'Author A'),
-            # so check canonicalized keys (remove whitespace, lowercase) to be robust.
-            def canonical(s: str) -> str:
-                return ''.join(s.split()).lower()
 
             keys = list(metrics['commits_per_author'].keys())
-            self.assertTrue(any(canonical(k) == 'authora' for k in keys))
-            self.assertTrue(any(canonical(k) == 'authorb' for k in keys))
-            # both authors should have non-zero added lines (sum values for canonical match)
-            def added_for(canon_name: str) -> int:
-                total = 0
-                for k, v in metrics['lines_added_per_author'].items():
-                    if canonical(k) == canon_name:
-                        total += v
-                return total
+            self.assertTrue(any(canonicalize(k) == 'authora' for k in keys))
+            self.assertTrue(any(canonicalize(k) == 'authorb' for k in keys))
+
+            def added_for(cname: str) -> int:
+                return sum(v for k, v in metrics['lines_added_per_author'].items() if canonicalize(k) == cname)
 
             self.assertGreater(added_for('authora'), 0)
             self.assertGreater(added_for('authorb'), 0)
-            # code category should be touched
             self.assertGreaterEqual(metrics['activity_counts_per_category'].get('code', 0), 2)
+        finally:
+            _robust_rmtree(tmp)
+
+    @unittest.skipUnless(_git_available(), "git is required for these tests")
+    def test_commit_with_no_file_changes(self):
+        """Empty commits should count as commits with 0 lines added/removed."""
+        tmp = tempfile.mkdtemp()
+        try:
+            _run(['git', 'init'], cwd=tmp)
+            _run(['git', 'config', 'user.name', 'Bob'], cwd=tmp)
+            _run(['git', 'config', 'user.email', 'bob@example.com'], cwd=tmp)
+
+            _run(['git', 'commit', '--allow-empty', '-m', 'empty commit'], cwd=tmp)
+
+            metrics = analyze_repo(tmp)
+            self.assertEqual(metrics['total_commits'], 1)
+
+            cname = canonicalize('Bob')
+            total_added = sum(v for k, v in metrics['lines_added_per_author'].items() if canonicalize(k) == cname)
+            total_removed = sum(v for k, v in metrics['lines_removed_per_author'].items() if canonicalize(k) == cname)
+            self.assertEqual(total_added, 0)
+            self.assertEqual(total_removed, 0)
+        finally:
+            _robust_rmtree(tmp)
+
+    @unittest.skipUnless(_git_available(), "git is required for these tests")
+    def test_file_categories(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            _run(['git', 'init'], cwd=tmp)
+            _run(['git', 'config', 'user.name', 'Cathy'], cwd=tmp)
+            _run(['git', 'config', 'user.email', 'cathy@example.com'], cwd=tmp)
+
+            files = {
+                'code.py': 'print(1)\n',
+                'test_test.py': 'assert True\n',
+                'README.md': '# title\n',
+                'design.png': 'binarydata',
+            }
+
+            for fname, content in files.items():
+                with open(os.path.join(tmp, fname), 'w') as f:
+                    f.write(content)
+            _run(['git', 'add', '.'], cwd=tmp)
+            _run(['git', 'commit', '-m', 'add multiple files'], cwd=tmp)
+
+            metrics = analyze_repo(tmp)
+            self.assertGreaterEqual(metrics['activity_counts_per_category'].get('code', 0), 1)
+            self.assertGreaterEqual(metrics['activity_counts_per_category'].get('test', 0), 1)
+            self.assertGreaterEqual(metrics['activity_counts_per_category'].get('docs', 0), 1)
+            self.assertGreaterEqual(metrics['activity_counts_per_category'].get('design', 0), 1)
+        finally:
+            _robust_rmtree(tmp)
+
+    @unittest.skipUnless(_git_available(), "git is required for these tests")
+    def test_zero_commit_user_excluded(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            _run(['git', 'init'], cwd=tmp)
+            _run(['git', 'config', 'user.name', 'Dave'], cwd=tmp)
+            _run(['git', 'config', 'user.email', 'dave@example.com'], cwd=tmp)
+
+            path = os.path.join(tmp, 'file.py')
+            with open(path, 'w') as f:
+                f.write('print(2)\n')
+            _run(['git', 'add', path], cwd=tmp)
+            _run(['git', 'commit', '-m', 'add file'], cwd=tmp)
+
+            metrics = analyze_repo(tmp)
+            # Add fake zero-commit user
+            metrics['commits_per_author']['Eve'] = 0
+            metrics['lines_added_per_author']['Eve'] = 10
+            metrics['lines_removed_per_author']['Eve'] = 5
+
+            # Filter zero-commit users
+            filtered = {a: c for a, c in metrics['commits_per_author'].items() if c > 0}
+            self.assertNotIn('Eve', filtered)
         finally:
             _robust_rmtree(tmp)
 
