@@ -119,3 +119,28 @@ I will be very busy with several midterms this week so I will be a little limite
 
 I will also continue to help review prs and complete my logs. 
 
+
+# Week 10 (November 3rd - November 9th)
+
+<img width="1598" height="904" alt="image" src="https://github.com/user-attachments/assets/946eddbb-63f0-4a30-a65b-0fd9b7ce04b4" />
+
+## Tasks completed
+- Reworked the contribtuion metrics to try and create a robust consistent naming conventions for users in a github repository.
+- Added a function canonical_username which automatically normalizes author identity for any git repo.
+- I added a feature which does not display an author of a github repo if they have 0 commits.
+- Added more tests for contribution metrics
+  -  test_commit_with_no_file_changes: Commits that make no file changes (empty commits)
+  -  test_file_categories: Files in different categories: code, test, docs, design
+  -  test_zero_commit_user_excluded: Users with zero commits added manually
+- Reviewed Tyler's code and pr
+- Individual logs
+
+
+## Reflection
+Overall this was less of a productive week for myself and for some other team members due to business from other classes. We communicated well and were honest with what realistic task we could get done this week and we stuck to that plan well. Nevertheless, I probably could have tried to set aside a little more time to work and my pull request was a little last minute on a Sunday. Nonetheless, I think we had a good week considering the factors outside of this course.
+
+
+## Week 11-12 Plans:
+The next sprint will be important going forward since our milestone 1 demo is coming up shortly. During this week I would like to get started working on the ranking of projects based on importance. This will be a big tasks that will need to be done in order to further enhance the project. 
+
+
