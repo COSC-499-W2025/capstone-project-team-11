@@ -83,3 +83,79 @@ This week, I focused on documentation and progress tracking for our milestone de
 - Continue supporting integration and testing efforts across modules
 
 ---
+
+# Week 8 Personal Log (Oct 20th – Oct 26th)
+
+This week I focused on implementing a new feature that validates file formats during directory and zip file scans. The update integrates the `is_valid_format` function into `scan.py`, ensuring that only supported file types are processed while unsupported ones are skipped with clear messages. I also added unit tests to verify correct behavior across valid, invalid, and edge-case filenames. In addition I continued contributing to code quality by reviewing teammates’ PRs and ensuring consistency across our testing and documentation standards.
+
+<img width="1094" height="630" alt="Screenshot 2025-10-26 at 3 42 39 PM" src="https://github.com/user-attachments/assets/48374d91-4fc0-4e8b-88b7-68e3c7e824ae" />
+
+## Tasks Completed
+
+- Implemented **File Format Validation** feature and tests (Issue #23, PR #92)  
+- Reviewed **Reusable User Consent Module** (Issue #21, PR #84)  
+- Reviewed **Data Access Consent Updates & Unit Tests** (Issue #21, PR #86)  
+- Reviewed **Collaboration Detection Feature** (Issue #27, PR #87)  
+- Updated individual log and synced progress with the project board
+
+<img width="1099" height="145" alt="Screenshot 2025-10-26 at 3 48 02 PM" src="https://github.com/user-attachments/assets/efa42e86-171e-4f5a-8be1-d431410d5c8c" />
+
+## Plans for Week 9
+- After review of my code is finished and merged, i will look to implement issue #29: "Identify Individual Contributions Within a Collaborative Project"
+- Help verify system-wide functionality with current features implemented
+- Continue reviewing PRs
+- Refine documentation for scanning and validation workflows  
+
+---
+
+# Week 9 Personal Log (Oct 27th – Nov 2nd)
+
+This week I began implementing **Issue #29: Identify Individual Contributions Within a Collaborative Project**, which focuses on mapping file authorship and contributions across Git repositories. I also reviewed **PR #107** (Development bug fixes) and **PR #109** (Issue #19: Solve Projects Chronologically), providing feedback to ensure smooth functionality and consistent testing coverage. In addition, I resolved merge conflicts between the **Contribution Metrics** feature branch and the **Development** branch to maintain alignment across ongoing feature work. Lastly, I completed my individual log for this cycle.
+
+Overall, the week went well, I made pretty good progress on my assigned issue, but had to spend time refacotring after other pushes. All tests ran successfully after the merge. However, resolving the couple merge conflicts highlighted the need for clearer team communication about where and when changes are being made in the repository. Improving coordination will help prevent overlapping edits and make integration smoother in future cycles. I also learned more about how different features interact across modules, which will help with upcoming implementation work.
+
+<img width="1068" height="619" alt="Screenshot 2025-11-02 at 10 38 19 PM" src="https://github.com/user-attachments/assets/e2c6104a-1f3d-4763-8170-597a01b045d6" />
+
+## Tasks Completed
+
+- Implemented **Issue #29: Identify Individual Contributions Within a Collaborative Project**  
+- Reviewed **PR #107 (Development bug fixes)**  
+- Reviewed **PR #109 (Issue #19 – Solve Projects Chronologically)**  
+- Fixed merge conflict between **Contribution Metrics feature** and **Development branch** (PR #109, Issue #10)  
+- Completed individual log for this cycle
+- Minor bug fixes on my Issue#23 from last week fixing module import error in test suite
+
+<img width="1275" height="154" alt="Screenshot 2025-11-02 at 5 37 15 PM" src="https://github.com/user-attachments/assets/c0f7708f-6d55-4760-85af-184bc3431ca3" />
+
+## Plans for Week 10
+- Begin implementation of **Issue #37: Summarize the User’s Top-Ranked Projects**  
+- Go over and apply small fixes and refinements in **Issue #29**  
+- Add further test cases for collaboration detection and contribution metrics  
+- Continue reviewing PRs and verifying system integration before next milestone  
+- Contribute to documentation updates for contribution and collaboration modules
+
+---
+
+# Week 10 Personal Log (Nov 3rd – Nov 9th)
+
+This week i had some midterms so I focused on implementing a bug fix for my previous task related to the contribution summary. My fix (PR #133) refined the data handling and ensured that the contribution summary correctly reports the number of files changed and which specific files were modified per contributor. This update aligned the results with the latest database persistence changes and improved overall reporting accuracy. After applying the fix, all related tests passed successfully, confirming stable integration across modules. 
+
+In addition to the bug fix, I participated in peer code reviews for PR #131 (Database persistence integration) and PR #134 (File metadata handling improvements). These reviews focused on verifying data consistency, testing reliability, and adherence to project design standards. Overall, the week was productive in maintaining stability and supporting team progress toward our milestone, as are starting to deepen the analysis of out features
+
+<img width="1109" height="643" alt="Screenshot 2025-11-09 at 4 42 55 PM" src="https://github.com/user-attachments/assets/a8b1a43e-8a3a-4b59-aee6-e606d6a4424f" />
+
+## Tasks Completed
+ - Fixed incorrect summary output by ensuring correct reporting of file count and file names per contributor (PR #133) 
+- Reviewed **Database Funcionality update** (PR #131)
+- Reviewed **FLang/Framework detection revision** (PR #134)
+- Verified tests for contribution metrics and database schema compatibility  
+- Synced progress with project board and updated individual log  
+
+<img width="1238" height="140" alt="Screenshot 2025-11-09 at 5 47 06 PM" src="https://github.com/user-attachments/assets/638277fa-f83c-4c9a-ae4d-2622aa85b8c3" />
+
+
+## Plans for Week 11
+- Begin planning integration for project summary reporting feature (Issue #37)  
+- Continue reviewing teammate PRs ahead of Milestone 1 submission  
+- Contribute to documentation updates
+- Support final debugging and consistency checks across merged feature

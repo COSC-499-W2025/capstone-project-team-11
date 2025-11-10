@@ -127,3 +127,85 @@ I believe another teammate is planning on getting our database operational next 
 ## Kanban Board at End of Week #8
 
 <img width="2529" height="1193" alt="week8-kanban" src="https://github.com/user-attachments/assets/7a0da033-c9ab-493f-9490-51ad6e736ecf" />
+
+# Week #9 - October 27th - November 2nd
+
+<img width="699" height="538" alt="week9-tasks" src="https://github.com/user-attachments/assets/57aebefd-793b-429d-92d6-63f3544df3af" />
+
+## Tasks Completed:
+My main focus this week was on fixing bugs and inconsistencies that I found after all of our Week 8 implementations were finalized. I performed thorough testing of our program by running a plethora of scans with unique scan settings across multiple unique projects. I was able to compile the following list of issues to be prioritized:
+- Should ask if user wants to save scan settings AFTER user gives response to "show collaboration info", NOT before.
+- If a specific file type filter has been saved from a previous scan (.py, .json, .txt, etc.), leaving it blank on the next scan (to not filter by file types) and selecting to save the info, does not overwrite the saved file type filter by making it null/none/empty. (Essentially, config.json's file_type field does not seem to be able to be overwritten back to null, but can be overwritten with new explicit file extensions).
+- All yes/no prompts could be remade using the ask_yes_no() function from consent.py for consistency.
+- Users should not be prompted to reuse scan settings from last time if they have not scanned before (ie. the config.json has its default values).
+
+I then implemented fixes for a series of similar bugs/inconsistencies that appeared after the implementations from this week (Week 9):
+- Show contribution metrics choice does not save from the previous scan when the user chooses to save scan settings (add field to config.json and ensure saving/overwriting works properly).
+- Show contribution summary choice does not save from the previous scan when the user chooses to save scan settings (add field to config.json and ensure saving/overwriting works properly).
+- Fix if-condition logic on a line within scan.py that reads "if file_type is not None or file_type == None:", essentially always running it's code block. The issue came from an oversight and from being too overcautious with what scan setting values are able to be saved.
+- Update config_tests.py unit tests to ensure they cover the two additional fields I added to config.json.
+- One complete overpass to ensure that any yes/no prompt asked in the terminal should be asked before the "save settings for next time" prompt, and that each yes/no question has a boolean field in the user's config.
+
+*All implementations of fixes to the bugs listed above are explained more thoroughly in PR templates #107 and #120
+
+In addition to these bug fixes, I performed my usual responsibilities of:
+- Attending TA check-in lecture
+- Communicating regularly throughout the week in our Discord server and describing my fixes to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log updates as necessary
+- Completing both my individual log and peer review for week 9
+
+## Next Week (Week #10)
+In terms of new features, I still need to tackle issue #24: (4. Request User Permission Before Use Of External Services), however, we are still not using any third-party services in our scanner. I have already created an empty template to solve this issue, but in order to make it truly valuable, I hope to look into the implementation of an LLM at least at a basic-level. The group is still unsure if LLM integration is worth it at this point, so in case it is not required, I would like to shift my focus to the following:
+
+We are quickly running out of deliverables to work on for milestone 1. So I think it is important for us to start looking backwards at what we have already implemented and giving our features more depth, accuracy, consistency, and stability. Some of our implementations serve as excellent first revisions, but could become more useful with future revisions. More specifically, I would like to re-examine language and framework identification to see if we can come up with a solution that actively parses files in search of more nuanced words that may be able to provide more accurate results. I also feel I need to get a better handle on how our database implementation works, and potentially add additional fields to the schema to accommodate information we are now able to store after the past two weeks of feature implementations.
+
+## Kanban Board at End of Week #9
+
+<img width="1301" height="1220" alt="week9-kanban" src="https://github.com/user-attachments/assets/d92de0e2-69d1-44bf-bf7c-56d73f8cc2e8" />
+
+# Week #10 - November 3rd - 9th
+
+<img width="1075" height="630" alt="week10-tasks" src="https://github.com/user-attachments/assets/d1f6a592-7948-4b61-a728-9b44331182fa" />
+
+## Tasks Completed:
+I would like to preface this week's contributions by noting that the majority of the team was busy with midterms and other projects being due, so it was a slower week than usual, myself included. I was rather preoccupied with a game design project worth 40% of my final grade. It is not an excuse; I just hope it helps explain why I contributed less this week than in prior weeks.
+
+Regardless, my main focus this week was on revamping our scanner's ability to detect coding languages/frameworks in coding projects. Our first revision relied solely on file extensions to detect languages, so this week, I implemented file reading in hopes of creating a more comprehensive detection process. I implemented the following changes to work alongside this new infrastructure:
+
+Within detect_langs.py:
+a) Programming Language Syntax Patterns:
+- Added LANGUAGE_PATTERNS dictionary with regex for 5 initial languages (to be expanded upon later)
+- Created scan_file_content() to count pattern matches in files (actually reads files to search for specific language patterns)
+- Now uses file extension-checking ALONGSIDE syntax pattern-checking for hopefully, improved accuracy (Still fairly inaccurate at the moment)
+- Outputs pattern match counts to the terminal for transparency purposes
+
+b) Detection Confidence Levels:
+*My hopes are that these confidence levels will help users weed out any false positives generated by our scanner, as well as just generally provide more transparency and insights around how we are detecting languages and frameworks within coding projects.
+- Created calculate_confidence() with a three-tier system (low/medium/high)
+- Tracks pattern counts and extension matches per language
+- Calculates confidence based on pattern count and extension presence
+- Updated output to display confidence levels
+
+c) Expansion of Supported Programming Language Syntax Patterns:
+- Added regex patterns for C, C#, Ruby, PHP, Go, Rust, Swift, Kotlin, SQL, Shell Script, HTML, and CSS, to bring it more in-line with our original list of detectable languages
+- Each language has 4-5 distinctive syntax patterns
+
+In addition to these bug fixes, I performed my usual responsibilities of:
+- Attending TA check-in lecture
+- Communicating regularly throughout the week in our Discord server and describing my fixes to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log updates as necessary
+- Completing both my individual log and peer review for week 10
+
+- I also completed the team log for week 10
+
+See my PR "First Round of Revisions to Language/Framework Detection Feature" #134 for more details around the inaccuracies of my changes from this week. But I would like to acknowledge that the "Detect languages/frameworks in coding projects" feature, as it currently stands (after my changes), has numerous issues with accuracy. It is by no means in a finished state, it is stable, and functions withour any critical errors, but due to issues in my REGEX patterns for various coding language syntaxes, many false-positives are discovered. In my PR mentioned above, I suggested fixes for many of these issues that I hope to implement in the next week or two. 
+
+## Reflection Points
+I feel like things went well this week. We spoke in the Discord server before our TA check-in meeting this week and touched base about what we planned on working on. Most members mentioned they were going to be swamped this week with other tasks, so we all understood that this would be a lighter week for contributions. We had a good in-person meeting during the TA check-in and were able to organize tasks for the week. We all completed our tasks on the days we said we would have them done by. I have no gripes about how this past sprint went.
+
+## Next Week (Week #11)
+Next week is Reading Break, and I have yet to discuss with the team what our planned contributions are for week 11, but I am loosely planning on pushing some additional improvements for the "Detect languages/frameworks" feature I worked on this week (As I have outlined plans for a bunch of potential improvements already, so I will have a good jumping-off point). I will touch base with the team tomorrow and make sure we are all on the same page about what we would like to have done during Reading Break.
+
+## Kanban Board at End of Week #10
+
+<img width="1211" height="886" alt="week10-kanban" src="https://github.com/user-attachments/assets/0b11cf1b-42ad-43b0-97c9-dbb154e63c95" />

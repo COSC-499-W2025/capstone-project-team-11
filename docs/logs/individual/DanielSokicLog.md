@@ -1,4 +1,4 @@
-<img width="814" height="474" alt="image" src="https://github.com/user-attachments/assets/f2ac0dc3-a5b0-49e7-855e-4005e518a606" /># Week 3 Personal Log (15th-21st of September)
+# Week 3 Personal Log (15th-21st of September)
 
 The main focus of this week was creating some requirements for our project as well as creating the repository. 
 
@@ -74,5 +74,73 @@ I have been involved with the following tasks either alone or helping my other c
 - Return errors for incorrect file types (issue #23)
 <img width="1884" height="708" alt="image" src="https://github.com/user-attachments/assets/c9a9e0f4-3801-45ac-9a36-14645505a189" />
 
+
+
+# Week 8 (October 20th - October 26th)
+<img width="1610" height="924" alt="image" src="https://github.com/user-attachments/assets/44760cb3-06c0-4233-ba64-afbff1311533" />
+
+## Tasks Completed:
+- Determine if projects are collaborative or individual. Added code in scan.py that determines if a scanned folder is a git repo, if it is then it lists the authors alongside every file that they worked on which also works on zipped files. If it is an individual folder (ie. not a git repo) then it displayhs unknown author next to each file. (Issue #27)
+- Added tests for the collaboration feature.
+- Reviewed code for file format validation (Issue #23)
+- Completed the team log for week 8
+- Completed individual logs for week 8
+
+## Week 9 Plans:
+- I will look into issue #29: "Identify Individual Contributions Within a Collaborative Project" alongside Travis by helping him since I started the identification of collaborative projects.
+- Look into issue #30: "Extract key contribution metrics within a project"
+- Continue to review PRs.
+- Help verify system-wide functionality with current features implemented.
+
+
+
+# Week 9 (October 27th - November 2nd)
+
+<img width="790" height="466" alt="image" src="https://github.com/user-attachments/assets/c2e0e25d-3b1f-4ca3-ade1-b2a5fab9460c" />
+
+
+## Tasks Completed
+- Added contribution metrics extraction and printing (issue #30)
+  - project start/end/duration.
+  - total commits and commits-per-author
+  - lines added/removed per author
+  - activity counts by category (code/test/docs/design)
+  - commits-per-week
+- Tests for contribution metrics
+  - contrib_metrics.py: new/modified logic (parsing, flush at commit boundaries, name normalization)
+  - contrib_metrics_test.py: new tests, robust cleanup, resilient assertions
+- Reviewed and approved code for extracting skills from a scan (issue #31)
+- Individual logs
+
+## Week 10 plans
+I will be very busy with several midterms this week so I will be a little limited with the work I can do however, I will continue to improve contribution metrics in order to fix the following bugs:
+- Collaboration data does not save from previous scan when user saves info
+- Contribution metrics do not save from previous scan when user saves info
+
+I will also continue to help review prs and complete my logs. 
+
+
+# Week 10 (November 3rd - November 9th)
+
+<img width="1598" height="904" alt="image" src="https://github.com/user-attachments/assets/946eddbb-63f0-4a30-a65b-0fd9b7ce04b4" />
+
+## Tasks completed
+- Reworked the contribtuion metrics to try and create a robust consistent naming conventions for users in a github repository.
+- Added a function canonical_username which automatically normalizes author identity for any git repo.
+- I added a feature which does not display an author of a github repo if they have 0 commits.
+- Added more tests for contribution metrics
+  -  test_commit_with_no_file_changes: Commits that make no file changes (empty commits)
+  -  test_file_categories: Files in different categories: code, test, docs, design
+  -  test_zero_commit_user_excluded: Users with zero commits added manually
+- Reviewed Tyler's code and pr
+- Individual logs
+
+
+## Reflection
+Overall this was less of a productive week for myself and for some other team members due to business from other classes. We communicated well and were honest with what realistic task we could get done this week and we stuck to that plan well. Nevertheless, I probably could have tried to set aside a little more time to work and my pull request was a little last minute on a Sunday. Nonetheless, I think we had a good week considering the factors outside of this course.
+
+
+## Week 11-12 Plans:
+The next sprint will be important going forward since our milestone 1 demo is coming up shortly. During this week I would like to get started working on the ranking of projects based on importance. This will be a big tasks that will need to be done in order to further enhance the project. 
 
 

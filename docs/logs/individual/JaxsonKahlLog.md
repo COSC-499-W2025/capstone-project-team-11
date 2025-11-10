@@ -86,6 +86,125 @@ The week we focused on updating our system diagrams to reflect the final require
 
 <img width="1884" height="708" alt="Screenshot 2025-10-19 at 4 50 11 PM" src="https://github.com/user-attachments/assets/dd44a6ab-9613-4a34-80e6-26cf662c38b4" />
 
+# Week 8 Personal Logs (20th - 26th of October)
+<img width="950" height="555" alt="Screenshot 2025-10-26 at 7 05 29 PM" src="https://github.com/user-attachments/assets/e84d1bb0-86af-47f7-9246-b1f4e32914f6" />
+
+## Tasks Completed:
+This week, I focused on expanding the scanner’s capabilities to include .zip and nested .zip file handling while maintaining compatibility with existing directory scans.
+- Closed issue #83
+
+Additions and Features:
+- Zip File Support: The scanner can now process .zip archives in addition to directories. When a zip file is provided, its contents are listed and analyzed as if they were normal files.
+- Nested Zip Handling: With recursive mode enabled, the scanner automatically descends into nested .zip archives (e.g., outer.zip:inner.zip:file.txt) using in-memory extraction via BytesIO.
+- File Type Filtering: The existing file type filter (e.g., .py, .txt) now applies uniformly to both directories and zip files, ensuring consistent results.
+- macOS Metadata Filtering: Added logic to ignore unnecessary macOS files and folders such as .DS_Store and __MACOSX, both in directories and inside zip archives.
+- Timestamps and Metadata: Implemented _zip_mtime_to_epoch() to convert zip entry timestamps into a consistent format for accurate file age and modification tracking.
+- CLI Update: The program prompt now accepts either a directory path or a .zip file path, making it easier for users to scan compressed project archives.
+- Backward Compatibility: All original directory scanning functionality remains unchanged. Existing workflows, filters, and output formats are preserved.
+- Updated README documentation to reflect all changes I have made
+
+Testing:
+- Added four new unit tests verifying both recursive and non-recursive zip scanning behavior.
+- Confirmed filters, statistics, and metadata exclusion work consistently across all scan types.
+
+Reviews: 
+- Pri's Functionality to Detect Programming Languages and Frameworks in Scanned Directories PR #85
+- Tanner's Reusable User Consent Module PR #84
+- Tylers Sql db creation PR #95
+- Tylers Updated documentation PR #97
+  
+## In progress tasks
+- Add functionality for sorting projects chronologically based on their creation or modification dates. This feature will help users view their project history in a clear, time-ordered format (issue #39)
+
+## Planned tasks for next sprint
+- Summarize all Key Information for a Project (issue #32)
+- Rank Project Importance Based on User's Contributions (issue #36)
+
+<img width="887" height="644" alt="Screenshot 2025-10-26 at 7 20 13 PM" src="https://github.com/user-attachments/assets/9d560cb2-ee9d-4721-a186-4d183f5ccde6" />
 
 
+# Week 9 Personal Logs (27th Oct - 2nd Nov)
+
+<img width="960" height="565" alt="Screenshot 2025-11-02 at 6 45 09 PM" src="https://github.com/user-attachments/assets/c05cfc35-20aa-49af-b9df-2ffcc9cc9114" />
+
+## Tasks Completed:
+This week, I focused on integrating our database into our scanning script and implementing a project ranking feature.
+- Closed issue #104
+
+### Reflection of the past week:
+This week was very good for our group. Everyone in the group committed some code and reviewed pull requests. We faced some issues with merge conflicts and missing code with our contribution code, but that was solved, and all code and tests run as they should. Next week, we could improve on committing code on time rather than late Sunday night, which would result in less stress and complications merging to main for grading.
+
+### Additions and Features:
+- Integrated optional database persistence into the scanner
+- Mounted the entire repository into containers
+- Updated the Docker setup to make running tests and non-interactive scans inside containers reliable and consistent with local development.
+- Displays project name, first scan, last scan, and total scans.
+- Supports ordering (--order asc|desc) and limiting results (--limit N).
+- Gracefully handles missing or uninitialized databases.
+- Uses get_connection() from db.py for consistent DB access
+
+### Testing:
+test_rank_projects.py:
+- Uses an in-memory SQLite database to verify logic.
+- Tests ordering, limiting, and formatted output.
+- Patches DB connection to avoid external dependencies.
+
+scan_db_test.py:
+- Scans and file records are correctly persisted when save_to_db=True.
+- No DB writes occur when save_to_db=False.
+- Persisted metadata_json is valid JSON (or {} when NULL).
+- File path values are recorded as expected.
+- Schema initialization works on first-run (auto-retries once)
+
+### Reviews: 
+- Travis's Individual contributions within collaborative project (PR #110)
+- Daniel's Added contribution metrics to a repo scan (PR #108)
+- Tanner's Bug Fixes From Week 8's Implementations (PR #107)
+- Travis's Allowed files (PR #103)
+  
+## In progress tasks
+- Retrieve Previously-Generated Portfolio Information (issue #34)
+- Fix bugs found by Travis in Ranking projects chronologically
+
+## Planned tasks for next sprint
+- Output all Key Information for a Project (issue #32)
+<img width="1151" height="688" alt="Screenshot 2025-11-02 at 6 04 22 PM" src="https://github.com/user-attachments/assets/f0663ecf-ac3f-4a4b-ac12-be4c8a23e0e1" />
+
+# Week 10 Personal Logs (November 3rd - 9th)
+
+<img width="962" height="567" alt="Screenshot 2025-11-09 at 7 15 00 PM" src="https://github.com/user-attachments/assets/b5b82df9-4d4d-44d6-ae0c-6f5279db53a3" />
+
+## Tasks Completed:
+This week, I focused on an update for our previous database implementation to accommodate our new additions for the scanner functionality.
+- Closed issue #130
+
+### Reflection of the past week:
+This was a steady week for our group. Most of us had at least 2 midterms, which made getting in our contributions quite hard, but everyone managed to accomplish what we said we were going to do. Our clarification about contribution and log grades helped us understand what is being asked of us, which was very helpful. Next week, we could improve on improving our time management as all of our group members tend to push code on similar days, creating some merge conflicts that could easily be avoided.
+
+### Additions and Features:
+- **`scan.py`**: Integrated database persistence to handle saving scan results. Updated directory and ZIP scanning to capture per-file metadata (owner, language, and metadata JSON) and store it accurately.
+- **`db.py`** — Expanded functionality to insert scans, files, contributors, languages, and skills while maintaining previous integrity. Added helper `_get_or_create()` to add new data correctly, makes sure everything stays properly linked, and avoids half-finished saves if something fails.`FILE_DATA_DB_PATH` environment variable for testing.  
+- **`init_db.sql`** — Updated schema to include new normalized tables (`projects`, `contributors`, `languages`, `skills`) and linking tables (`file_contributors`, `file_languages`, `project_skills`). Added `owner` and `metadata_json` columns to the `files` table and indices for faster lookups.
+- **`inspect_db.py`** — Updated this file that provides a human-readable database inspector. 
+
+### Testing:
+- **`test_db_updates.py`** — Added new unit tests to validate database functionality. Tests include table creation, per-file linking for languages and contributors, fallback behavior when per-file metadata is missing, and verification for repeated scans. Uses temporary databases for isolated test runs. This includes:
+  - test_tables_created: Confirms schema initialization with all expected tables.
+  - test_save_scan_with_file_metadata_and_links: Validates correct insertion and linking of per-file contributors and languages.
+  - test_project_level_language_and_contributor_fallback_and_idempotency: Ensures fallback logic and duplicate prevention during repeated saves.
+
+### Reviews: 
+- Pri's Add chronological skills timeline to inspect_db output (PR #135)
+- Daniel's Contribution metrics name fix (PR #136)
+- Tyler's Added scan.py functionality for project_info_output.py file and reorganized output folder structure (PR #139)
+- Daniel's personal logs
+- Pri's personal logs 
+  
+## In progress tasks
+- Refactor Ranking projects chronologically to use the new database structure
+
+## Planned tasks for next sprint
+- Retrieve Previously-Generated Portfolio Information (issue #34)
+
+<img width="889" height="622" alt="Screenshot 2025-11-09 at 7 35 32 PM" src="https://github.com/user-attachments/assets/970ebdde-a4af-4f19-8331-a5232f75cad1" />
 

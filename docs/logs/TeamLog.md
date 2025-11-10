@@ -233,7 +233,8 @@ Planning Activities (Week 9):
 - Output all key information for a project (#32)
 
 
-# Team #11 - Week 9 Team Log (October 27th through November 2nd)
+
+ # Team #11 - Week 8 Team Log (October 27th through November 2nd)
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
