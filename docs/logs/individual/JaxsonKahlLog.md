@@ -168,6 +168,7 @@ scan_db_test.py:
 
 ## Planned tasks for next sprint
 - Output all Key Information for a Project (issue #32)
+<img width="1151" height="688" alt="Screenshot 2025-11-02 at 6 04 22 PM" src="https://github.com/user-attachments/assets/f0663ecf-ac3f-4a4b-ac12-be4c8a23e0e1" />
 
 # Week 10 Personal Logs (November 3rd - 9th)
 
@@ -206,3 +207,4 @@ This was a steady week for our group. Most of us had at least 2 midterms, which 
 - Retrieve Previously-Generated Portfolio Information (issue #34)
 
 <img width="889" height="622" alt="Screenshot 2025-11-09 at 7 35 32 PM" src="https://github.com/user-attachments/assets/970ebdde-a4af-4f19-8331-a5232f75cad1" />
+
