@@ -84,6 +84,30 @@ class TestCollaborationSummary(unittest.TestCase):
             with open(os.path.join(output_dir, files[0]), "r") as f:
                 data = json.load(f)
                 self.assertIn("John", data)
+                
+    def test_git_repo_tracks_changed_files(self):
+        """Git repo should include per-author changed files in contribution summary."""
+        subprocess.run(["git", "init"], cwd=self.test_dir, check=True)
+        subprocess.run(["git", "config", "user.name", "John Doe"], cwd=self.test_dir, check=True)
+        subprocess.run(["git", "config", "user.email", "john@example.com"], cwd=self.test_dir, check=True)
+
+        # Create and commit a file
+        file_path = os.path.join(self.test_dir, "scan.py")
+        with open(file_path, "w") as f:
+            f.write("print('hello')")
+        subprocess.run(["git", "add", "scan.py"], cwd=self.test_dir, check=True)
+        subprocess.run(["git", "commit", "-m", "Add scan.py"], cwd=self.test_dir, check=True)
+
+        result = identify_contributions(self.test_dir, strict_git=True)
+
+        # Ensure author appears and file list contains the changed file
+        self.assertIn("John Doe", result)
+        self.assertIn("files", result["John Doe"])
+        self.assertTrue(
+            any("scan.py" in f for f in result["John Doe"]["files"]),
+            msg="Changed file scan.py should appear in John Doe's file list"
+        )
+
 
 
 if __name__ == "__main__":
