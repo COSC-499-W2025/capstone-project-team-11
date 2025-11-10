@@ -233,7 +233,8 @@ Planning Activities (Week 9):
 - Output all key information for a project (#32)
 
 
-  # Team #11 - Week 8 Team Log (October 27th through November 2nd)
+
+ # Team #11 - Week 8 Team Log (October 27th through November 2nd)
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
@@ -327,16 +328,94 @@ Alongside these additions, several bug fixes improved configuration handling, pr
 The team maintained steady collaboration through pull request reviews and testing, confirming that all new modules worked properly in both local and Docker environments.
 Overall, this week brought us closer to a polished and feature-complete prototype with more reliable analytics and stronger performance.
 
-
 Planning Activities (Week 10):
 - Retrieve Previously-Generated Résumé #35
 - Delete Previously Generated Insights #38
 - Sort "Skills Exercised" Chronologically #40
-- bug fixes 
+- bug fixes
 
+# Team #11 - Week 10 Team Log (November 2nd through November 9th)
+Team Members      --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
 
+## Overview:
+This week, we focused on completing smaller, more nuanced tasks than in previous weeks, where we have aimed to implement big-ticket scanner features and milestone deliverables.
+Everyone has been keeping their own lists of bugs they come across, whether it is within a feature they developed or within features made by others. 
+When we met in person for our TA check-in, we took inventory of issues we wanted to address and assigned tasks accordingly.
 
+Our database is more comprehensive and capable than it was last week. Jaxson ensured that all relevant details collected during scans have a home in the database so that they can be accessed later as we improve our scanner's report/summary generation. Daniel made a note of some inconsistencies in the "Display contribution metrics for git projects" feature he developed in week 9, so he dove back into it and reworked how git authors' names are displayed. It was a worthwhile improvement as now we have a canonical naming convention for github usernames, which improves readability and clarity in generated reports. Priyanshu was in a position to implement a new feature, so he allowed for the displaying of chronologically-sorted skills, as they were found in a user's saved scans from the database, which was made easier with Jaxson's recent database revisions. Now users can generate a comprehensive timeline of skills exercised, allowing them to view how their aptitudes have changed/progressed over time, and across projects. I (Tanner) wanted to improve the accuracy and consistency of our "Detect programming languages/frameworks within coding projects" feature. So I added a detection method to be used alongside our first method. detect_langs.py now reads each file in a project and uses a pre-defined set of REGEX syntax patterns for a wide array of languages to find occurrences of unique languages within files. The feature still needs a lot more revision, and I hope to continue to improve it in the coming weeks. Travis, like Daniel, noticed some bugs/inconsistencies in his collaboration summary from last week's sprint, so he made sure it was corrected last week. Now, after his fixes, the collaboration summary is more accurate and comprehensive, and for each GitHub user in the project, it displays how many commits they have made, the total number of files in the project they have contributed to, and the exact files they have worked on. Tyler implemented a new feature: the ability to choose to export a report of a scan in both JSON and .txt formats. This is an excellent addition, as it is a feature that is at the core of the project. We have spent a long time creating the logic for our scanner to operate by, but now we have a tangible exported summary of a scan done on a creative project. Overall, I believe we accomplished a lot this week. We made some necessary improvements to pre-existing features and even programmed a few additional features that our program was lacking. 
 
+## Burnup Chart:
+<img width="1025" height="541" alt="week10-burnup" src="https://github.com/user-attachments/assets/0bc2b5ce-8360-44c0-b6b3-04f33c6ad724" />
 
+## Team Member's Completed Tasks:
+### Daniel:
+- Reworked the contribution metrics to create robust and consistent naming conventions for git authors
+### Jaxson:
+- Updated database functionality for all scanning functions (Database now correctly stores all relevant information found during scans)
+### Priyanshu:
+- Added chronologically-sorted skills timeline to inspect_db.py output (Skills found within saved scans are chronologically organized)
+### Tanner:
+- First pass of revisions on "Detect programming languages/frameworks within coding projects" feature
+- Team logs for week 10
+### Travis:
+- Bug Fixes: file count always displaying 0 & add per-author file tracking in collaboration summary
+### Tyler:
+- Added scan.py functionality for project_info_output.py file & reorganized output folder structure
+### All Members:
+- Code reviews and verification
+- Completion of individual logs and peer reviews
 
+## Testing Report:
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
 
+### collab_summary_test.py:
+- Added unit test for per-author file tracking in Git repos:
+- Git repo should include per-author changed files in the contribution summary
+- Creates and commits a file
+- Ensures the author appears and the file list contains the changed file
+
+### contrib_metrics_test.py
+- Added more tests and a feature that hides any author with zero commits:
+- Normalize author identity using email (preferred) or name
+- Handles GitHub noreply addresses like 12345+username@users.noreply.github.com
+- Automatically normalize author identity for any git repo by stripping away special symbols
+
+### inspect_db.py
+- Added chronological skills timeline to inspect_db output:
+- Looks at the earliest scan date where each skill was detected in a project
+- MIN(scanned_at) gives the first time that the skill appeared in any scan
+- Sorting by first_seen shows a "timeline" of when skills were exercised
+
+### test_db_updates.py
+- Added new unit tests to validate database functionality. Uses temporary databases for isolated test runs. Tests include:
+- table creation
+- per-file linking for languages and contributors
+- fallback behaviour when per-file metadata is missing
+- verification for repeated scans
+
+### test_detect_langs.py
+- Creates a temporary Python file and writes some basic Python code within it, uses the new pattern-based detection method to ensure the pre-programmed REGEX patterns are working properly by checking that the pattern match count is greater than 0
+- Confirms all 5 confidence scenarios are generating correctly (High - 2 cases, Medium - 2 cases, Low - 1 trivial case)
+- Checks that confidence levels are calculated and included in the final output of results by making sure that a Python file (with .py extension) with some basic code returns "high" confidence
+
+## Team Reflection:
+Our team worked very well together this week. We all had busy weeks (other projects being due, second-wave midterms, etc.), but we communicated effectively and frequently. 
+We made good use of our Discord server to keep each other in the loop when we could not meet in person, and we utilized our TA check-in time wisely by prioritizing tasks to be completed during the busy week ahead. 
+Everyone provided their individual timelines and ETAs around when they hoped to have their PRs up and ready for review, and I'm proud to say everyone was pretty accurate. No late-night rushes to merge our Development branch to main; everything was completed in a convenient and timely manner.
+We also decided to be proactive and discuss what we hope to accomplish as a team in the upcoming two weeks (weeks 11 *Reading Break*, and 12) ahead of time. Nobody seems to have any complaints about our most recent sprint, and we look forward to the next!
+
+## Planned Activities (Week 11 *Reading Break* & Week 12):
+This upcoming week (week 11) is Reading Break, so our contributions may vary between team members depending on individual availability (travelling, visiting family, etc.).
+As for week 12, we have discussed it as a team and decided that we hope to:
+- Revise "Rank projects chronologically" Issue #146
+- Continue revising "Detect programming languages/frameworks used within coding projects" Issue #129
+- Implement "Delete Previously Generated Insights" Issue #38 (didn't get to it in week 10 as planned)
+- Implement "Rank Project Importance Based on User's Contributions" Issue #36
+- Implement "Summarize the User's Top-Ranked Projects" Issue #37
+- General bug-fixes that we notice during testing/implementation
