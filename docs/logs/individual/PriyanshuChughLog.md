@@ -160,6 +160,9 @@ Both reviews focused on verifying database consistency, preventing incorrect dat
 -Reviewed Fix: file count always 0 & add per-author file tracking in collaboration summary (PR #133)
 -Updated personal log and ensured progress was reflected on project board
 
+<img width="1234" height="51" alt="Screenshot 2025-11-09 at 6 34 47 PM" src="https://github.com/user-attachments/assets/c60f1321-0f6b-4b0e-9373-9405601409a6" />
+
+
 ## Plans for Week 11
 - Start modifying and improving past functions with suggestions of peers left on pull requests 
 - Continue reviewing teammate PRs 
