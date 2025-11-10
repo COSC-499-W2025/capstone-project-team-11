@@ -28,6 +28,16 @@ except Exception:
         analyze_repo = None
         pretty_print_metrics = None
 
+# Try to import project_info_output (gather & write summaries)
+try:
+    from project_info_output import gather_project_info, output_project_info
+except Exception:
+    try:
+        from .project_info_output import gather_project_info, output_project_info
+    except Exception:
+        gather_project_info = None
+        output_project_info = None
+
 
 def _zip_mtime_to_epoch(dt_tuple):
     """
@@ -573,3 +583,30 @@ if __name__ == "__main__":
             save=remember,
             save_to_db=save_db,
         )
+    try:
+        from project_info_output import gather_project_info, output_project_info
+    except Exception:
+        try:
+            from .project_info_output import gather_project_info, output_project_info
+        except Exception:
+            gather_project_info = None
+            output_project_info = None
+
+    selected_dir = current.get("directory") if use_saved else locals().get("directory")
+
+    if selected_dir is None:
+        # Nothing to summarize
+        pass
+    elif gather_project_info is None or output_project_info is None:
+        print("Project summary functions not available (couldn't import project_info_output).")
+    else:
+        if ask_yes_no("Would you like to generate a project summary report (JSON & TXT)? (y/n): ", False):
+            try:
+                info = gather_project_info(selected_dir)
+                project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
+                out_dir = os.path.join("output", project_name)
+                os.makedirs(out_dir, exist_ok=True)
+                json_path, txt_path = output_project_info(info, output_dir=out_dir)
+                print(f"Summary reports saved to: {out_dir}")
+            except Exception as e:
+                print(f"Failed to generate summary report: {e}")
