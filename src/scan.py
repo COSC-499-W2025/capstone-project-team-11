@@ -122,7 +122,8 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
 
 
 def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None, file_metadata: dict = None,
-                  detected_languages: list = None, detected_skills: list = None, contributors: list = None):
+                  detected_languages: list = None, detected_skills: list = None, contributors: list = None,
+                  project_created_at: str = None, project_repo_url: str = None):
     """Persist a scan and its file records to the database using db.save_scan.
 
     This now also attempts to persist detected languages, skills and contributors
@@ -139,6 +140,8 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
         detected_skills=detected_skills,
         contributors=contributors,
         file_metadata=file_metadata,
+        project_created_at=project_created_at,
+        project_repo_url=project_repo_url,
     )
 
 
@@ -188,21 +191,31 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                             candidate = os.path.join(tmpdir, inner)
                             if os.path.exists(candidate):
                                 owner = get_collaboration_info(candidate)
-                            # also infer language from filename extension
+                        # also infer language from filename extension
+                        lang = None
+                        try:
+                            _, ext = os.path.splitext(inner or display)
+                            if ext:
+                                lang = LANGUAGE_MAP.get(ext.lower())
+                        except Exception:
                             lang = None
-                            try:
-                                _, ext = os.path.splitext(inner or display)
-                                if ext:
-                                    lang = LANGUAGE_MAP.get(ext.lower())
-                            except Exception:
-                                lang = None
-                            file_meta[display] = {'owner': owner, 'language': lang}
+                        file_meta[display] = {'owner': owner, 'language': lang}
 
-                    _persist_scan(zip_path, files_found, project=None, notes=None,
-                                  file_metadata=file_meta,
-                                  detected_languages=langs,
-                                  detected_skills=skills,
-                                  contributors=contributors)
+                    # Attempt to detect repo-level info from the extracted tree
+                    project_created_at, project_repo_url = _get_repo_info(tmpdir)
+
+                    _persist_scan(
+                        zip_path,
+                        files_found,
+                        project=None,
+                        notes=None,
+                        file_metadata=file_meta,
+                        detected_languages=langs,
+                        detected_skills=skills,
+                        contributors=contributors,
+                        project_created_at=project_created_at,
+                        project_repo_url=project_repo_url,
+                    )
                 except sqlite3.OperationalError:
                     try:
                         init_db()
@@ -253,6 +266,49 @@ def analyze_repo_path(path: str):
             return analyze_repo(td)
     else:
         return analyze_repo(path)
+
+
+def _find_git_root(start_path: str):
+    """Return the path to the git repository root for start_path or None."""
+    p = os.path.abspath(start_path)
+    if os.path.isfile(p):
+        p = os.path.dirname(p)
+    while True:
+        git_path = os.path.join(p, '.git')
+        if os.path.exists(git_path):
+            return p
+        parent = os.path.dirname(p)
+        if parent == p:
+            break
+        p = parent
+    return None
+
+
+def _get_repo_info(path: str):
+    """Return (created_at_iso, repo_url) for a git repo found at or above path, or (None, None)."""
+    repo_root = _find_git_root(path)
+    if not repo_root:
+        return (None, None)
+    try:
+        # repo url (remote origin)
+        res = subprocess.run(["git", "config", "--get", "remote.origin.url"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, cwd=repo_root, timeout=3)
+        repo_url = res.stdout.strip() if res and res.stdout.strip() else None
+    except Exception:
+        repo_url = None
+
+    try:
+        # earliest commit (initial commit) -> committer date in ISO 8601
+        res = subprocess.run(["git", "rev-list", "--max-parents=0", "HEAD"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, cwd=repo_root, timeout=3)
+        if res and res.stdout.strip():
+            first = res.stdout.splitlines()[0].strip()
+            res2 = subprocess.run(["git", "show", "-s", "--format=%cI", first], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, cwd=repo_root, timeout=3)
+            created_at = res2.stdout.strip() if res2 and res2.stdout.strip() else None
+        else:
+            created_at = None
+    except Exception:
+        created_at = None
+
+    return (created_at, repo_url)
 
 
 def get_collaboration_info(file_path: str) -> str:
@@ -422,11 +478,16 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     lang = None
                 file_meta[display] = {'owner': owner, 'language': lang}
 
+            # Try to detect repo information for the path being scanned
+            project_created_at, project_repo_url = _get_repo_info(path)
+
             _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
                           file_metadata=file_meta,
                           detected_languages=langs,
                           detected_skills=skills,
-                          contributors=contributors)
+                          contributors=contributors,
+                          project_created_at=project_created_at,
+                          project_repo_url=project_repo_url)
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
             try:

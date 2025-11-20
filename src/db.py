@@ -37,7 +37,7 @@ def _get_or_create(conn, table: str, name: str):
 
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
               detected_languages: list = None, detected_skills: list = None, contributors: list = None,
-              file_metadata: dict = None):
+              file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None):
     """Persist a scan and related metadata into the DB in a single transaction.
 
     - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
@@ -56,10 +56,26 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
         cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
         scan_id = cur.lastrowid
 
-        # link or create project row if provided
+        # link or create project row if provided, and persist project-level metadata
         project_id = None
         if project:
-            cur.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (project,))
+            # create row if missing; include repo_url/created_at when present
+            if project_repo_url is not None or project_created_at is not None:
+                # Try to insert with provided metadata; INSERT OR IGNORE will skip if exists
+                cur.execute(
+                    "INSERT OR IGNORE INTO projects (name, repo_url, created_at) VALUES (?, ?, ?)",
+                    (project, project_repo_url, project_created_at),
+                )
+            else:
+                cur.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (project,))
+
+            # If the row existed but metadata fields are empty, update them non-destructively
+            if project_repo_url is not None or project_created_at is not None:
+                cur.execute(
+                    "UPDATE projects SET repo_url = COALESCE(repo_url, ?), created_at = COALESCE(created_at, ?) WHERE name = ?",
+                    (project_repo_url, project_created_at, project),
+                )
+
             cur.execute("SELECT id FROM projects WHERE name = ?", (project,))
             r = cur.fetchone()
             project_id = r['id'] if r else None
