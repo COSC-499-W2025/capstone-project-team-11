@@ -104,6 +104,93 @@ def should_scan_file(file_name):
     return (False, False)
 
 # =============================================================================
+# COMMENT STRIPPING CONFIGURATION
+# =============================================================================
+
+# Maps file extensions to their comment syntax for stripping before pattern matching
+# Each entry contains: single-line comment prefix(es) and multi-line comment delimiters
+# Format: extension -> {"single": [prefixes], "multi": [(start, end), ...]}
+COMMENT_SYNTAX = {
+    # Python
+    ".py": {"single": ["#"], "multi": [('"""', '"""'), ("'''", "'''")],},
+    # JavaScript/TypeScript
+    ".js": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".jsx": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".ts": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".tsx": {"single": ["//"], "multi": [("/*", "*/")]},
+    # C-Family
+    ".c": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".cpp": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".h": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".hpp": {"single": ["//"], "multi": [("/*", "*/")]},
+    ".cs": {"single": ["//"], "multi": [("/*", "*/")]},
+    # Java
+    ".java": {"single": ["//"], "multi": [("/*", "*/")]},
+    # Kotlin
+    ".kt": {"single": ["//"], "multi": [("/*", "*/")]},
+    # Swift
+    ".swift": {"single": ["//"], "multi": [("/*", "*/")]},
+    # Go
+    ".go": {"single": ["//"], "multi": [("/*", "*/")]},
+    # Rust
+    ".rs": {"single": ["//"], "multi": [("/*", "*/")]},
+    # PHP
+    ".php": {"single": ["//", "#"], "multi": [("/*", "*/")]},
+    # Ruby
+    ".rb": {"single": ["#"], "multi": [("=begin", "=end")]},
+    # Shell scripts
+    ".sh": {"single": ["#"], "multi": []},
+    ".bash": {"single": ["#"], "multi": []},
+    # SQL
+    ".sql": {"single": ["--"], "multi": [("/*", "*/")]},
+    # HTML
+    ".html": {"single": [], "multi": [("<!--", "-->")]},
+    ".htm": {"single": [], "multi": [("<!--", "-->")]},
+    # CSS
+    ".css": {"single": [], "multi": [("/*", "*/")]},
+    # YAML
+    ".yaml": {"single": ["#"], "multi": []},
+    ".yml": {"single": ["#"], "multi": []},
+    # XML
+    ".xml": {"single": [], "multi": [("<!--", "-->")]},
+}
+
+# Remove comments from file content based on the file's extension from COMMNENT_SYNTAX
+# This helps reduce false positives from code examples in comments.
+def strip_comments(content, file_extension):
+    # Format the file extension to lowercase for consistent matching
+    ext = file_extension.lower()
+
+    # If we don't have comment syntax for this extension, don't attempt to strip comments
+    if ext not in COMMENT_SYNTAX:
+        return content
+
+    syntax = COMMENT_SYNTAX[ext]
+    result = content
+
+    # Remove multi-line comments
+    for start, end in syntax.get("multi", []):
+        # Escape special regex characters in delimiters
+        start_escaped = re.escape(start)
+        end_escaped = re.escape(end)
+        # Use non-greedy matching to handle multiple comment blocks
+        # re.DOTALL makes "." match newlines too
+        pattern = f'{start_escaped}.*?{end_escaped}'
+        result = re.sub(pattern, '', result, flags=re.DOTALL)
+
+    # Remove single-line comments
+    for prefix in syntax.get("single", []):
+        # Escape special regex characters
+        prefix_escaped = re.escape(prefix)
+        # Match from comment prefix to end of line
+        # Don't match URLs like "http://" (only match if prefix is at start or after whitespace)
+        pattern = f'(^|\\s){prefix_escaped}[^\n]*'
+        result = re.sub(pattern, r'\1', result, flags=re.MULTILINE)
+
+    # Returns the file content as a String with its comments stripped out
+    return result
+
+# =============================================================================
 # LANGUAGE DETECTION CONFIGURATION
 # =============================================================================
 
@@ -274,7 +361,11 @@ def scan_file_content(file_path):
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
 
-            # Check for occurrances of each language's patterns
+            # Strip comments before pattern matching to reduce false positives
+            file_extension = os.path.splitext(file_path)[1].lower()
+            content = strip_comments(content, file_extension)
+
+            # Check for occurrences of each language's patterns
             for language, patterns in LANGUAGE_PATTERNS.items():
                 match_count = 0
                 for pattern in patterns:
