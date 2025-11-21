@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import sqlite3
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -361,11 +362,23 @@ def main():
     contrib_summary = rank_projects_contribution_summary(limit=args.limit)
     print_projects_contribution_summary(contrib_summary)
 
-    # If a specific contributor was requested, print their per-project importance table as well
+    # If a specific contributor was requested via CLI flag, print their per-project importance table
     if args.by_user:
         print(f"\nRanking projects by contributor: {args.by_user}\n")
         user_projects = rank_projects_by_contributor(args.by_user, limit=args.limit)
         print_projects_by_contributor(user_projects, args.by_user)
+    else:
+        # Otherwise, if running interactively, ask the user whether they'd like a per-user ranking
+        try:
+            if sys.stdin and sys.stdin.isatty():
+                name = input('\nEnter a contributor name to show per-project importance (leave blank to skip): ').strip()
+                if name:
+                    print(f"\nRanking projects by contributor: {name}\n")
+                    user_projects = rank_projects_by_contributor(name, limit=args.limit)
+                    print_projects_by_contributor(user_projects, name)
+        except Exception:
+            # If input isn't available (non-interactive), simply skip
+            pass
 
 
 if __name__ == "__main__":
