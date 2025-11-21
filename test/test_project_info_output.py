@@ -63,7 +63,10 @@ class TestProjectInfoOutput(unittest.TestCase):
     @unittest.skipUnless(_git_available(), "git is required for this test")
     def test_real_git_project_metrics(self):
         # Update this path to your local clone of the repo
-        project_path = os.path.abspath("../capstone-project-team-11")  # adjust if needed
+        # Resolve the path relative to this test file to avoid calling os.getcwd()
+        project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'capstone-project-team-11'))
+        if not os.path.exists(project_path):
+            self.skipTest(f"Expected local repo not found at {project_path}")
         out_dir = tempfile.mkdtemp()
         try:
             info = gather_project_info(project_path)

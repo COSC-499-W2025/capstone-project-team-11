@@ -39,11 +39,40 @@ def print_header(title):
 def human_ts(ts):
     if not ts:
         return 'N/A'
+    # Try strict ISO parse first
     try:
-        # try to parse as ISO or SQLite stored string
-        return str(datetime.fromisoformat(ts))
+        dt = datetime.fromisoformat(ts)
+        # Include timezone offset if present
+        if dt.tzinfo:
+            return dt.strftime('%Y-%m-%d %H:%M:%S %z')
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception:
-        return str(ts)
+        pass
+
+    # Attempt to repair common truncated timezone forms like '-08:0' -> '-08:00'
+    try:
+        import re
+        m = re.search(r'([+-]\d{2}:\d)$', ts)
+        if m:
+            ts2 = ts + '0'
+            try:
+                dt = datetime.fromisoformat(ts2)
+                if dt.tzinfo:
+                    return dt.strftime('%Y-%m-%d %H:%M:%S %z')
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Fallback: try a couple of common formats, otherwise return raw string
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+        try:
+            dt = datetime.strptime(ts, fmt)
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            continue
+    return str(ts)
 
 
 def main():
