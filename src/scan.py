@@ -263,9 +263,18 @@ def analyze_repo_path(path: str):
                 print(f"Failed to extract zip for analysis: {e}")
                 return None
             # analyze extracted tree
-            return analyze_repo(td)
+            try:
+                return analyze_repo(td)
+            except Exception as e:
+                # Don't let analysis errors (e.g., git log on non-repo) crash the scanner
+                print(f"Contribution analysis failed: {e}")
+                return None
     else:
-        return analyze_repo(path)
+        try:
+            return analyze_repo(path)
+        except Exception as e:
+            print(f"Contribution analysis failed: {e}")
+            return None
 
 
 def _find_git_root(start_path: str):
