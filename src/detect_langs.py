@@ -1,6 +1,112 @@
 import os
 import re
 
+# =============================================================================
+# FILTERING CONFIGURATION
+# =============================================================================
+
+# Directories to always skip during scanning (dependencies, build artifacts, version control)
+# Although this list is not comprehensive, it covers many common cases to improve performance and reduce false positives
+IGNORED_DIRECTORIES = {
+    # Version control
+    ".git",
+    ".svn",
+    ".hg",
+    # Package managers / dependencies
+    "node_modules",
+    "vendor",
+    "packages",
+    "bower_components",
+    # Python virtual environments
+    "venv",
+    ".venv",
+    "env",
+    ".env",
+    "virtualenv",
+    "__pycache__",
+    ".pytest_cache",
+    ".tox",
+    ".mypy_cache",
+    # Build outputs
+    "dist",
+    "build",
+    "out",
+    "target",
+    "bin",
+    "obj",
+    # IDE / editor folders
+    ".idea",
+    ".vscode",
+    ".vs",
+}
+
+# File extensions for actual source code files
+# Languages detected in these files are considered "primary" detections
+CODE_EXTENSIONS = {
+    ".py",      # Python
+    ".js",      # JavaScript
+    ".ts",      # TypeScript
+    ".jsx",     # React (JavaScript)
+    ".tsx",     # React (TypeScript)
+    ".java",    # Java
+    ".c",       # C
+    ".cpp",     # C++
+    ".hpp",     # C++ headers
+    ".h",       # C/C++ headers
+    ".cs",      # C#
+    ".php",     # PHP
+    ".html",    # HTML
+    ".htm",     # HTML alternate
+    ".css",     # CSS
+    ".rb",      # Ruby
+    ".swift",   # Swift
+    ".go",      # Go
+    ".kt",      # Kotlin
+    ".rs",      # Rust
+    ".sh",      # Shell Script
+    ".bash",    # Bash Script
+    ".sql",     # SQL
+    ".json",    # JSON
+    ".xml",     # XML
+    ".yaml",    # YAML
+    ".yml",     # YAML alternate
+}
+
+# Text-based extensions that may occasionally contain code snippets
+# Languages detected ONLY in these files are flagged as "secondary" detections (possible false positives)
+TEXT_EXTENSIONS = {
+    ".txt",     # Plain text notes
+    ".md",      # Markdown documentation
+    ".rst",     # reStructuredText
+    ".log",     # Log files
+}
+
+# Combined set of all scannable extensions, hopefully helps filter out non-deliberately coded files
+SCANNABLE_EXTENSIONS = CODE_EXTENSIONS | TEXT_EXTENSIONS
+
+# Check if a directory should be skipped during scanning, returns True if the directory is in the ignore list.
+def should_ignore_directory(dir_name):
+    # Direct match
+    if dir_name in IGNORED_DIRECTORIES:
+        return True
+    return False
+
+# Check if a file should be scanned based on its extension.
+# Returns a tuple: (should_scan: bool, is_code_file: bool)
+# - should_scan: True if the file extension is found within SCANNABLE_EXTENSIONS
+# - is_code_file: True if the file extension is found within CODE_EXTENSION, False if the file extension is found within TEXT_EXTENSION
+def should_scan_file(file_name):
+    ext = os.path.splitext(file_name)[1].strip().lower()
+    if ext in CODE_EXTENSIONS:
+        return (True, True)
+    if ext in TEXT_EXTENSIONS:
+        return (True, False)
+    return (False, False)
+
+# =============================================================================
+# LANGUAGE DETECTION CONFIGURATION
+# =============================================================================
+
 # Mapping of common file extensions to programming languages.
 # Used for quick classification during directory traversal.
 LANGUAGE_MAP = {
@@ -150,7 +256,8 @@ LANGUAGE_PATTERNS = {
     ],
 }
 
-# Framework indicators based on well-known files.
+# TODO: Rework framework detection to be in-line with language detection method
+# Framework indicators based on well-known files
 FRAMEWORK_HINTS = {
     "requirements.txt": ["Flask", "Django", "FastAPI"],
     "package.json": ["React", "Next.js", "Express", "Vue", "Angular"],
@@ -158,8 +265,8 @@ FRAMEWORK_HINTS = {
     "build.gradle": ["Spring Boot", "Gradle"],
 }
 
-# Scans a file and counts pattern matches for each language.
-# Returns a dictionary with language names as keys and match counts as values.
+# Scans a file and counts pattern matches for each language
+# Returns a dictionary with language names as keys and match counts as values
 def scan_file_content(file_path):
     pattern_matches = {}
 
@@ -186,10 +293,9 @@ def scan_file_content(file_path):
     return pattern_matches
 
 # Calculates confidence level (low, medium, high) based on pattern matches and file extension presence
-# Logic:
-    # Low: 1-2 pattern matches only
-    # Medium: 3-4 pattern matches OR file extension + 1 pattern
-    # High: 5+ pattern matches OR file extension + 2+ patterns
+# - Low:    1-2 pattern matches only
+# - Medium: 3-4 pattern matches OR file extension + 1 pattern
+# - High:   5+ pattern matches OR file extension + 2+ patterns
 def calculate_confidence(pattern_count, has_file_extension):
     # High confidence
     if pattern_count >= 5:
@@ -216,10 +322,29 @@ def detect_languages_and_frameworks(directory):
     # Structure: language: {"pattern_count": int, "has_extension": bool, "confidence": str}
     language_data = {}
 
+    # Track statistics for debugging/logging
+    files_scanned = 0
+    files_skipped = 0
+    dirs_skipped = 0
+
     # Traverse through all sub folders and files in the directory
-    for root, _, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory):
+        # Filter out ignored directories IN-PLACE to prevent os.walk from descending into them
+        # This is more efficient than checking each file's full path
+        original_dir_count = len(dirs)
+        dirs[:] = [d for d in dirs if not should_ignore_directory(d)]
+        dirs_skipped += original_dir_count - len(dirs)
+
         for file in files:
             file_path = os.path.join(root, file)
+
+            # Check if this file should be scanned based on extension
+            should_scan, is_code_file = should_scan_file(file)
+            if not should_scan:
+                files_skipped += 1
+                continue
+
+            files_scanned += 1
 
             # Detect languages by file extension
             ext = os.path.splitext(file)[1].strip().lower()
@@ -257,6 +382,9 @@ def detect_languages_and_frameworks(directory):
                     except Exception:
                         # Skip files we can't read (binary files, etc.)
                         pass
+
+    # Log filtering statistics
+    print(f"\n[Filtering Stats] Scanned: {files_scanned} files | Skipped: {files_skipped} files, {dirs_skipped} directories")
 
     # Calculate confidence for each detected language
     for language in language_data:
