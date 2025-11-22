@@ -96,17 +96,24 @@ class TestDetectLangs(unittest.TestCase):
             self.assertIn("Python", pattern_matches)
             self.assertGreater(pattern_matches["Python"], 0)
 
-    # Should calculate correct confidence levels based on presence of syntax patterns and file extensions
+    # Should calculate correct confidence levels based on presence of syntax patterns and file extensions:
+    # High:     Coding file extension, with 10+ pattern matches
+    # Medium:   Coding file extension, with < 10 pattern matches 
+    #           OR No coding file extension, with 10+ pattern matches
+    # Low:      No coding file extension and 1-9 pattern matches
     def test_calculate_confidence_logic(self):
-        # High confidence: 5+ patterns
-        self.assertEqual(calculate_confidence(5, False), "high")
-        # High confidence: extension + 2+ patterns
-        self.assertEqual(calculate_confidence(2, True), "high")
-        # Medium confidence: 3-4 patterns
-        self.assertEqual(calculate_confidence(3, False), "medium")
-        # Medium confidence: extension + 1 pattern
-        self.assertEqual(calculate_confidence(1, True), "medium")
-        # Low confidence: 1-2 patterns only
+        # High confidence: coding file extension, match with 10+ pattern matches
+        self.assertEqual(calculate_confidence(10, True), "high")
+        self.assertEqual(calculate_confidence(15, True), "high")
+        # Medium confidence: coding file extension, with < 10 pattern matches
+        self.assertEqual(calculate_confidence(9, True), "medium")
+        self.assertEqual(calculate_confidence(5, True), "medium")
+        self.assertEqual(calculate_confidence(0, True), "medium")
+        # Medium confidence: no coding file extension, with 10+ pattern matches
+        self.assertEqual(calculate_confidence(10, False), "medium")
+        self.assertEqual(calculate_confidence(15, False), "medium")
+        # Low confidence: no coding file extension, with 1-9 pattern matches
+        self.assertEqual(calculate_confidence(9, False), "low")
         self.assertEqual(calculate_confidence(1, False), "low")
 
     # Should include confidence levels in detection results
@@ -114,14 +121,30 @@ class TestDetectLangs(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             py_file = os.path.join(td, "app.py")
             with open(py_file, "w") as f:
-                f.write("def main():\n    import sys\n    class App:\n        pass")
+                # Write a Python file with 10+ detectable patterns
+                f.write("""
+                def main():
+                    import sys
+                    import os
+                    from collections import defaultdict
+                    class App:
+                        pass
+                    class Helper:
+                        pass
+                def func1():
+                    pass
+                def func2():
+                    pass
+                def func3():
+                    pass
+                """)
 
             results = detect_languages_and_frameworks(td)
             # Should have language_details with confidence
             self.assertIn("language_details", results)
             self.assertIn("Python", results["language_details"])
             self.assertIn("confidence", results["language_details"]["Python"])
-            # Python with extension should have high confidence
+            # Python with coding file extension, with 10+ patterns should have high confidence
             self.assertEqual(results["language_details"]["Python"]["confidence"], "high")
 
 # Let the test run directly if this file is executed
