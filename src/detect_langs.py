@@ -40,37 +40,147 @@ IGNORED_DIRECTORIES = {
     ".vs",
 }
 
+# =============================================================================
+# UNIFIED LANGUAGE CONFIGURATION
+# =============================================================================
+
+# One comprehensive mapping of file extensions to language names and comment syntax
+LANGUAGE_CONFIG = {
+    # Python
+    ".py": {
+        "name": "Python",
+        "comments": {"single": ["#"], "multi": [('"""', '"""'), ("'''", "'''")]},
+    },
+    # JavaScript/TypeScript
+    ".js": {
+        "name": "JavaScript",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".jsx": {
+        "name": "React (JavaScript)",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".ts": {
+        "name": "TypeScript",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".tsx": {
+        "name": "React (TypeScript)",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # C-Family
+    ".c": {
+        "name": "C",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".cpp": {
+        "name": "C++",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".h": {
+        "name": None,  
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".hpp": {
+        "name": None, 
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    ".cs": {
+        "name": "C#",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # Java
+    ".java": {
+        "name": "Java",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # Kotlin
+    ".kt": {
+        "name": "Kotlin",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # Swift
+    ".swift": {
+        "name": "Swift",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # Go
+    ".go": {
+        "name": "Go",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # Rust
+    ".rs": {
+        "name": "Rust",
+        "comments": {"single": ["//"], "multi": [("/*", "*/")]},
+    },
+    # PHP
+    ".php": {
+        "name": "PHP",
+        "comments": {"single": ["//", "#"], "multi": [("/*", "*/")]},
+    },
+    # Ruby
+    ".rb": {
+        "name": "Ruby",
+        "comments": {"single": ["#"], "multi": [("=begin", "=end")]},
+    },
+    # Shell scripts
+    ".sh": {
+        "name": "Shell Script",
+        "comments": {"single": ["#"], "multi": []},
+    },
+    ".bash": {
+        "name": None,  
+        "comments": {"single": ["#"], "multi": []},
+    },
+    # SQL
+    ".sql": {
+        "name": "SQL",
+        "comments": {"single": ["--"], "multi": [("/*", "*/")]},
+    },
+    # HTML
+    ".html": {
+        "name": "HTML",
+        "comments": {"single": [], "multi": [("<!--", "-->")]},
+    },
+    ".htm": {
+        "name": "HTML",
+        "comments": {"single": [], "multi": [("<!--", "-->")]},
+    },
+    # CSS
+    ".css": {
+        "name": "CSS",
+        "comments": {"single": [], "multi": [("/*", "*/")]},
+    },
+    # Data formats
+    ".json": {
+        "name": "JSON (Web Config)",
+        "comments": {"single": [], "multi": []},
+    },
+    ".xml": {
+        "name": "XML",
+        "comments": {"single": [], "multi": [("<!--", "-->")]},
+    },
+    ".yaml": {
+        "name": None,
+        "comments": {"single": ["#"], "multi": []},
+    },
+    ".yml": {
+        "name": None,
+        "comments": {"single": ["#"], "multi": []},
+    },
+}
+
+# =============================================================================
+# DERIVED SETS (from LANGUAGE_CONFIG)
+# =============================================================================
+
 # File extensions for actual source code files
 # Languages detected in these files are considered "primary" detections
-CODE_EXTENSIONS = {
-    ".py",      # Python
-    ".js",      # JavaScript
-    ".ts",      # TypeScript
-    ".jsx",     # React (JavaScript)
-    ".tsx",     # React (TypeScript)
-    ".java",    # Java
-    ".c",       # C
-    ".cpp",     # C++
-    ".hpp",     # C++ headers
-    ".h",       # C/C++ headers
-    ".cs",      # C#
-    ".php",     # PHP
-    ".html",    # HTML
-    ".htm",     # HTML alternate
-    ".css",     # CSS
-    ".rb",      # Ruby
-    ".swift",   # Swift
-    ".go",      # Go
-    ".kt",      # Kotlin
-    ".rs",      # Rust
-    ".sh",      # Shell Script
-    ".bash",    # Bash Script
-    ".sql",     # SQL
-    ".json",    # JSON
-    ".xml",     # XML
-    ".yaml",    # YAML
-    ".yml",     # YAML alternate
-}
+CODE_EXTENSIONS = set(LANGUAGE_CONFIG.keys())
+
+# Mapping of file extensions to language names
+LANGUAGE_MAP = {ext: cfg["name"] for ext, cfg in LANGUAGE_CONFIG.items() if cfg["name"]}
 
 # Text-based extensions that may occasionally contain code snippets
 # Languages detected ONLY in these files are flagged as "secondary" detections (possible false positives)
@@ -81,91 +191,40 @@ TEXT_EXTENSIONS = {
     ".log",     # Log files
 }
 
-# Combined set of all scannable extensions, hopefully helps filter out non-deliberately coded files
+# Combined set of all scannable extensions
 SCANNABLE_EXTENSIONS = CODE_EXTENSIONS | TEXT_EXTENSIONS
 
-# Check if a directory should be skipped during scanning, returns True if the directory is in the ignore list.
-def should_ignore_directory(dir_name):
-    # Direct match
-    if dir_name in IGNORED_DIRECTORIES:
-        return True
-    return False
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
 
-# Check if a file should be scanned based on its extension.
+# Extract and normalize file extension from a filename
+def get_extension(filename):
+    return os.path.splitext(filename)[1].strip().lower()
+
+# Check if a file should be scanned based on its extension
 # Returns a tuple: (should_scan: bool, is_code_file: bool)
 # - should_scan: True if the file extension is found within SCANNABLE_EXTENSIONS
-# - is_code_file: True if the file extension is found within CODE_EXTENSION, False if the file extension is found within TEXT_EXTENSION
+# - is_code_file: True if the file extension is found within CODE_EXTENSIONS, False if in TEXT_EXTENSIONS
 def should_scan_file(file_name):
-    ext = os.path.splitext(file_name)[1].strip().lower()
+    ext = get_extension(file_name)
     if ext in CODE_EXTENSIONS:
         return (True, True)
     if ext in TEXT_EXTENSIONS:
         return (True, False)
     return (False, False)
 
-# =============================================================================
-# COMMENT STRIPPING CONFIGURATION
-# =============================================================================
-
-# Maps file extensions to their comment syntax for stripping before pattern matching
-# Each entry contains: single-line comment prefix(es) and multi-line comment delimiters
-# Format: extension -> {"single": [prefixes], "multi": [(start, end), ...]}
-COMMENT_SYNTAX = {
-    # Python
-    ".py": {"single": ["#"], "multi": [('"""', '"""'), ("'''", "'''")],},
-    # JavaScript/TypeScript
-    ".js": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".jsx": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".ts": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".tsx": {"single": ["//"], "multi": [("/*", "*/")]},
-    # C-Family
-    ".c": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".cpp": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".h": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".hpp": {"single": ["//"], "multi": [("/*", "*/")]},
-    ".cs": {"single": ["//"], "multi": [("/*", "*/")]},
-    # Java
-    ".java": {"single": ["//"], "multi": [("/*", "*/")]},
-    # Kotlin
-    ".kt": {"single": ["//"], "multi": [("/*", "*/")]},
-    # Swift
-    ".swift": {"single": ["//"], "multi": [("/*", "*/")]},
-    # Go
-    ".go": {"single": ["//"], "multi": [("/*", "*/")]},
-    # Rust
-    ".rs": {"single": ["//"], "multi": [("/*", "*/")]},
-    # PHP
-    ".php": {"single": ["//", "#"], "multi": [("/*", "*/")]},
-    # Ruby
-    ".rb": {"single": ["#"], "multi": [("=begin", "=end")]},
-    # Shell scripts
-    ".sh": {"single": ["#"], "multi": []},
-    ".bash": {"single": ["#"], "multi": []},
-    # SQL
-    ".sql": {"single": ["--"], "multi": [("/*", "*/")]},
-    # HTML
-    ".html": {"single": [], "multi": [("<!--", "-->")]},
-    ".htm": {"single": [], "multi": [("<!--", "-->")]},
-    # CSS
-    ".css": {"single": [], "multi": [("/*", "*/")]},
-    # YAML
-    ".yaml": {"single": ["#"], "multi": []},
-    ".yml": {"single": ["#"], "multi": []},
-    # XML
-    ".xml": {"single": [], "multi": [("<!--", "-->")]},
-}
-
-# Remove comments from file content based on the file's extension from COMMNENT_SYNTAX
-# This helps reduce false positives from code examples in comments.
+# Remove comments from file content based on the file's extension
+# This helps reduce false positives during pattern matching
 def strip_comments(content, file_extension):
     # Format the file extension to lowercase for consistent matching
     ext = file_extension.lower()
 
     # If we don't have comment syntax for this extension, don't attempt to strip comments
-    if ext not in COMMENT_SYNTAX:
+    if ext not in LANGUAGE_CONFIG:
         return content
 
-    syntax = COMMENT_SYNTAX[ext]
+    syntax = LANGUAGE_CONFIG[ext]["comments"]
     result = content
 
     # Remove multi-line comments
@@ -191,39 +250,12 @@ def strip_comments(content, file_extension):
     return result
 
 # =============================================================================
-# LANGUAGE DETECTION CONFIGURATION
+# LANGUAGE DETECTION PATTERNS
 # =============================================================================
 
-# Mapping of common file extensions to programming languages.
-# Used for quick classification during directory traversal.
-LANGUAGE_MAP = {
-    ".py": "Python",
-    ".js": "JavaScript",
-    ".jsx": "React (JavaScript)",
-    ".ts": "TypeScript",
-    ".tsx": "React (TypeScript)",
-    ".java": "Java",
-    ".cpp": "C++",
-    ".c": "C",
-    ".cs": "C#",
-    ".php": "PHP",
-    ".html": "HTML",
-    ".css": "CSS",
-    ".rb": "Ruby",
-    ".swift": "Swift",
-    ".go": "Go",
-    ".kt": "Kotlin",
-    ".rs": "Rust",
-    ".json": "JSON (Web Config)",
-    ".xml": "XML",
-    ".sh": "Shell Script",
-    ".sql": "SQL",
-}
-
-# Regex patterns for detecting languages by file content (imported "re" at top of this file).
-# Each pattern is designed to match distinctive syntax unique to that language.
-# NOTE: Some patterns may still produce false positives from comments/documentation.
-# Future improvement: Consider adding comment/string filtering before pattern matching.
+# Regex patterns for detecting languages by file content (imported "re" at top of this file)
+# Each pattern is designed to match distinctive syntax unique to that language
+# NOTE: Some patterns may still produce false positives. Factor in confidence scoring to mitigate this
 LANGUAGE_PATTERNS = {
     "Python": [
         r'\bdef\s+\w+\s*\(',                            # function definitions
@@ -362,7 +394,7 @@ def scan_file_content(file_path):
             content = f.read()
 
             # Strip comments before pattern matching to reduce false positives
-            file_extension = os.path.splitext(file_path)[1].lower()
+            file_extension = get_extension(file_path)
             content = strip_comments(content, file_extension)
 
             # Check for occurrences of each language's patterns
@@ -402,15 +434,14 @@ def calculate_confidence(pattern_count, has_extension):
     # Low confidence
     return "low"
 
-# Goes through a project folder and figures out which languages and frameworks are being used. It does this by checking file extensions
-# and looking inside config/dependency files for framework names
+# Goes through a project folder and figures out which languages and frameworks are being used.
+# It does this by checking file extensions and looking inside config/dependency files for framework names
 def detect_languages_and_frameworks(directory):
-    # Scan a directory and identify programming languages and frameworks used.
+    # Scan a directory and identify programming languages and frameworks used
     frameworks_found = set()
 
     # Track language detection with confidence levels
     # Structure: language_data: {"pattern_count": int, "has_extension": bool, "found_in_code_file": bool, "confidence": str}
-    # - found_in_code_file: True if detected in a CODE_EXTENSION file, False if only in TEXT_EXTENSION files
     language_data = {}
 
     # Track statistics for debugging/logging
@@ -423,7 +454,7 @@ def detect_languages_and_frameworks(directory):
         # Filter out ignored directories IN-PLACE to prevent os.walk from descending into them
         # This is more efficient than checking each file's full path
         original_dir_count = len(dirs)
-        dirs[:] = [d for d in dirs if not should_ignore_directory(d)]
+        dirs[:] = [d for d in dirs if d not in IGNORED_DIRECTORIES]
         dirs_skipped += original_dir_count - len(dirs)
 
         for file in files:
@@ -438,7 +469,7 @@ def detect_languages_and_frameworks(directory):
             files_scanned += 1
 
             # Detect languages by file extension (only for code files)
-            ext = os.path.splitext(file)[1].strip().lower()
+            ext = get_extension(file)
             if ext in LANGUAGE_MAP:
                 lang = LANGUAGE_MAP[ext]
                 if lang not in language_data:
@@ -540,27 +571,27 @@ if __name__ == "__main__":
         print("\n" + "=" * 70)
         print("HIGH CONFIDENCE")
         print("Extension match + 10 or more pattern matches")
-        print("=" * 70)
+        print("=" * 70 + "\n")
         display_language_table(results['high_confidence'], results['language_details'])
 
         # Display MEDIUM confidence languages
         print("\n" + "=" * 70)
         print("MEDIUM CONFIDENCE")
         print("Extension with <10 patterns OR no extension with 10+ patterns")
-        print("=" * 70)
+        print("=" * 70 + "\n")
         display_language_table(results['medium_confidence'], results['language_details'])
 
         # Display LOW confidence languages
         print("\n" + "=" * 70)
         print("LOW CONFIDENCE")
         print("No extension match + less than 10 pattern matches")
-        print("=" * 70)
+        print("=" * 70 + "\n")
         display_language_table(results['low_confidence'], results['language_details'])
 
         # Display frameworks
         print("\n" + "=" * 70)
         print("FRAMEWORKS DETECTED")
-        print("=" * 70)
+        print("=" * 70 + "\n")
         if results['frameworks']:
             for fw in results['frameworks']:
                 print(f"  {fw}")
