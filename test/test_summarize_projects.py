@@ -295,9 +295,8 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
                     
                     self.assertEqual(len(result), 1)
                     self.assertEqual(result[0]['project'], 'missing-path-project')
-                    self.assertIsNone(result[0]['project_path'])
-                    self.assertIsNone(result[0]['summary_paths'])
-                    self.assertEqual(result[0]['error'], 'Project path not found')
+                    self.assertIsNone(result[0]['project_path']) 
+                    self.assertEqual(result[0]['error'], 'Project path not found') 
 
     def test_summarize_generates_summaries_for_valid_projects(self):
         """Test that summarize_top_ranked_projects generates summaries when project path exists."""
@@ -316,7 +315,7 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
             {'project': 'test-project', 'contrib_files': 2, 'total_files': 2, 'score': 1.0}
         ]
         
-        # Mock gather_project_info and output_project_info
+        # Mock gather_project_info
         mock_info = {
             'project_name': 'test-project',
             'project_path': project_dir,
@@ -328,24 +327,12 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
         
         output_dir = os.path.join(self.temp_dir, 'output')
         os.makedirs(output_dir, exist_ok=True)
-        json_path = os.path.join(output_dir, 'test-project_info.json')
-        txt_path = os.path.join(output_dir, 'test-project_summary.txt')
-        
-        def mock_output_project_info(info, output_dir):
-            # Create dummy files
-            with open(json_path, 'w') as f:
-                import json
-                json.dump(info, f)
-            with open(txt_path, 'w') as f:
-                f.write('Summary')
-            return json_path, txt_path
         
         with patch('summarize_projects.get_connection', return_value=self.conn):
             with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
                 with patch('summarize_projects.get_project_path', return_value=project_dir):
-                    # Patch the imported functions at the module level where they're used
                     with patch('project_info_output.gather_project_info', return_value=mock_info):
-                        with patch('project_info_output.output_project_info', side_effect=mock_output_project_info):
+                        with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(output_dir, 'combined_summary.txt')):
                             result = summarize_projects.summarize_top_ranked_projects(
                                 'TestUser', output_dir=output_dir
                             )
@@ -353,10 +340,7 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
                             self.assertEqual(len(result), 1)
                             self.assertEqual(result[0]['project'], 'test-project')
                             self.assertEqual(result[0]['project_path'], project_dir)
-                            self.assertIsNotNone(result[0]['summary_paths'])
-                            self.assertIsNone(result[0]['error'])
-                            self.assertIn('json_path', result[0]['summary_paths'])
-                            self.assertIn('txt_path', result[0]['summary_paths'])
+                            self.assertIsNone(result[0]['error'])  # No error expected
 
     def test_summarize_handles_summary_generation_errors(self):
         """Test that summarize_top_ranked_projects handles errors during summary generation."""
@@ -377,8 +361,7 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
                         self.assertEqual(len(result), 1)
                         self.assertEqual(result[0]['project'], 'error-project')
                         self.assertEqual(result[0]['project_path'], project_dir)
-                        self.assertIsNone(result[0]['summary_paths'])
-                        self.assertIsNotNone(result[0]['error'])
+                        self.assertIsNotNone(result[0]['error'])  # Error should be populated
                         self.assertIn('Test error', result[0]['error'])
 
     def test_summarize_respects_limit_parameter(self):
