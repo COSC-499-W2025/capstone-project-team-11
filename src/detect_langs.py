@@ -375,6 +375,10 @@ LANGUAGE_PATTERNS = {
     ],
 }
 
+# =============================================================================
+# FRAMEWORK DETECTION
+# =============================================================================
+
 # TODO: Rework framework detection to be in-line with language detection method
 # Framework indicators based on well-known files
 FRAMEWORK_HINTS = {
@@ -383,6 +387,10 @@ FRAMEWORK_HINTS = {
     "pom.xml": ["Spring Boot", "Maven"],
     "build.gradle": ["Spring Boot", "Gradle"],
 }
+
+# =============================================================================
+# MAIN DETECTION LOGIC
+# =============================================================================
 
 # Scans a file and counts pattern matches for each language
 # Returns a dictionary with language names as keys and match counts as values
@@ -543,6 +551,10 @@ def detect_languages_and_frameworks(directory):
         "frameworks": sorted(frameworks_found),
         "language_details": language_data
     }
+
+# =============================================================================
+# TERMINAL EXECUTION
+# =============================================================================
 
 # Allows this file to be run directly in the terminal
 if __name__ == "__main__":
