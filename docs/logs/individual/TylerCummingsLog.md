@@ -153,4 +153,27 @@ Week 11 Plans:
 
 <img width="1896" height="778" alt="image" src="https://github.com/user-attachments/assets/b2d131ba-1356-4acb-a8b8-1142066119df" />
 
+# Tyler's Week 12 Personal Log (17-23 Nov.)
+
+Focus of the week was modifying the scan.py file to create a menu to allow the user to either scan or view previous scanned insights and allow the deletion of them
+
+<img width="985" height="582" alt="image" src="https://github.com/user-attachments/assets/c383f91b-d785-4ef1-8cca-aad144485b4e" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Added to scan.py to create a menu
+- Added the ability to view previously scanned insights
+- Added the ability to delete previously scanned insights
+- Reviewed teammates pull requests and code
+- Finished individual log 12
+- Finished peer reviews for week 12
+
+Week 13 Plans:
+- Work on creating db table for insights and allow the viewing and deletion of the insights in the database instead of the current file folder saving it does.
+
+<img width="1654" height="826" alt="image" src="https://github.com/user-attachments/assets/50650c4d-d5df-4e45-a3f9-000c79d1142c" />
+
+
+
 
