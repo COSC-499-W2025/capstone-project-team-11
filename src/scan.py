@@ -575,6 +575,81 @@ def run_with_saved_settings(
 
 
 if __name__ == "__main__":
+
+    import os
+    import sys
+
+    # MAIN MENU LOOP
+    while True:
+        print("\n=== Scan Manager ===")
+        print("1. Run a new scan")
+        print("2. View previous scan insights")
+        print("3. Exit")
+
+        choice = input("Select an option (1/2/3): ").strip()
+
+        insights_root = os.path.join("output")
+
+        # EXIT PROGRAM
+        if choice == "3":
+            print("Exiting program.")
+            sys.exit(0)
+
+        # OPTION 2 — VIEW PREVIOUS INSIGHT FILES
+        if choice == "2":
+            print("\n=== Previous Scan Insights ===")
+
+            if not os.path.exists(insights_root):
+                print("No insights found.")
+                continue
+
+            # Collect all insight files
+            all_files = []
+            for root, dirs, files in os.walk(insights_root):
+                for f in files:
+                    if f.endswith(".json") or f.endswith(".txt"):
+                        all_files.append(os.path.join(root, f))
+
+            if not all_files:
+                print("No insight files found.")
+                continue
+
+            print("\nAvailable Insights:")
+            for i, full_path in enumerate(all_files, 1):
+                print(f"{i}. {os.path.basename(full_path)}")
+
+            print("\n1. Delete a scan insight")
+            print("2. Back to main menu")
+            sub_choice = input("Select an option (1/2): ").strip()
+
+            # DELETE AN INSIGHT
+            if sub_choice == "1":
+                delete_num = input("Enter the number of the insight to delete: ").strip()
+
+                try:
+                    idx = int(delete_num) - 1
+                    file_to_delete = all_files[idx]
+                    os.remove(file_to_delete)
+                    print(f"Deleted: {os.path.basename(file_to_delete)}")
+                except:
+                    print("Invalid selection. No file deleted.")
+
+                continue  # back to main menu
+
+            # BACK TO MAIN MENU
+            elif sub_choice == "2":
+                continue
+
+            else:
+                print("Invalid option. Returning to main menu.")
+                continue
+
+        # OPTION 1 — RUN NEW SCAN 
+        if choice == "1":
+            break  # exits the menu loop and continues to scan logic
+
+        print("Invalid option. Please select 1, 2, or 3.")
+
     # Handle data consent first
     current = load_config(None)
     # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
@@ -653,6 +728,7 @@ if __name__ == "__main__":
             save=remember,
             save_to_db=save_db,
         )
+
     try:
         from project_info_output import gather_project_info, output_project_info
     except Exception:
@@ -680,3 +756,4 @@ if __name__ == "__main__":
                 print(f"Summary reports saved to: {out_dir}")
             except Exception as e:
                 print(f"Failed to generate summary report: {e}")
+
