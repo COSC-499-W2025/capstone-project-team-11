@@ -159,3 +159,34 @@ In addition to the bug fix, I participated in peer code reviews for PR #131 (Dat
 - Continue reviewing teammate PRs ahead of Milestone 1 submission  
 - Contribute to documentation updates
 - Support final debugging and consistency checks across merged feature
+
+---
+
+# Week 12 Personal Log (Nov 10th – Nov 23rd)
+
+This week I implemented a new contributor-focused project summarization feature. My update (PR #158) added a full implementation of `summarize_projects.py`, which analyzes a contributor’s top-ranked projects from the database, gathers project metadata, and generates one combined summary file. The summary includes languages, skills, frameworks, contribution metrics, ranking breakdowns, and per-project details. The feature resolves project paths, handles missing/invalid paths, aggregates all stats cleanly, and produces a readable multi-section report. It’s completely standalone and can be run manually through the CLI without affecting the main scanning pipeline. I also added a comprehensive test suite covering path resolution, skipping invalid projects, info-gathering behavior, error handling, and limit enforcement. All automated tests passed, and manual runs produced correct summary files.
+
+As a group, I feel we had a solid week. We expanded our reporting tools and kept everything aligned as we move toward the end of Milestone 1. Over the next couple of weeks, we’ll need to come together to tighten up our product for the demo, which I believe we will.
+
+<img width="1107" height="663" alt="Screenshot 2025-11-23 at 5 21 43 PM" src="https://github.com/user-attachments/assets/7b91fd97-37e7-4a08-8ab3-700f9b636ffe" />
+
+## Tasks Completed
+- Added full contributor project summarization feature to `summarize_projects.py` (PR #158)  
+- Implemented complete test suite in `test_summarize_projects.py`  
+- Verified summary reports manually and through pytest  
+- Reviewed PR #157  
+- Reviewed PR #153   
+- Updated project board and personal log  
+
+<img width="1333" height="184" alt="Screenshot 2025-11-23 at 5 43 05 PM" src="https://github.com/user-attachments/assets/6a7ed131-4705-4819-a4de-446b2dbe25a9" />
+
+## Plans for Week 13
+- Continue refining contributor/project reporting tools
+- **Issue #35 (Retrieve Previously-Generated Résumé Item)** to see if we have good enough reports to support retrieval
+- Look into generating résumé/portfolio items **if needed**, depending on how the requirement develops  
+- Look into integrating an LLM
+- Support upcoming PR reviews ahead of Milestone 1 due date  
+- Add documentation for new summary-reporting feature  
+- Begin drafting integration notes for contributor-focused analysis
+
+---
