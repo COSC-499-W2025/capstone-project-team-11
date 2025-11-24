@@ -168,6 +168,7 @@ Tasks Completed:
 - Reviewed teammates pull requests and code
 - Finished individual log 12
 - Finished peer reviews for week 12
+- Finished team log for week 12
 
 Week 13 Plans:
 - Work on creating db table for insights and allow the viewing and deletion of the insights in the database instead of the current file folder saving it does.
