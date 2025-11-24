@@ -419,3 +419,88 @@ As for week 12, we have discussed it as a team and decided that we hope to:
 - Implement "Rank Project Importance Based on User's Contributions" Issue #36
 - Implement "Summarize the User's Top-Ranked Projects" Issue #37
 - General bug-fixes that we notice during testing/implementation
+
+# Team #11 - Week 12 Team Log (November 17nd-23rd)
+Team Members    --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
+
+Overview:
+This week the team resumed work after reading break and delivered several major improvements across scanning, ranking, reporting, skill grouping, and project metadata handling. Added/Fixed features such as language detection, contributor summaries, chronological ranking, and skill chronology. The team continued strong collaboration with consistent PR reviews and early commits to avoid merge conflicts.
+
+<img width="1047" height="553" alt="image" src="https://github.com/user-attachments/assets/3a496cca-8ed6-4a7d-b5cd-60da41bec0e1" />
+
+
+Table view of completed tasks on project board (by name):
+
+Improved language/framework detection with filtering, comment stripping, confidence scoring, config cleanup, expanded tests, PR reviews, and weekly coordination/logs.
+- Tanner
+  
+Added full contribution-ranking feature with project rankings, contributor stats, and contribution fractions.
+- Daniel
+
+Refactored chronological project ranking using Git creation timestamps, added Git metadata + DB updates, improved SQL/formatting and continued portfolio-info retrieval
+- Jaxson
+
+Implemented full contributor-summary tooling, project/skill summarization improvements and robust path handling.
+- Travis
+
+Added interactive menu system to scan.py and view/delete insights
+- Tyler
+
+Team Logs
+- Tyler
+
+Code Review and Verification
+- Tanner, Jaxson, Priyanshu, Daniel, Travis, Tyler
+
+Testing Report:
+All new and existing unit tests passed successfully across both local and Docker environments. The testing suite was expanded to cover Chronological Project Ranking, collaboration summaries, Language & Framework Detection, Path Resolution. Validation was conducted through both automated and manual testing.
+
+test_rank_projects.py
+- Verified correct ordering for both ascending and descending modes, based on earliest scan timestamps when no entry exists in the projects table.
+- Confirmed that limit behavior correctly truncates results without disrupting ordering.
+- Ensured ranking logic works with: Multiple projects, Mixed timestamps, Projects with only partial scan history
+- Validated fallback behavior when contributor data or projects are missing.
+<img width="546" height="102" alt="image" src="https://github.com/user-attachments/assets/43d3a46e-c877-437a-a5fe-c6d444b41b21" />
+
+test_detect_langs.py
+- Verified accurate detection for all languages
+- Validated proper detection of multiple frameworks in a single package.json (React, Vue, Express).
+- Confirmed scan_file_content() detects syntax signatures for Python classes, imports, functions, and block structures.
+- Verified complete removal of: Python single-line comments, Python multiline docstrings, JavaScript single and multiline comments, Ensured code integrity remains unchanged.
+- Verified Directory & Extension Handling: Ignored directories (node_modules, .git, venv, __pycache__, etc.) are skipped, get_extension() normalizes mixed-case extensions and should_scan_file() distinguishes code, text, and non-scannable file types.
+<img width="748" height="767" alt="image" src="https://github.com/user-attachments/assets/63cfede5-53b5-46a6-991f-36ecd8800c5d" />
+
+
+test_summarize_projects.py
+- Validated correct path resolution across several edge cases: Nonexistent or empty projects, returned None when no scans exist and returned None when scans exist but no associated files exist.
+- Correctly identified project root using .git directory, even when scanned files were deep in nested subdirectories.
+- Verified that a top-level README.md correctly marks the project’s root directory.
+- Confirmed correct extraction of base file path when stored paths use archive.zip:/inner/file.py format.
+- Ensured the latest scan’s files are used for project path derivation.
+- Validated empty result for nonexistent contributor names.
+- Confirmed stable behavior even when ranker returns empty lists.
+- Verified summaries gracefully degrade with: project_path = None and error = "Project path not found" (No crashes or propagation of invalid paths.)
+- Confirmed complete summary generation when: Valid project path exists, README and source files present
+- Ensured summaries include: Project name, Project path, Contributor ranking metrics, File counts
+
+
+Manual testing confirmed:
+- Improved language detection accuracy
+- Correct metadata extraction from Git
+- Correct project summarization outputs
+- Correct skill grouping and ordering
+- Proper functioning of new scan.py menu
+
+Reflection:
+This week was productive and structured. The team successfully reestablished momentum after the break. Several large features were completed or significantly improved, especially around project metadata accuracy, skill grouping, language detection, and contributor-focused summaries. Communication was strong, PR reviews were done early, and merge conflicts were avoided. With Milestone 1 approaching, the team feels confident but aware of the need to finalize demo-related features and polish the pipeline.
+
+Planning Activities (Week 13)
+- Prepare for Quiz 1 and Milestone 1 Presentation
+- Finalize revisions to Language/framework detection, Chronological ranking and project metadata, Contribution summarization and Skill grouping
+- Begin or continue résumé/portfolio generation, Retrieving previously stored résumés/portfolio entries, Completing any remaining Kanban tasks and clean up scan.py for the demo
