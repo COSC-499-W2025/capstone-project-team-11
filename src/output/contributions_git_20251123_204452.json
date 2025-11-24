@@ -1,0 +1,34 @@
+{
+    "tylercummings": {
+        "commits": 8,
+        "files": [
+            "src/webserver.py"
+        ],
+        "file_count": 1
+    },
+    "githubclassroombot": {
+        "commits": 2,
+        "files": [
+            ".github/workflows/autograde.yml",
+            ".gitignore",
+            "README.md",
+            "src/favicon.ico",
+            "src/index.html",
+            "src/nested.html",
+            "src/nested/css.html",
+            "src/nested/index.html",
+            "src/sample.pdf",
+            "src/test.css",
+            "src/test.html",
+            "src/test.js",
+            "src/test.json",
+            "src/test.png",
+            "src/thispage.jpg",
+            "src/webserver.py",
+            "src/zelda.gif",
+            "src/zelda.jpg",
+            "src/zelda.png"
+        ],
+        "file_count": 19
+    }
+}

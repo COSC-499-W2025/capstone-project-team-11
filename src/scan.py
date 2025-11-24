@@ -575,11 +575,9 @@ def run_with_saved_settings(
 
 
 if __name__ == "__main__":
-
     import os
     import sys
 
-    # MAIN MENU LOOP
     while True:
         print("\n=== Scan Manager ===")
         print("1. Run a new scan")

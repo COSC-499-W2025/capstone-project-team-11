@@ -1,0 +1,32 @@
+=============================================
+         PROJECT INFORMATION SUMMARY         
+=============================================
+
+Generated at: 2025-11-23T20:44:52
+Project Name: assignment-3-building-a-webserver-updated-TylerC-3042
+Project Path: C:\Users\tyler\assignment-3-building-a-webserver-updated-TylerC-3042
+
+Languages Detected:
+CSS, HTML, JSON (Web Config), JavaScript, PHP, Python, Ruby, Shell Script, Swift
+
+Frameworks Detected:
+None found
+
+Skills Detected:
+Analytical Writing, Asynchronous Programming, Recursion, Strong Communication Skills, Technical Writing
+
+=== Contribution Summary ===
+- tylercummings: 8 commits, ['src/webserver.py'] files changed
+- githubclassroombot: 2 commits, ['.github/workflows/autograde.yml', '.gitignore', 'README.md', 'src/favicon.ico', 'src/index.html', 'src/nested.html', 'src/nested/css.html', 'src/nested/index.html', 'src/sample.pdf', 'src/test.css', 'src/test.html', 'src/test.js', 'src/test.json', 'src/test.png', 'src/thispage.jpg', 'src/webserver.py', 'src/zelda.gif', 'src/zelda.jpg', 'src/zelda.png'] files changed
+
+=== Git Metrics ===
+Project duration: 11 days
+Total commits: 10
+Activity by category:
+  code: 9
+  docs: 2
+  design: 1
+  test: 1
+  other: 1
+
+=============================================
