@@ -39,11 +39,40 @@ def print_header(title):
 def human_ts(ts):
     if not ts:
         return 'N/A'
+    # Try strict ISO parse first
     try:
-        # try to parse as ISO or SQLite stored string
-        return str(datetime.fromisoformat(ts))
+        dt = datetime.fromisoformat(ts)
+        # Include timezone offset if present
+        if dt.tzinfo:
+            return dt.strftime('%Y-%m-%d %H:%M:%S %z')
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception:
-        return str(ts)
+        pass
+
+    # Attempt to repair common truncated timezone forms like '-08:0' -> '-08:00'
+    try:
+        import re
+        m = re.search(r'([+-]\d{2}:\d)$', ts)
+        if m:
+            ts2 = ts + '0'
+            try:
+                dt = datetime.fromisoformat(ts2)
+                if dt.tzinfo:
+                    return dt.strftime('%Y-%m-%d %H:%M:%S %z')
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Fallback: try a couple of common formats, otherwise return raw string
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+        try:
+            dt = datetime.strptime(ts, fmt)
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            continue
+    return str(ts)
 
 
 def main():
@@ -137,28 +166,37 @@ def main():
     else:
         print(' No scans to show details for')
 
-    # Skills exercised chronologically:
-    # We look at the earliest scan date where each skill was detected in a project.
-    # MIN(scanned_at) gives the first time that skill appeared in any scan.
-    # Sorting by first_seen shows a "timeline" of when skills were exercised.   
-    print_header('Skills Exercised (Chronologically)')
-    skill_rows = safe_query(cur, """
+        # Grouped Skills Timeline (Improved Readability Version)
+    print_header('Skills Exercised (Chronologically — Grouped by Skill)')
+
+    raw_rows = safe_query(cur, """
         SELECT sk.name AS skill,
-               MIN(s.scanned_at) AS first_seen,
+               s.scanned_at AS used_at,
                p.name AS project
         FROM skills sk
         JOIN project_skills ps ON sk.id = ps.skill_id
         JOIN projects p ON ps.project_id = p.id
         JOIN scans s ON s.project = p.name
-        GROUP BY sk.name, p.name
-        ORDER BY first_seen ASC
+        ORDER BY sk.name ASC, used_at ASC
     """)
 
-    if not skill_rows:
-        print(' No recorded skills')
+    if not raw_rows:
+        print(" No recorded skills")
     else:
-        for r in skill_rows:
-            print(f"  {r['first_seen']} — {r['skill']} (project: {r['project']})")
+        # Build a dictionary grouping entries under each skill
+        grouped = {}
+        for row in raw_rows:
+            skill = row["skill"]
+            ts = human_ts(row["used_at"])
+            proj = row["project"]
+            grouped.setdefault(skill, []).append((ts, proj))
+
+        # Output each skill followed by all its occurrences
+        for skill, entries in grouped.items():
+            print(f"\n{skill}:")
+            for ts, proj in entries:
+                print(f"   • {ts}  (project: {proj})")
+
 
     
     

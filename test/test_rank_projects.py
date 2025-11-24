@@ -28,6 +28,17 @@ class TestRankProjects(unittest.TestCase):
             )
             '''
         )
+        # Create a minimal projects table so ranking SQL can left-join against it
+        cur.execute(
+            '''
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                repo_url TEXT,
+                created_at TEXT
+            )
+            '''
+        )
         self.conn.commit()
 
     def tearDown(self):
@@ -50,11 +61,12 @@ class TestRankProjects(unittest.TestCase):
         with patch('rank_projects.get_connection', return_value=self.conn):
             results = rank_projects.rank_projects(order='desc')
 
-        # Expect project-a first because its last_scan is newest
+        # Ordering is by project created_at (earliest scan) desc when no project row.
+        # project-a has earliest scan 2025-11-01, project-b 2025-11-02, so project-b should come first.
         self.assertGreaterEqual(len(results), 2)
-        self.assertEqual(results[0]['project'], 'project-a')
-        self.assertEqual(results[0]['scans_count'], 2)
-        self.assertEqual(results[1]['project'], 'project-b')
+        self.assertEqual(results[0]['project'], 'project-b')
+        self.assertEqual(results[0]['scans_count'], 1)
+        self.assertEqual(results[1]['project'], 'project-a')
 
     def test_limit_and_ascending(self):
         # Insert multiple projects with different timestamps
