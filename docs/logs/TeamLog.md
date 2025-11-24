@@ -346,6 +346,9 @@ Team Members    --> GitHub Username
 Overview:
 This week the team resumed work after reading break and delivered several major improvements across scanning, ranking, reporting, skill grouping, and project metadata handling. Added/Fixed features such as language detection, contributor summaries, chronological ranking, and skill chronology. The team continued strong collaboration with consistent PR reviews and early commits to avoid merge conflicts.
 
+<img width="1047" height="553" alt="image" src="https://github.com/user-attachments/assets/3a496cca-8ed6-4a7d-b5cd-60da41bec0e1" />
+
+
 Table view of completed tasks on project board (by name):
 
 Improved language/framework detection with filtering, comment stripping, confidence scoring, config cleanup, expanded tests, PR reviews, and weekly coordination/logs.
