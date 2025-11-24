@@ -144,3 +144,29 @@ Overall this was less of a productive week for myself and for some other team me
 The next sprint will be important going forward since our milestone 1 demo is coming up shortly. During this week I would like to get started working on the ranking of projects based on importance. This will be a big tasks that will need to be done in order to further enhance the project. 
 
 
+
+# Week 12 (November 17th - 23rd)
+<img width="1602" height="938" alt="image" src="https://github.com/user-attachments/assets/71f38a8c-f0af-4216-a6ae-62b68d05b80a" />
+
+## Tasks Completed
+- Added feature that ranks importance of a project based on user contributions. It displays the projects based on the info:
+    - Project: project key/name.
+    - TotalFiles: total number of files recorded for that project
+    - Contributors: number of distinct contributors recorded for files in that project.
+    - TopContributor: contributor name with the largest number of files they are linked to within the project.
+    - TopFiles: number of files the top contributor is linked to.
+    - TopFraction: TopFiles / TotalFiles (a float 0.00–1.00). Shows how concentrated the project's files are with that single contributor (1.00 means the top contributor owns all recorded files).
+ 
+- Created two main contribution functions:
+    - rank_projects_contribution_summary: is project-centric, it summarizes, for each project, how contributors are distributed and who the top contributor is. It is useful when you want an at-a-glance view of how contribution is distributed across projects.
+    - rank_projects_by_contributor: is specific contributor centric, it summarizes, for each project, the contributions of the specific user for all the projects.
+- Added sufficient testing for the feature.
+- Reviewed Travis and Tanner's prs
+- Individual logs.
+
+## Refelction
+After a relaxing week for reading break, we came back as a team and started to gain momentum. Overall, I believe I had a pretty productive week by completing another feature that will contribute towards completing milestone 1. The deadline is rapidly approaching so as a group we have to come together and devise a plan especially for the upcoming presentation.
+
+## Week 13 Plans
+There are not a lot of major tasks left to be picked up in the Kanban board and there will be more focus on the quiz and the informational lecture on Monday. Beyond this, I will start working on ideas for the milestone 1 demo that is coming up. I will also be around to review and help others with minor updates and features left to add. 
+   
