@@ -334,7 +334,7 @@ Planning Activities (Week 10):
 - Sort "Skills Exercised" Chronologically #40
 - bug fixes 
 
-# Team #12 - Week 8 Team Log (November 17nd-23rd)
+# Team #11 - Week 12 Team Log (November 17nd-23rd)
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
@@ -417,7 +417,7 @@ This week was productive and structured. The team successfully reestablished mom
 Planning Activities (Week 13)
 - Prepare for Quiz 1 and Milestone 1 Presentation
 - Finalize revisions to Language/framework detection, Chronological ranking and project metadata, Contribution summarization and Skill grouping
-- Begin or continue Integrating LLM-powered résumé/portfolio generation, Retrieving previously stored résumés/portfolio entries, Completing any remaining Kanban tasks and clean up scan.py for the demo
+- Begin or continue résumé/portfolio generation, Retrieving previously stored résumés/portfolio entries, Completing any remaining Kanban tasks and clean up scan.py for the demo
 
 
 
