@@ -208,3 +208,35 @@ This was a steady week for our group. Most of us had at least 2 midterms, which 
 
 <img width="889" height="622" alt="Screenshot 2025-11-09 at 7 35 32 PM" src="https://github.com/user-attachments/assets/970ebdde-a4af-4f19-8331-a5232f75cad1" />
 
+# Week 12 Personal Logs (November 17th - 23rd)
+
+<img width="958" height="562" alt="Screenshot 2025-11-23 at 7 59 53 PM" src="https://github.com/user-attachments/assets/211b87d0-b185-45a7-b0b6-b66d8bd5f9f6" />
+
+## Tasks Completed:
+This week, I focused on improving and refactoring our “Rank Projects Chronologically” feature to ensure project ordering reflects the true project creation dates rather than just scan timestamps.
+- Closed issue #146
+
+### Reflection of the past week:
+This was a good week for our group as we have been in a steady flow of each member committing code. Most of our code was committed before Sunday night to avoid merger errors, which has been a problem in the past. For the upcoming week, we plan on preparing for the quiz as well as the presentation for Milestone 1. 
+
+### Additions and Features:
+- **`scan.py`**: Added Git-based metadata extraction to detect Git repository root, repo URL, and initial commit timestamp. This passes `project_created_at` and `project_repo_url` into the persistence layer. I also ensured that VCS-derived creation dates are used instead of overwriting them with the latest scan timestamps.
+- **`db.py`**: Extended `save_scan()` to store `project_created_at` and `project_repo_url`, which uses non-destructive logic with `INSERT OR IGNORE` + safe `UPDATE` to avoid overwriting valid metadata.
+- **`rank_projects.py`**: Updated SQL ordering to use `projects.created_at` (preferred) and a fallback to `MIN(scanned_at)` when missing. I added readable timestamp formatting via `human_ts()` and improved printed output for clarity.
+- **`inspect_db.py`**: Improved timestamp normalization and readability, which makes it easier to distinguish between VCS-derived and fallback timestamps. 
+
+### Testing:
+- **`test_rank_projects.py`**: Updated to match new chronological ranking logic, which adds a temporary in-memory `projects` table to support JOIN behaviour. Assertions updated to confirm, correct ordering by `created_at`, correct fallback to the earliest scan when needed, and the human-readable formatting
+
+### Reviews: 
+- Tanner's Second Round of Revisions to Language/Framework Detection Feature (PR #157)
+- Tanner's Detect programming languages revision: Cleaned codebase and updated unit testing suite (PR #159)
+  
+## In progress tasks
+- Retrieve Previously-Generated Portfolio Information (issue #34)
+- Quiz 1 preparation 
+
+## Planned tasks for next sprint
+- Finalise project outputs for Milestone 1 Presentations
+
+<img width="833" height="496" alt="Screenshot 2025-11-23 at 8 03 50 PM" src="https://github.com/user-attachments/assets/b76ea4d1-ec35-4c93-b49e-1bc6ec8cb98a" />
