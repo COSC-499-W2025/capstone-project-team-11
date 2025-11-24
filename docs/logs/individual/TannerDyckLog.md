@@ -209,3 +209,48 @@ Next week is Reading Break, and I have yet to discuss with the team what our pla
 ## Kanban Board at End of Week #10
 
 <img width="1211" height="886" alt="week10-kanban" src="https://github.com/user-attachments/assets/0b11cf1b-42ad-43b0-97c9-dbb154e63c95" />
+
+# Week #11 - November 10th - 16th
+During the reading break week, no work was done on our capstone project
+
+# Week #12 - November 17th - 23rd
+
+<img width="1065" height="619" alt="week12-tasks" src="https://github.com/user-attachments/assets/1a031ce1-2074-4d22-bcd8-15e5557ca18d" />
+
+## Tasks Completed:
+This week, I continued implementing revisions for our scanner's "Detect programming languages/frameworks within coding projects" feature. I left the feature in a stable state last week, but the feature was still highly inaccurate, and the codebase contained a fair amount of redundant/deprecated code. So this week, I implemented another round of changes:
+
+A) Features Implemented (More detailed breakdown can be found in PR #157):
+- Added file and directory filtering for language detection
+- Added comment stripping to reduce false positives during language detection
+- Categorized language detections into primary and secondary detections, and reworked the confidence level thresholds
+
+B) Codebase Refactoring (More detailed breakdown can be found in PR #159):
+- Unified LANGUAGE_MAP, CODE_EXTENSIONS, and COMMENT_SYNTAX dictionaries into a single LANGUAGE_CONFIG dictionary that hosts all extension-to-language mappings and comment syntax definitions
+- CODE_EXTENSIONS (File extensions directly related to programming languages) and LANGUAGE_MAP (Mapping of file extensions to language names) are now initialized as subsets of LANGUAGE_CONFIG, this eliminates the need to maintain three separate data structures
+
+C) Unit Testing Updates (More detailed breakdown can be found in PR #159):
+- Helper function tests:
+    - tests that should_scan_file() operates correctly and is returning the proper boolean values when code, text, and unknown file types are passed through it
+    - tests that get_extension() normalizes file extensions by stripping them and setting them to lowercase
+- Comment Stripping Tests:
+    - tests that strip_comments() behaves properly across a variety of file types and languages (comments are removed, and accurate code segments are returned)
+- Ignored Directories Tests:
+    - tests that some pre-defined "junk" folders such as .git and pycache are not included during language/framework detection in hopes of reducing false positives and other useless detections
+
+In addition to these bug fixes, I performed my usual responsibilities of:
+- Communicating regularly throughout the week in our Discord server and describing my fixes to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log PRs as necessary
+- Completing both my individual log and peer review for week 12
+
+*Note: These changes have not fixed all possible inaccuracies with this feature. False positives are still detected, however, the confidence level system helps mitigate the impact of the false positives. Essentially, only "HIGH" confidence languages should be considered, but "MEDIUM" confidence languages can also provide insight into certain coding projects. The framework detection is still in a rudimentary state, and needs to be brought more in line with the current implementation of language detection before I would consider this feature to be "complete".
+
+## Reflection Points
+I feel that most of our team has hit a sustainable stride/pace so to speak. We are all checking in with each other through Discord at the beginning of each week to discuss what each of us plans to complete, and by what deadline. We give brief updates throughout the week as we encounter hiccups or push PRs. And we have all hands on deck during the weekend to ensure a smooth merge from our Development branch into main. I feel that our team knows what to expect each week, and we are all trying to pull our weight to ensure we have no more chaotic sprints.
+
+## Next Week (Week #13)
+I believe that next week is our final week to commit changes to the repo before milestone #1 comes to a close. I worry about our scanner's ability to produce adequate resumes/portfolios in its current state, but one of our team members was working on that this week, we just haven't seen his implementation yet. I plan to finish my revisions to the detect languages/frameworks section by: revamping framework detection to behave similarly to language detection, and updating the unit testing suite to cover framework detection. Afterwards, I will dedicate any available spare time to working on any last-minute necessary revisions to any other features that significantly impact resume/portfolio generation. 
+
+## Kanban Board at End of Week #12
+
+<img width="1877" height="897" alt="week12-kanban" src="https://github.com/user-attachments/assets/ae65ae28-3af8-4137-9ff6-9ad8562b3625" />
