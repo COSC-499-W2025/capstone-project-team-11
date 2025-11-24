@@ -169,9 +169,42 @@ Both reviews focused on verifying database consistency, preventing incorrect dat
 - Contribute to documentation updates
 
 
+# Week 12 (November 17th - 23rd)
+
+<img width="1509" height="811" alt="Screenshot 2025-11-23 at 5 01 11 PM" src="https://github.com/user-attachments/assets/fb3e58f8-f501-4e7d-aead-1ab27900300a" />
+
+## Tasks Completed
+Implemented the improved Skills Exercised (Chronologically — Grouped by Skill) feature in inspect_db.py.
+
+-Groups duplicate skills under one header
+-Sorts occurrences chronologically
+-Repositions section for better readability
+-Significantly reduces output length for users with many scans
+
+Added code to:
+-Build grouped skill dictionaries
+-Format readable bullet-point timelines per skill
+-Integrate with existing DB queries without breaking prior output
+-Ensure timestamps are consistently formatted using human_ts
+
+Reviewed Daniel’s project-importance ranking PR 
+
+-Verified output from both contribution-summary functions
+-Pulled the branch and ran tests locally
+-Provided feedback on clarity, edge-case handling, and table readability
+
+Reviewed Travis’s summarize_projects.py 
+
+-Verified the manual Test A output
+-Ran tests locally
+-Provided structured feedback, suggestions, and readability considerations
+
+Completed weekly logs and ensured all GitHub workflow tasks (commits, pushes, reviews) were properly done.
+
+## Refelction
+After  reading break we got straight back into the routine of things and did pretty good this week, I implemented some suggestions that were left on a pr from a few weeks ago which i'm pretty satifised with.Since the milestone deadline is coming soon, we should make sure we are all communicating well with each other.
 
 
-
-
-
+## Week 13 Plans
+To be honest not a lot of issues left to picked up and the quiz upcoming this week and some other classes will be taking a lot of time from my week .But I will be helping my peers with reviews or tweaking  functions and helping plan for the demo and making sure we are prepared it for it. 
 
