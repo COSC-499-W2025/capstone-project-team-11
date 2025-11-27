@@ -6,16 +6,20 @@ timeline of skills exercised across projects.
 """
 
 from typing import List, Dict
-from datetime import datetime
 
 
 def print_grouped_skill_timeline(cur, safe_query, human_ts, print_header) -> None:
     """
     Print skills grouped by skill name, with chronological occurrences per project.
+
+    This function queries all (skill, timestamp, project) combinations,
+    groups them by skill name, and outputs a clean, readable timeline.
     """
 
+    # Section header for readability in inspect_db output
     print_header('Skills Exercised (Chronologically — Grouped by Skill)')
 
+    # Fetch every skill usage across projects, ordered for chronological grouping
     rows = safe_query(cur, """
         SELECT sk.name AS skill,
                s.scanned_at AS used_at,
@@ -27,10 +31,12 @@ def print_grouped_skill_timeline(cur, safe_query, human_ts, print_header) -> Non
         ORDER BY sk.name ASC, used_at ASC
     """)
 
+    # Handle case where no skills have been recorded
     if not rows:
         print(" No recorded skills")
         return
 
+    # Group timeline entries by skill name
     grouped: Dict[str, List] = {}
 
     for row in rows:
@@ -39,6 +45,7 @@ def print_grouped_skill_timeline(cur, safe_query, human_ts, print_header) -> Non
         proj = row["project"]
         grouped.setdefault(skill, []).append((ts, proj))
 
+    # Print one section per skill with chronologically ordered entries
     for skill, entries in grouped.items():
         print(f"\n{skill}:")
         for ts, proj in entries:
