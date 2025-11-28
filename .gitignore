@@ -6,3 +6,6 @@ __pycache__*
 /file_data.db
 /output
 
+# Generated resume files
+resumes/
+
