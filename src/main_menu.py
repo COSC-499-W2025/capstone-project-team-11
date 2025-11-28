@@ -13,6 +13,7 @@ This module provides a unified CLI interface for:
 import os
 import sys
 import sqlite3
+import subprocess
 from datetime import datetime
 import re
 
@@ -44,7 +45,8 @@ def print_main_menu():
     print("3. Rank projects")
     print("4. Summarize contributor projects")
     print("5. Generate Project Summary Report")
-    print("6. Exit")
+    print("6. Generate Resume")
+    print("7. Exit")
 
 
 def handle_scan_directory():
@@ -387,11 +389,35 @@ def handle_generate_project_summary():
         print(f"Error generating project summary: {e}")
 
 
+def handle_generate_resume():
+    """Run the resume generator script for a specified username.
+
+    If the user provides a username here, pass it to the generator to avoid
+    a second interactive prompt. If left blank, the generator will prompt.
+    """
+    print("\n=== Generate Resume ===")
+    # Delegate username prompting and candidate listing entirely to the
+    # generate_resume script. Do not prompt for username here.
+    script_path = os.path.join(os.path.dirname(__file__), 'generate_resume.py')
+    if not os.path.exists(script_path):
+        print(f"Resume generator script not found at: {script_path}")
+        return
+
+    cmd = [sys.executable, script_path]
+    try:
+        # Run the script and inherit stdio so the generator can prompt the user
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"Resume generator exited with code {result.returncode}")
+    except Exception as e:
+        print(f"Failed to run resume generator: {e}")
+
+
 def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-6): ").strip()
+        choice = input("\nSelect an option (1-7): ").strip()
         
         if choice == "1":
             handle_scan_directory()
@@ -404,10 +430,12 @@ def main():
         elif choice == "5":
             handle_generate_project_summary()
         elif choice == "6":
+            handle_generate_resume()
+        elif choice == "7":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-6.")
+            print("\nInvalid option. Please select a number between 1-7.")
         
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
