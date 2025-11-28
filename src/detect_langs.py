@@ -404,7 +404,7 @@ FRAMEWORK_CONFIG = {
     },
     "pytest": {
         "language": "Python",
-        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml", "pytest.ini", "pyproject.toml"],
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml", "pytest.ini"],
         "package_names": ["pytest"],
     },
 
@@ -622,9 +622,65 @@ def scan_file_content(file_path):
 
     return pattern_matches
 
+# Scans a file for framework-specific patterns
+# Returns a dictionary with framework names as keys and match counts as values
+def scan_file_for_frameworks(file_path):
+    framework_matches = {}
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+            # Strip comments before pattern matching to reduce false positives
+            file_extension = get_extension(file_path)
+            content = strip_comments(content, file_extension)
+
+            # Check for occurrences of each framework's patterns
+            for framework, patterns in FRAMEWORK_PATTERNS.items():
+                match_count = 0
+                for pattern in patterns:
+                    # Count how many times a pattern appears
+                    matches = re.findall(pattern, content, re.IGNORECASE)
+                    match_count += len(matches)
+
+                # Only increase count if we find at least one match
+                if match_count > 0:
+                    framework_matches[framework] = match_count
+
+    except Exception:
+        # Skip files we can't read (binary files, etc.)
+        pass
+
+    return framework_matches
+
+# Checks config/package/dependency files (package.json, requirements.txt, etc.) for framework dependencies
+# Returns a set of detected framework names
+def detect_frameworks_in_config(file_path, filename):
+    detected_frameworks = set()
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read().lower()
+
+            # Check each framework's config file indicators
+            for framework, config in FRAMEWORK_CONFIG.items():
+                # Check if this file is a valid config file for this framework
+                if filename.lower() in [cf.lower() for cf in config["config_files"]]:
+                    # Check if any of the package names appear in the content
+                    for package_name in config["package_names"]:
+                        if package_name.lower() in content:
+                            detected_frameworks.add(framework)
+                            break  # Found this framework, no need to check other package names
+
+    except Exception:
+        # Skip files we can't read
+        pass
+
+    return detected_frameworks
+
 # Calculates confidence level (low, medium, high) for a detected language
 # High:     Coding file extension, with 10+ pattern matches
-# Medium:   Coding file extension, with < 10 pattern matches 
+# Medium:   Coding file extension, with < 10 pattern matches
 #           OR No coding file extension, with 10+ pattern matches
 # Low:      No coding file extension and 1-9 pattern matches
 def calculate_confidence(pattern_count, has_extension):
@@ -641,15 +697,35 @@ def calculate_confidence(pattern_count, has_extension):
     # Low confidence
     return "low"
 
+# Calculates confidence level (low, medium, high) for a detected framework
+# High:     Found in config file AND 1+ code pattern matches
+# Medium:   Found in config file with 0 patterns 
+#           OR 5+ patterns without being found in config file
+# Low:      <5 code pattern matches without being found in config file
+def calculate_framework_confidence(pattern_count, found_in_config):
+    # High confidence: in config file with actual code usage
+    if found_in_config and pattern_count >= 1:
+        return "high"
+
+    # Medium confidence: installed but maybe unused, OR multiple detection without inclusion within config file
+    if found_in_config or pattern_count >= 5:
+        return "medium"
+
+    # Low confidence: only weak code pattern matches, not found in config file
+    return "low"
+
 # Goes through a project folder and figures out which languages and frameworks are being used.
 # It does this by checking file extensions and looking inside config/dependency files for framework names
 def detect_languages_and_frameworks(directory):
     # Scan a directory and identify programming languages and frameworks used
-    frameworks_found = set()
 
     # Track language detection with confidence levels
     # Structure: language_data: {"pattern_count": int, "has_extension": bool, "found_in_code_file": bool, "confidence": str}
     language_data = {}
+
+    # Track framework detection with confidence levels
+    # Structure: framework_data: {"pattern_count": int, "found_in_config": bool, "confidence": str}
+    framework_data = {}
 
     # Track statistics for debugging/logging
     files_scanned = 0
@@ -675,6 +751,7 @@ def detect_languages_and_frameworks(directory):
 
             files_scanned += 1
 
+            # ===== LANGUAGE DETECTION =====
             # Detect languages by file extension (only for code files)
             ext = get_extension(file)
             if ext in LANGUAGE_MAP:
@@ -697,25 +774,23 @@ def detect_languages_and_frameworks(directory):
                     language_data[language]["found_in_code_file"] = True
                 print(f"Detected {language} from content patterns ({match_count} matches): {file_path}")
 
-            # TODO: Revamp framework detection logic
-            # Look for known config files to detect frameworks
-            filename_lower = file.lower()
-            for hint_file, frameworks in FRAMEWORK_HINTS.items():
-                if filename_lower == hint_file.lower():  # case-insensitive
-                    print(f"Checking frameworks in: {os.path.join(root, file)}")
-                    frameworks_found.update(frameworks)
+            # ===== FRAMEWORK DETECTION =====
+            # Check for frameworks in config/package/dependency files (package.json, requirements.txt, etc.)
+            config_frameworks = detect_frameworks_in_config(file_path, file)
+            for framework in config_frameworks:
+                if framework not in framework_data:
+                    framework_data[framework] = {"pattern_count": 0, "found_in_config": False}
+                framework_data[framework]["found_in_config"] = True
+                print(f"Detected {framework} in config file: {file_path}")
 
-                    # Read file content and check for any of the frameworks listed
-                    try:
-                        with open(os.path.join(root, file), "r", encoding="utf-8") as f:
-                            content = f.read().lower()
-                            for fw in frameworks:
-                                if fw.lower() in content:
-                                    print(f"Detected {fw} framework in {file}")
-                                    frameworks_found.add(fw)
-                    except Exception:
-                        # Skip files we can't read (binary files, etc.)
-                        pass
+            # Detect frameworks by code patterns
+            framework_pattern_results = scan_file_for_frameworks(file_path)
+            for framework, match_count in framework_pattern_results.items():
+                if framework not in framework_data:
+                    framework_data[framework] = {"pattern_count": 0, "found_in_config": False}
+                # Keep track of total matches for this framework
+                framework_data[framework]["pattern_count"] += match_count
+                print(f"Detected {framework} from code patterns ({match_count} matches): {file_path}")
 
     # Log filtering statistics
     print(f"\n[Filtering Stats] Scanned: {files_scanned} files | Skipped: {files_skipped} files, {dirs_skipped} directories")
@@ -728,27 +803,52 @@ def detect_languages_and_frameworks(directory):
         )
         language_data[language]["confidence"] = confidence
 
+    # Calculate confidence for each detected framework
+    for framework in framework_data:
+        confidence = calculate_framework_confidence(
+            framework_data[framework]["pattern_count"],
+            framework_data[framework]["found_in_config"]
+        )
+        framework_data[framework]["confidence"] = confidence
+
     # Categorize languages by confidence level (high, medium, low)
-    high_confidence = []
-    medium_confidence = []
-    low_confidence = []
+    high_confidence_langs = []
+    medium_confidence_langs = []
+    low_confidence_langs = []
 
     for lang, details in language_data.items():
         if details["confidence"] == "high":
-            high_confidence.append(lang)
+            high_confidence_langs.append(lang)
         elif details["confidence"] == "medium":
-            medium_confidence.append(lang)
+            medium_confidence_langs.append(lang)
         else:
-            low_confidence.append(lang)
+            low_confidence_langs.append(lang)
+
+    # Categorize frameworks by confidence level (high, medium, low)
+    high_confidence_frameworks = []
+    medium_confidence_frameworks = []
+    low_confidence_frameworks = []
+
+    for framework, details in framework_data.items():
+        if details["confidence"] == "high":
+            high_confidence_frameworks.append(framework)
+        elif details["confidence"] == "medium":
+            medium_confidence_frameworks.append(framework)
+        else:
+            low_confidence_frameworks.append(framework)
 
     # Sort results to keep output consistent for testing
     return {
         "languages": sorted(language_data.keys()),  # All languages detected
-        "high_confidence": sorted(high_confidence),
-        "medium_confidence": sorted(medium_confidence),
-        "low_confidence": sorted(low_confidence),
-        "frameworks": sorted(frameworks_found),
-        "language_details": language_data
+        "high_confidence": sorted(high_confidence_langs),
+        "medium_confidence": sorted(medium_confidence_langs),
+        "low_confidence": sorted(low_confidence_langs),
+        "frameworks": sorted(framework_data.keys()),  # All frameworks detected
+        "high_confidence_frameworks": sorted(high_confidence_frameworks),
+        "medium_confidence_frameworks": sorted(medium_confidence_frameworks),
+        "low_confidence_frameworks": sorted(low_confidence_frameworks),
+        "language_details": language_data,
+        "framework_details": framework_data
     }
 
 # =============================================================================
@@ -780,31 +880,57 @@ if __name__ == "__main__":
 
         # Display HIGH confidence languages
         print("\n" + "=" * 70)
-        print("HIGH CONFIDENCE")
+        print("HIGH CONFIDENCE LANGUAGES")
         print("Extension match + 10 or more pattern matches")
         print("=" * 70 + "\n")
         display_language_table(results['high_confidence'], results['language_details'])
 
         # Display MEDIUM confidence languages
         print("\n" + "=" * 70)
-        print("MEDIUM CONFIDENCE")
+        print("MEDIUM CONFIDENCE LANGUAGES")
         print("Extension with <10 patterns OR no extension with 10+ patterns")
         print("=" * 70 + "\n")
         display_language_table(results['medium_confidence'], results['language_details'])
 
         # Display LOW confidence languages
         print("\n" + "=" * 70)
-        print("LOW CONFIDENCE")
+        print("LOW CONFIDENCE LANGUAGES")
         print("No extension match + less than 10 pattern matches")
         print("=" * 70 + "\n")
         display_language_table(results['low_confidence'], results['language_details'])
 
-        # Display frameworks
+        # Helper function to display frameworks in a table format
+        def display_framework_table(framework_list, details_dict):
+            if framework_list:
+                # Print table header
+                print(f"  {'Framework':<25} | {'Patterns Found':<15} | {'In Config File':<15}")
+                print(f"  {'-' * 25}-+-{'-' * 15}-+-{'-' * 15}")
+                # Print each framework row
+                for fw in framework_list:
+                    details = details_dict[fw]
+                    pattern_count = details['pattern_count']
+                    in_config = "Yes" if details['found_in_config'] else "No"
+                    print(f"  {fw:<25} | {pattern_count:<15} | {in_config:<15}")
+            else:
+                print("  None detected")
+
+        # Display HIGH confidence frameworks
         print("\n" + "=" * 70)
-        print("FRAMEWORKS DETECTED")
+        print("HIGH CONFIDENCE FRAMEWORKS")
+        print("Found in config file AND 1+ code pattern matches")
         print("=" * 70 + "\n")
-        if results['frameworks']:
-            for fw in results['frameworks']:
-                print(f"  {fw}")
-        else:
-            print("  None detected")
+        display_framework_table(results['high_confidence_frameworks'], results['framework_details'])
+
+        # Display MEDIUM confidence frameworks
+        print("\n" + "=" * 70)
+        print("MEDIUM CONFIDENCE FRAMEWORKS")
+        print("Found in config file with 0 patterns OR 5+ patterns without config")
+        print("=" * 70 + "\n")
+        display_framework_table(results['medium_confidence_frameworks'], results['framework_details'])
+
+        # Display LOW confidence frameworks
+        print("\n" + "=" * 70)
+        print("LOW CONFIDENCE FRAMEWORKS")
+        print("<5 code pattern matches without config file")
+        print("=" * 70 + "\n")
+        display_framework_table(results['low_confidence_frameworks'], results['framework_details'])
