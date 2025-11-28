@@ -13,6 +13,10 @@ This suite instead tests:
 
 import sqlite3
 import pytest
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from main_menu import (
     print_main_menu,
@@ -22,9 +26,7 @@ from main_menu import (
 )
 
 
-# =============================================================================
 # Utility: create an in-memory temporary database
-# =============================================================================
 
 def create_temp_db():
     """Create minimal schema required for handle_inspect_database()."""
