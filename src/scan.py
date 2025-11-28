@@ -575,183 +575,32 @@ def run_with_saved_settings(
 
 
 if __name__ == "__main__":
-    import os
-    import sys
-
-    while True:
-        print("\n=== Scan Manager ===")
-        print("1. Run a new scan")
-        print("2. View previous scan insights")
-        print("3. Exit")
-
-        choice = input("Select an option (1/2/3): ").strip()
-
-        insights_root = os.path.join("output")
-
-        # EXIT PROGRAM
-        if choice == "3":
-            print("Exiting program.")
-            sys.exit(0)
-
-        # OPTION 2 — VIEW PREVIOUS INSIGHT FILES
-        if choice == "2":
-            print("\n=== Previous Scan Insights ===")
-
-            if not os.path.exists(insights_root):
-                print("No insights found.")
-                continue
-
-            # Collect all insight files
-            all_files = []
-            for root, dirs, files in os.walk(insights_root):
-                for f in files:
-                    if f.endswith(".json") or f.endswith(".txt"):
-                        all_files.append(os.path.join(root, f))
-
-            if not all_files:
-                print("No insight files found.")
-                continue
-
-            print("\nAvailable Insights:")
-            for i, full_path in enumerate(all_files, 1):
-                print(f"{i}. {os.path.basename(full_path)}")
-
-            print("\n1. Delete a scan insight")
-            print("2. Back to main menu")
-            sub_choice = input("Select an option (1/2): ").strip()
-
-            # DELETE AN INSIGHT
-            if sub_choice == "1":
-                delete_num = input("Enter the number of the insight to delete: ").strip()
-
-                try:
-                    idx = int(delete_num) - 1
-                    file_to_delete = all_files[idx]
-                    os.remove(file_to_delete)
-                    print(f"Deleted: {os.path.basename(file_to_delete)}")
-                except:
-                    print("Invalid selection. No file deleted.")
-
-                continue  # back to main menu
-
-            # BACK TO MAIN MENU
-            elif sub_choice == "2":
-                continue
-
-            else:
-                print("Invalid option. Returning to main menu.")
-                continue
-
-        # OPTION 1 — RUN NEW SCAN 
-        if choice == "1":
-            break  # exits the menu loop and continues to scan logic
-
-        print("Invalid option. Please select 1, 2, or 3.")
-
-    # Handle data consent first
-    current = load_config(None)
-    # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
-    # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
-    if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
-            current = load_config(None)
-            consent = ask_for_data_consent(config_path=default_config_path())
-            if not consent:
-                print("Data access consent not granted, aborting application.")
-                sys.exit(0)
-    else:
-        # If user hasn't explicitly accepted, always prompt so they can set or change their preference.
-        consent = ask_for_data_consent(config_path=default_config_path())
-        if not consent:
-            print("Data access consent not granted, aborting application.")
-            sys.exit(0)
-
-    # Load current settings
-    current = load_config(None)
+    """
+    This module is now integrated into the main menu system.
+    To run scanning operations, please use the main menu:
     
-    # Only prompt for reuse of scan settings if config.json has at least one non-default value.
-    if not is_default_config(current):
-        use_saved = ask_yes_no(
-            "Would you like to use the settings from your most recent scan?\n"
-            f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
-            f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
-            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
-            f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
-            f"  Show Contribution Metrics:  {current.get('show_contribution_metrics')}\n"
-            f"  Show Contribution Summary:  {current.get('show_contribution_summary')}\n"
-            "Proceed with these settings? (y/n): "
-        )
-    else:
-        use_saved = False
-
-    if use_saved and current.get("directory"):
-        # Use saved settings and only ask about database
-        
-        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
-        
-        run_with_saved_settings(
-            directory=current.get("directory"),
-            recursive_choice=current.get("recursive_choice"),
-            file_type=current.get("file_type"),
-            show_collaboration=current.get("show_collaboration"),
-            show_contribution_metrics=current.get("show_contribution_metrics"),
-            show_contribution_summary=current.get("show_contribution_summary"),
-            save=False,
-            save_to_db=save_db,
-        )
-    else:
-        # Collect all scan settings first
-        directory = input("Enter directory path or zip file path: ").strip()
-        directory = directory if directory else None
-        recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
-        file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
-        file_type = file_type if file_type else None
-        show_collab = ask_yes_no("Show collaboration info? (y/n): ")
-        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ")
-        show_summary = ask_yes_no("Show contribution summary? (y/n): ")
-
-        # Ask about saving settings after collecting all of them
-        remember = ask_yes_no("Save these settings for next time? (y/n): ")
-        
-        # Ask about database last
-        save_db = ask_yes_no("Save scan results to database? (y/n): ")
-
-        run_with_saved_settings(
-            directory=directory,
-            recursive_choice=recursive_choice,
-            file_type=file_type,
-            show_collaboration=show_collab,
-            show_contribution_metrics=show_metrics,
-            show_contribution_summary=show_summary,
-            save=remember,
-            save_to_db=save_db,
-        )
-
-    try:
-        from project_info_output import gather_project_info, output_project_info
-    except Exception:
-        try:
-            from .project_info_output import gather_project_info, output_project_info
-        except Exception:
-            gather_project_info = None
-            output_project_info = None
-
-    selected_dir = current.get("directory") if use_saved else locals().get("directory")
-
-    if selected_dir is None:
-        # Nothing to summarize
-        pass
-    elif gather_project_info is None or output_project_info is None:
-        print("Project summary functions not available (couldn't import project_info_output).")
-    else:
-        if ask_yes_no("Would you like to generate a project summary report (JSON & TXT)? (y/n): ", False):
-            try:
-                info = gather_project_info(selected_dir)
-                project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
-                out_dir = os.path.join("output", project_name)
-                os.makedirs(out_dir, exist_ok=True)
-                json_path, txt_path = output_project_info(info, output_dir=out_dir)
-                print(f"Summary reports saved to: {out_dir}")
-            except Exception as e:
-                print(f"Failed to generate summary report: {e}")
+    python -m src.main_menu
+    or
+    python src/main_menu.py
+    
+    The main menu provides access to all scanning features along with
+    other project analysis tools.
+    """
+    import sys
+    print("\n" + "=" * 60)
+    print("  SCAN MODULE - INTEGRATED INTO MAIN MENU")
+    print("=" * 60)
+    print("\nThis module is now part of the unified main menu system.")
+    print("To access scanning features, please run the main menu:\n")
+    print("  python -m src.main_menu")
+    print("  or")
+    print("  python src/main_menu.py\n")
+    print("The main menu provides access to:")
+    print("  - Directory/archive scanning")
+    print("  - Database inspection")
+    print("  - Project ranking")
+    print("  - Project summaries")
+    print("  - And more...\n")
+    print("=" * 60)
+    sys.exit(0)
 
