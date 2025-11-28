@@ -41,7 +41,7 @@ IGNORED_DIRECTORIES = {
 }
 
 # =============================================================================
-# UNIFIED LANGUAGE CONFIGURATION
+# LANGUAGE DETECTION CONFIGURATION
 # =============================================================================
 
 # One comprehensive mapping of file extensions to language names and comment syntax
@@ -376,16 +376,215 @@ LANGUAGE_PATTERNS = {
 }
 
 # =============================================================================
-# FRAMEWORK DETECTION
+# FRAMEWORK DETECTION CONFIGURATION
 # =============================================================================
 
-# TODO: Rework framework detection to be in-line with language detection method
-# Framework indicators based on well-known files
-FRAMEWORK_HINTS = {
-    "requirements.txt": ["Flask", "Django", "FastAPI"],
-    "package.json": ["React", "Next.js", "Express", "Vue", "Angular"],
-    "pom.xml": ["Spring Boot", "Maven"],
-    "build.gradle": ["Spring Boot", "Gradle"],
+# Comprehensive framework configuration that maps frameworks to their detection indicators
+FRAMEWORK_CONFIG = {
+    # Python Web Frameworks
+    "Flask": {
+        "language": "Python",
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml"],
+        "package_names": ["flask"],
+    },
+    "Django": {
+        "language": "Python",
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml"],
+        "package_names": ["django"],
+    },
+    "FastAPI": {
+        "language": "Python",
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml"],
+        "package_names": ["fastapi"],
+    },
+    "Streamlit": {
+        "language": "Python",
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml"],
+        "package_names": ["streamlit"],
+    },
+    "pytest": {
+        "language": "Python",
+        "config_files": ["requirements.txt", "Pipfile", "pyproject.toml", "pytest.ini", "pyproject.toml"],
+        "package_names": ["pytest"],
+    },
+
+    # JavaScript/TypeScript Frontend Frameworks
+    "React": {
+        "language": "JavaScript",
+        "config_files": ["package.json"],
+        "package_names": ["react"],
+    },
+    "Vue": {
+        "language": "JavaScript",
+        "config_files": ["package.json"],
+        "package_names": ["vue"],
+    },
+    "Angular": {
+        "language": "JavaScript",
+        "config_files": ["package.json", "angular.json"],
+        "package_names": ["@angular/core"],
+    },
+
+    # JavaScript/TypeScript Backend Frameworks
+    "Express": {
+        "language": "JavaScript",
+        "config_files": ["package.json"],
+        "package_names": ["express"],
+    },
+    "Next.js": {
+        "language": "JavaScript",
+        "config_files": ["package.json", "next.config.js"],
+        "package_names": ["next"],
+    },
+
+    # CSS Frameworks
+    "Tailwind CSS": {
+        "language": "CSS",
+        "config_files": ["package.json", "tailwind.config.js", "tailwind.config.ts"],
+        "package_names": ["tailwindcss"],
+    },
+    "Bootstrap": {
+        "language": "CSS",
+        "config_files": ["package.json"],
+        "package_names": ["bootstrap"],
+    },
+
+    # Java Frameworks
+    "Spring Boot": {
+        "language": "Java",
+        "config_files": ["pom.xml", "build.gradle"],
+        "package_names": ["spring-boot"],
+    },
+    "Hibernate": {
+        "language": "Java",
+        "config_files": ["pom.xml", "build.gradle"],
+        "package_names": ["hibernate"],
+    },
+
+    # Ruby Frameworks
+    "Rails": {
+        "language": "Ruby",
+        "config_files": ["Gemfile"],
+        "package_names": ["rails"],
+    },
+    "Sinatra": {
+        "language": "Ruby",
+        "config_files": ["Gemfile"],
+        "package_names": ["sinatra"],
+    },
+
+    # PHP Frameworks
+    "Laravel": {
+        "language": "PHP",
+        "config_files": ["composer.json"],
+        "package_names": ["laravel/framework"],
+    },
+    "Symfony": {
+        "language": "PHP",
+        "config_files": ["composer.json"],
+        "package_names": ["symfony/symfony"],
+    },
+}
+
+# =============================================================================
+# FRAMEWORK DETECTION PATTERNS
+# =============================================================================
+
+# Regex patterns for detecting frameworks through scanned code content
+FRAMEWORK_PATTERNS = {
+    "Flask": [
+        r'from flask import',               # Flask imports
+        r'@app\.route\(',                   # Flask route decorators
+        r'Flask\(__name__\)',               # Flask app initialization
+    ],
+    "Django": [
+        r'from django',                     # Django imports
+        r'django\.conf',                    # Django configuration
+        r'models\.Model',                   # Django models
+        r'django\.urls',                    # Django URLs
+    ],
+    "FastAPI": [
+        r'from fastapi import',             # FastAPI imports
+        r'FastAPI\(',                       # FastAPI app initialization
+        r'@app\.(get|post|put|delete)\(',   # FastAPI route decorators
+    ],
+    "Streamlit": [
+        r'import streamlit',                # Streamlit imports
+        r'\bst\.',                          # Streamlit function calls (st.write, st.button, etc.)
+    ],
+    "pytest": [
+        r'import pytest',                   # pytest imports
+        r'@pytest\.',                       # pytest decorators
+        r'\bdef test_\w+\(',                # test function naming convention
+    ],
+    "React": [
+        r'import React',                    # React imports
+        r'from ["\']react["\']',            # React imports
+        r'useState\(',                      # React hooks
+        r'useEffect\(',                     # React hooks
+        r'<\w+\s*/?>',                      # JSX tags (basic)
+    ],
+    "Vue": [
+        r'import.*from ["\']vue["\']',      # Vue imports
+        r'createApp\(',                     # Vue 3 app creation
+        r'new Vue\(',                       # Vue 2 instance
+        r'<template>',                      # Vue SFC templates
+    ],
+    "Angular": [
+        r'@Component\(',                    # Angular component decorator
+        r'@NgModule\(',                     # Angular module decorator
+        r'import.*from ["\']@angular/',     # Angular imports
+    ],
+    "Express": [
+        r'require\(["\']express["\']\)',    # Express require
+        r'import.*from ["\']express["\']',  # Express ES6 import
+        r'express\(\)',                     # Express app initialization
+        r'app\.(get|post|put|delete)\(',    # Express routes
+    ],
+    "Next.js": [
+        r'from ["\']next/',                     # Next.js imports
+        r'export\s+default\s+function\s+\w+',   # Next.js page components
+        r'getServerSideProps',                  # Next.js SSR
+        r'getStaticProps',                      # Next.js SSG
+    ],
+    "Tailwind CSS": [
+        r'@tailwind',                                       # Tailwind directives
+        r'className="[^"]*\b(flex|grid|bg-|text-|p-|m-)',   # Common Tailwind classes
+    ],
+    "Bootstrap": [
+        r'class="[^"]*\b(container|row|col-)', # Bootstrap grid classes
+        r'class="[^"]*\b(btn|alert|modal)',    # Bootstrap component classes
+    ],
+    "Spring Boot": [
+        r'@SpringBootApplication',          # Spring Boot main annotation
+        r'@RestController',                 # Spring REST controller
+        r'@Autowired',                      # Spring dependency injection
+        r'import org\.springframework',     # Spring imports
+    ],
+    "Hibernate": [
+        r'@Entity',                         # Hibernate entity annotation
+        r'@Table',                          # Hibernate table annotation
+        r'import org\.hibernate',           # Hibernate imports
+    ],
+    "Rails": [
+        r'ApplicationController',           # Rails controller base class
+        r'ActiveRecord::Base',              # Rails ORM base
+        r'rails',                           # Rails references
+    ],
+    "Sinatra": [
+        r'require ["\']sinatra["\']',           # Sinatra require
+        r'\b(get|post|put|delete)\s+["\']/',    # Sinatra routes
+    ],
+    "Laravel": [
+        r'use Illuminate\\',                # Laravel namespace
+        r'Route::(get|post|put|delete)',    # Laravel routes
+        r'extends Controller',              # Laravel controllers
+    ],
+    "Symfony": [
+        r'use Symfony\\',                   # Symfony namespace
+        r'@Route\(',                        # Symfony route annotation
+        r'extends AbstractController',      # Symfony controllers
+    ],
 }
 
 # =============================================================================
