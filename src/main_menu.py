@@ -72,7 +72,7 @@ def handle_scan_directory():
     use_saved = False
     if not is_default_config(current):
         use_saved = ask_yes_no(
-            "Would you like to use the settings from your most recent scan?\n"
+            "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
             f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
