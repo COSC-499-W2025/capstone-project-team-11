@@ -190,3 +190,32 @@ As a group, I feel we had a solid week. We expanded our reporting tools and kept
 - Begin drafting integration notes for contributor-focused analysis
 
 ---
+
+# Week 13 Personal Log (Nov 24th – Nov 30th)
+
+This week I implemented the full `main_menu.py` module (PR #181), which now acts as the unified CLI interface for all major MDA features. The menu consolidates scanning, ranking, project summaries, and full database inspection into one consistent entry point. The update includes a complete set of helper utilities, support for per-project and contributor-level reporting, and a much cleaner workflow for interacting with the SQLite database. I also added a full test suite (`test_main_menu.py`) that covers the deterministic logic in the module, including `safe_query()`, `human_ts()`, and the database inspection handler. All tests passed successfully, and the new menu structure should make the user-facing experience much more organized heading into Milestone 1.
+
+As a group, we also spent time preparing and refining our presentation slides for the Milestone 1 demo. We synced our individual logs, reviewed each other's PRs, and made sure the reporting and analysis features aligned well with what we want to showcase. Overall, it was a productive week, and I feel confident with where our project stands heading into the final stretch of Milestone 1.
+
+<img width="1120" height="626" alt="Screenshot 2025-11-30 at 3 49 41 PM" src="https://github.com/user-attachments/assets/28b83416-5787-4393-8eea-84b8077fe217" />
+
+## Tasks Completed
+- Implemented full unified CLI interface via `main_menu.py` (PR #181)
+- Added complete test suite `test_main_menu.py` with coverage for non-interactive logic
+- Reviewed PR #183 (clean noisy scan output)
+- Reviewed PR #184 (improved framework detection accuracy)
+- Reviewed PR #185 (updated data-access consent policy)
+- Helped prepare team slides for Milestone 1
+- Updated individual log and project board
+
+<img width="1113" height="155" alt="Screenshot 2025-11-30 at 3 52 20 PM" src="https://github.com/user-attachments/assets/c573d6c0-947a-4676-8307-8d91caba22db" />
+
+## Plans for Week 14
+- Continue working on **Issue #35 (Retrieve Previously-Generated Résumé Item)**
+- Complete Milestone 1 video demo
+- Finalize and submit team contract
+- Finish Milestone 1 deliverable
+- Complete Milestone 1 self-reflection
+- Update system architecture for Milestone 2 requirements
+
+---
