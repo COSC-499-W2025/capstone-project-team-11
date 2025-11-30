@@ -254,3 +254,74 @@ I believe that next week is our final week to commit changes to the repo before 
 ## Kanban Board at End of Week #12
 
 <img width="1877" height="897" alt="week12-kanban" src="https://github.com/user-attachments/assets/ae65ae28-3af8-4137-9ff6-9ad8562b3625" />
+
+# Week #13 - November 24th - 30th
+
+<img width="696" height="542" alt="week13-tasks" src="https://github.com/user-attachments/assets/2e3a21a3-d20e-4115-95c6-8d032c51e23b" />
+
+## Tasks Completed:
+This week, I focused on finishing off the necessary revisions to the language and framework detection feature, as well as revamping our scanner's data-access policy:
+
+### Language/Framework Detection (From PR #184):
+
+`detect_langs.py:`
+- Added FRAMEWORK_CONFIG dictionary that hosts detection indicators for the 18 most popular frameworks that map to one of our supported languages. (contains framework name, its corresponding programming language, possible config and package file names that may point to its inclusion)
+- Added FRAMEWORK_PATTERNS dictionary to hold REGEX patterns for each supported framework, if these REGEX patterns are triggered during file content scanning, it suggests a high likelihood that their corresponding framework is actively being used
+- Added scan_file_for_frameworks() to detect frameworks using REGEX patterns found in file content (derived from FRAMEWORK_PATTERNS dictionary)
+- Added detect_frameworks_in_config() to find frameworks in config/package/dependency files (derived from FRAMEWORK_CONFIG's "config_files" and "package_names" fields)
+- Added calculate_framework_confidence() with 3 confidence thresholds:
+    - High: Found in config file AND 1+ pattern matches
+    - Medium: Found in config file with 0 pattern matches OR not found in config file but with 5+ pattern matches
+    - Low: Not found in config file, <5 pattern matches
+- Integrated framework detection into detect_languages_and_frameworks()
+    - Runs alongside language detection
+    - Tracks pattern counts and config file presence
+- Updated terminal output to display detected frameworks within tables (contains the number of pattern matches, and whether or not it is detected in a config/package/dependency file)
+
+`test_detect_langs.py:`
+- I removed the 3 pre-existing framework detection unit tests as they relied on deprecated logic that is no longer used
+- I added 9 tests to ensure that detect_languages_and_frameworks() is accurately detecting 9 of the 18 supported frameworks by running detections on doctored config/package/dependency files
+- I added edge-case tests to ensure:
+    - Multiple frameworks can be detected in the same config/package/dependency file
+    - No frameworks are detected when no config/package/dependency files exist in the project repository
+    - Framework detections are performed case-insensitively (ie. "FLASK==version or flask==version" still detects as "Flask")
+
+### Data-Access Policy (From PRs #185 and #187):
+
+`consent.py:`
+- Split data access into three categories
+    - Local file system (File/folder names, paths, and content)
+    - Git repositories (Any projects with git information: commit histories, collaborative authors, project timelines, etc.)
+    - Local data storage (How our scanner may create and store generated files on a user's local machine)
+- Included a section to clarify certain data we do not collect or access:
+    - No network requests
+    - No external services called or used (no LLMs, APIs, Report generation frameworks, etc.)
+    - No access to file content outside of the user-provided directories
+
+`consent_test.py:`
+- Fixed a unit test that was using deprecated Strings from the previous implementation of our data-access policy (more details in PR #187)
+
+### Other Contributions:
+
+Additionally, I added a few slides to our Google Slides presentation deck that I will be responsible for covering during our in-class presentation on Wednesday, December 3rd, 2025.
+
+In addition to these changes, I performed my usual responsibilities of:
+- Communicating regularly throughout the week in our Discord server and describing my changes and implementations to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log PRs as necessary
+- Completing both my individual log and peer review for week 13
+
+## Reflection Points
+I was really happy with our progress and collaboration this week. We had a really good team meeting after this weeks' Monday lecture, where we all discussed what still needed to be done, how we should prioritize it, and then who would be doing what. We loosely touched on some policies that will likely be a part of our upcoming team contract, such as when we should be announcing what we plan to do, and how often we should provide updates in our Discord server. Everyone followed these rules fairly well, and all major code contributions for the week had PRs posted by Sunday morning, which is maybe the earliest we have ever had this happen. Overall, no complaints, communication was regular and informative and work was pushed at reasonable times.
+
+## Next Week (Week #14)
+Next week is our final opportunity to work on the project before milestone 1's deliverables are all due. My tasks next week will likely include:
+- Any final revisions to the project, for any feature, to ensure our scanner is bulletproof before starting on milestone 2, in addition to my individual logs and peer reviews based on the work completed
+- Completing our team contract, I will communicate with all of my teammates to ensure we are all happy with our decided-upon policies
+- Recording my portion of our scanner's video walkthrough
+- Watching other teams' in-class presentations and completing reviews for at least 5 of them
+- Completing my milestone 1 self-reflection
+
+## Kanban Board at End of Week #13
+
+I was finally able to mark "Revise Coding Project Language/Framework Detection" (Issue #129) as "Done"
+<img width="1874" height="894" alt="week13-kanban" src="https://github.com/user-attachments/assets/f6860480-09fc-4f02-bf95-91e1090f04e4" />
