@@ -26,9 +26,10 @@ class TestConsentHelpers(unittest.TestCase):
 
         # Call with no items to get default list
         out2 = self.capture(describe_data_access)
-        self.assertIn("file names and directory structure", out2)
-        self.assertIn("file metadata (size, modification time)", out2)
-        self.assertIn("file contents when opened for scanning/parsing", out2)
+        self.assertIn("FILE SYSTEM ACCESS:", out2)
+        self.assertIn("GIT REPOSITORY DATA (if applicable):", out2)
+        self.assertIn("LOCAL DATA STORAGE:", out2)
+        self.assertIn("WHAT WE DO NOT ACCESS:", out2)
 
     # Tests that ask_yes_no() returns correct boolean for accepted inputs, and reprompts until a valid input is given
     def test_ask_yes_no_accepts_valid_and_reprompts(self):
