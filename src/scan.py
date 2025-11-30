@@ -20,6 +20,7 @@ from detect_skills import detect_skills
 from file_utils import is_valid_format
 from db import get_connection, init_db, save_scan
 from collab_summary import summarize_project_contributions
+from datetime import datetime
 
 # Try to import contribution metrics module; support running as package or standalone
 try:
@@ -646,6 +647,98 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 print("Warning: failed to persist scan results to database.")
     return files_found
 
+def _make_json_safe(obj):
+    from datetime import datetime
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_make_json_safe(v) for v in obj]
+    return obj
+
+def write_scan_report(output_dir, scan_path, files_found, langs_summary, skills_summary, contrib_metrics=None):
+    """
+    Write both TXT and JSON reports summarizing scan results.
+    """
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Extract the name of the folder or ZIP file being scanned
+    scan_name = os.path.basename(scan_path.rstrip("/\\"))
+
+    # Clean up invalid filename characters just in case
+    scan_name = "".join(c for c in scan_name if c.isalnum() or c in ('-', '_'))
+
+    base_name = f"{scan_name}_scan_{timestamp}"
+
+    txt_path = os.path.join(output_dir, base_name + ".txt")
+    json_path = os.path.join(output_dir, base_name + ".json")
+
+    # Compute statistics
+    largest = max(files_found, key=lambda t: t[1] or 0)
+    smallest = min(files_found, key=lambda t: t[1] or 0)
+    newest = max(files_found, key=lambda t: t[2] or 0)
+    oldest = min(files_found, key=lambda t: t[2] or 0)
+
+    # ----- TXT OUTPUT -----
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(f"Scanning directory: {scan_path}\n\n")
+
+        f.write("=== File Statistics ===\n")
+        f.write(f"Largest file: {largest[0]} ({largest[1]} bytes)\n")
+        f.write(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)\n")
+        f.write(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})\n")
+        f.write(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})\n\n")
+
+        f.write("=== Detected Languages Summary ===\n")
+        for k in ["high_confidence", "medium_confidence", "low_confidence", "frameworks"]:
+            if langs_summary.get(k):
+                f.write(f"{k.replace('_',' ').title()}: {', '.join(langs_summary[k])}\n")
+        f.write("\n")
+
+        f.write("=== Detected Skills Summary ===\n")
+        if skills_summary.get("skills"):
+            f.write(", ".join(skills_summary["skills"]) + "\n")
+        else:
+            f.write("No significant skills detected.\n")
+        f.write("\n")
+
+        if contrib_metrics:
+            f.write("=== Contribution Metrics ===\n")
+            for key, value in contrib_metrics.items():
+                f.write(f"{key}: {value}\n")
+
+        # ----- JSON OUTPUT -----
+        json_data = {
+            "scan_path": scan_path,
+            "file_stats": {
+                "largest": {"path": largest[0], "size": largest[1]},
+                "smallest": {"path": smallest[0], "size": smallest[1]},
+                "newest": {"path": newest[0], "mtime": newest[2]},
+                "oldest": {"path": oldest[0], "mtime": oldest[2]},
+            },
+            "languages": langs_summary,
+            "skills": skills_summary,
+            "contribution_metrics": contrib_metrics,
+            "files_found": [
+                {"path": p, "size": s, "mtime": m} 
+                for (p, s, m) in files_found
+            ]
+        }
+
+        # Ensure JSON-serializable data (fix datetime objects)
+        safe_json = _make_json_safe(json_data)
+
+        with open(json_path, "w", encoding="utf-8") as jf:
+            json.dump(safe_json, jf, indent=4)
+
+    print(f"\n[INFO] Scan reports saved to:")
+    print(f"  {txt_path}")
+    print(f"  {json_path}")
 
 def run_with_saved_settings(
     directory=None,
@@ -712,6 +805,24 @@ def run_with_saved_settings(
         detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
     )
     skills_summary = skills_res or {}
+
+     # === WRITE OUTPUT REPORT FILES ===
+    output_dir = os.path.join("output", "scan_reports")
+    write_scan_report(
+        output_dir=output_dir,
+        scan_path=scan_target,
+        files_found=list_files_in_directory(
+            scan_target,
+            recursive=final["recursive_choice"],
+            file_type=final["file_type"]
+        ),
+        langs_summary=langs_summary,
+        skills_summary=skills_summary,
+        contrib_metrics=analyze_repo_path(scan_target)
+            if final.get("show_contribution_metrics")
+            else None
+    )
+    
     if skills_summary.get("skills"):
         print("\n=== Detected Skills Summary ===")
         print(", ".join(skills_summary.get("skills")))
