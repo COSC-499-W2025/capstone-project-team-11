@@ -170,3 +170,20 @@ After a relaxing week for reading break, we came back as a team and started to g
 ## Week 13 Plans
 There are not a lot of major tasks left to be picked up in the Kanban board and there will be more focus on the quiz and the informational lecture on Monday. Beyond this, I will start working on ideas for the milestone 1 demo that is coming up. I will also be around to review and help others with minor updates and features left to add. 
    
+# Week 13 (November 24th - 30th)
+
+<img width="1602" height="928" alt="image" src="https://github.com/user-attachments/assets/0d0e5023-d110-4f94-bd3a-e3d0c0432a9c" />
+
+## Tasks Completed
+- Reworked the output of a scan by removing the output of all the files that get scanned.
+  - scan.py: main implementation changes that adds a progress load bar during a scan (progress UI,captured detector execution, quiet zip/directory scanning, concise stats).
+  - scan_test.py: updated unit tests to assert on returned structured scan results rather than printed filenames; handle zip-style file paths when asserting basenames.
+- Worked on the Milestone 1 presentation.
+- Reviewed Travis's and Jaxson's pull requests.
+- Individual logs.
+
+## Reflection 
+As we approach the deadline for Milestone 1, as a team we worked towards finalizing the last deliverables and improve certain features. I  mainly focused on cleaning up the cluttered and noisy output of scans with a loading bar which vastly the readability and iterpredibility. Overall this week was productive for all of us as we transition towards the final week before deadline.
+
+## Week 13 Plans
+This is the final week of the semester so we have a lot of tasks that need to be completed. I will be working and helping others with the presentation in class on Wednesday, updating the documentation (DFD, System Architecture, etc.), finalizing project for video demo.
