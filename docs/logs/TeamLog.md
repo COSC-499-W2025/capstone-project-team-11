@@ -504,3 +504,83 @@ Planning Activities (Week 13)
 - Prepare for Quiz 1 and Milestone 1 Presentation
 - Finalize revisions to Language/framework detection, Chronological ranking and project metadata, Contribution summarization and Skill grouping
 - Begin or continue résumé/portfolio generation, Retrieving previously stored résumés/portfolio entries, Completing any remaining Kanban tasks and clean up scan.py for the demo
+
+# Team #11 - Week 13 Team Log (November 24th - November 30th)
+Team Members      --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
+
+## Overview:
+This week, we focused on cleaning up our codebase and outputs before the end of Milestone 1. All group members committed quality PRs on time and contributed quality reviews while providing good feedback and improvements. There was no TA meeting this week, but we managed to stay on schedule as we prepare for the end of the semester. Daniel worked on cleaning up unnecessary outputs and summarising important information when scanning a project. Jaxson implemented our first iteration of the user's resume generation, which summarises all contributions from all scanned projects into a markdown file that will later be used for converting the resume to other formats (PDF, HTML). Priyanshu worked on refactoring skills exercised chronologically. This enhanced our modularity of the codebase by removing this deliverable from the old database test file into its own file. Travis added a big upgrade to the usability of our program by adding a main menu that allows users to select which part of the application they want to use, instead of running different files. Tyler refactored our JSON/TXT output to automatically save to the output folder after performing a new scan. Code reviews were performed by all members. This was a strong week for our group. 
+
+## Burnup Chart:
+<img width="901" height="463" alt="Screenshot 2025-11-30 at 8 16 08 PM" src="https://github.com/user-attachments/assets/4468b695-a1fa-492e-b13a-9bcbfd0d3322" />
+
+## Team Member's Completed Tasks:
+### Daniel:
+- Replaced noisy per-file printing inside of scan.py with a single line and run language/skill detectors via a captured runner so other noisy output is ignored
+### Jaxson:
+- Full resume generation feature that creates resume-ready Markdown files for a selected contributor by aggregating project exports stored under the output/ directory
+- Team Logs for week 12
+### Priyanshu:
+- Refactored the Skills Exercised (Chronologically) logic out of inspect_db.py into a dedicated module, skill_timeline.py
+### Tanner:
+- Improved accuracy and coverage of the "detect programming frameworks" feature
+- Updated data-access consent policy
+### Travis:
+- Full main_menu.py module that acts as a unified CLI interface for all major MDA features
+### Tyler:
+- Auto Output Key Information On Scan That Includes All New Analysis Info
+### All Members:
+- Code reviews and verification
+- Completion of individual logs and peer reviews
+
+## Testing Report:
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
+
+#### `test_main_menu.py`  
+- covers the deterministic and non-interactive portions of the module:
+- print_main_menu() output
+- safe_query() success and fallback paths
+- human_ts() for standard, ISO, invalid, and None timestamps
+- handle_inspect_database() using a temporary in-memory database
+
+#### `test_generate_resume.py`
+- Tests for normalize_project_name() including acronym preservation
+- Tests for collect_projects() and aggregate_for_user() ensuring correct shapes and aggregation
+- Tests for render_markdown(), including timestamp insertion and correct formatting
+
+#### `scan_test.py`
+- capture_output now returns both printed output and the function return value (output, rv).
+- Tests assert on the returned data (rv) to verify which files were found.
+- For entries from zip archives, tests split the display_path on ':' and take the last segment before using os.path.basename so comparisons match the new archive:path format.
+- The collaboration test now calls get_collaboration_info(file_path) directly and asserts it returns 'unknown' when no git repo is present
+
+#### `test_detect_langs.py`
+- Removed the 3 pre-existing framework detection unit tests as they relied on deprecated logic that is no longer used
+- Added 9 tests to ensure that detect_languages_and_frameworks() is accurately detecting 9 of the 18 supported frameworks by running detections on doctored config/package/dependency files
+- I added 4 edge-case tests to ensure:
+- Multiple frameworks can be detected in the same config/package/dependency file
+   - No frameworks are detected when no config/package/dependency files exist in the project repository
+   - Framework detections are performed case-insensitively (ie, "FLASK==version or flask==version" still detects as "Flask")
+
+#### `consent_test.py`
+- Hotfix that fixes a unit test within consent_test.py that was using deprecated Strings from the previous implementation of our data-access policy.
+- Test ensures that when no strings are explicitly passed into describe_data_access(), it will return the default Strings that are hardcoded into the function.
+- Now it checks that the four main headers from our updated data-access policy are found in the output. 
+
+## Team Reflection:
+This week, our team worked very well together. With the upcoming stress of Finals and end-of-semester projects coming to an end, we are making sure to complete our deliverables ahead of time to avoid unwanted stress. All members of the group were sufficiently active in our team's Discord chat and let everyone know what they were working on. All code was delivered in good time, and reviews were quick and with quality improvements and notes. We have been quite proactive with our preparation for the Milestone 1 presentation.
+
+## Planned Activities (Week 14):
+For week 14, we have discussed it as a team and decided that we hope to:
+- Add finishing touches for Wednesday's Presentation
+- Update System Architecture to reflect our current system
+- Update Data Flow Diagram to reflect our current system
+- Create Team Contract
+- Milestone 1 Video Demo
+- Milestone 1 Self-Reflection
