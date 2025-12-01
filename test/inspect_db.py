@@ -13,7 +13,13 @@ import sqlite3
 from datetime import datetime
 
 # Add src to import path so db.py can be imported
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+sys.path.insert(
+    0,
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+)
+
+# Project imports (from src/)
+from skill_timeline import print_grouped_skill_timeline
 
 try:
     # Allow overriding DB for inspecting temporary DBs used in tests
@@ -166,37 +172,7 @@ def main():
     else:
         print(' No scans to show details for')
 
-        # Grouped Skills Timeline (Improved Readability Version)
-    print_header('Skills Exercised (Chronologically — Grouped by Skill)')
-
-    raw_rows = safe_query(cur, """
-        SELECT sk.name AS skill,
-               s.scanned_at AS used_at,
-               p.name AS project
-        FROM skills sk
-        JOIN project_skills ps ON sk.id = ps.skill_id
-        JOIN projects p ON ps.project_id = p.id
-        JOIN scans s ON s.project = p.name
-        ORDER BY sk.name ASC, used_at ASC
-    """)
-
-    if not raw_rows:
-        print(" No recorded skills")
-    else:
-        # Build a dictionary grouping entries under each skill
-        grouped = {}
-        for row in raw_rows:
-            skill = row["skill"]
-            ts = human_ts(row["used_at"])
-            proj = row["project"]
-            grouped.setdefault(skill, []).append((ts, proj))
-
-        # Output each skill followed by all its occurrences
-        for skill, entries in grouped.items():
-            print(f"\n{skill}:")
-            for ts, proj in entries:
-                print(f"   • {ts}  (project: {proj})")
-
+    print_grouped_skill_timeline(cur, safe_query, human_ts, print_header)
 
     
     

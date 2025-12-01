@@ -16,43 +16,12 @@ from detect_langs import (
     IGNORED_DIRECTORIES,
 )
 
-# These check that language and framework detection works correctly for different types of simple example projects
+# Unit tests for detect_langs.py language and framework detection features
 class TestDetectLangs(unittest.TestCase):
-    #Unit tests for detect_langs.py language and framework detection
 
-    # Should detect JavaScript language and Express framework from package.json
-    def test_detects_javascript_and_express(self):
-        with tempfile.TemporaryDirectory() as td:
-            # Make a small JS file to simulate a Node.js project
-            js_file = os.path.join(td, "server.js")
-            with open(js_file, "w") as f:
-                f.write("// Express server example")
-            # Add a package.json that includes Express
-            pkg_file = os.path.join(td, "package.json")
-            with open(pkg_file, "w") as f:
-                f.write('{"dependencies": {"express": "4.18.2"}}')
-
-            results = detect_languages_and_frameworks(td)
-            # Expect both JavaScript and Express to be found
-            self.assertIn("JavaScript", results["languages"])
-            self.assertIn("Express", results["frameworks"])
-
-    # Should detect Python language and Flask framework from requirements.txt
-    def test_detects_python_and_flask(self):
-        with tempfile.TemporaryDirectory() as td:
-            # Simple Python file using Flask
-            py_file = os.path.join(td, "main.py")
-            with open(py_file, "w") as f:
-                f.write("from flask import Flask\napp = Flask(__name__)")
-            # Add requirements.txt listing Flask
-            req_file = os.path.join(td, "requirements.txt")
-            with open(req_file, "w") as f:
-                f.write("flask==2.0.1")
-
-            results = detect_languages_and_frameworks(td)
-             # Expect both Python and Flask to be detected
-            self.assertIn("Python", results["languages"])
-            self.assertIn("Flask", results["frameworks"])
+    # ===================================
+    # LANGUAGE DETECTION TESTING
+    # ===================================
 
     # Should detect HTML and CSS files in a web project
     def test_detects_html_and_css(self):
@@ -77,20 +46,6 @@ class TestDetectLangs(unittest.TestCase):
             # Expect no languages or frameworks found
             self.assertEqual(results["languages"], [])
             self.assertEqual(results["frameworks"], [])
-
-    # Should detect multiple frameworks from a package.json
-    def test_detects_multiple_frameworks(self):
-        with tempfile.TemporaryDirectory() as td:
-            # Add a package.json with multiple frameworks
-            pkg_file = os.path.join(td, "package.json")
-            with open(pkg_file, "w") as f:
-                f.write('{"dependencies": {"react": "18.2.0", "vue": "3.0.0", "express": "4.18.2"}}')
-
-            results = detect_languages_and_frameworks(td)
-            # All three frameworks should be found
-            self.assertIn("React", results["frameworks"])
-            self.assertIn("Vue", results["frameworks"])
-            self.assertIn("Express", results["frameworks"])
 
     # Should detect Python patterns in a Python file
     def test_scan_file_content_detects_patterns(self):
@@ -261,6 +216,151 @@ class TestDetectLangs(unittest.TestCase):
         self.assertIn("venv", IGNORED_DIRECTORIES)
         self.assertIn("__pycache__", IGNORED_DIRECTORIES)
         self.assertIn("dist", IGNORED_DIRECTORIES)
+
+    # ===================================
+    # FRAMEWORK DETECTION TESTING
+    # ===================================
+
+    # Should detect Flask from requirements.txt
+    def test_detects_flask_from_requirements(self):
+        with tempfile.TemporaryDirectory() as td:
+            req_file = os.path.join(td, "requirements.txt")
+            with open(req_file, "w") as f:
+                f.write("flask==2.0.1\nrequests==2.28.0")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Flask", results["frameworks"])
+
+    # Should detect Django from requirements.txt
+    def test_detects_django_from_requirements(self):
+        with tempfile.TemporaryDirectory() as td:
+            req_file = os.path.join(td, "requirements.txt")
+            with open(req_file, "w") as f:
+                f.write("Django==4.2.0\npsycopg2==2.9.5")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Django", results["frameworks"])
+
+    # Should detect FastAPI from requirements.txt
+    def test_detects_fastapi_from_requirements(self):
+        with tempfile.TemporaryDirectory() as td:
+            req_file = os.path.join(td, "requirements.txt")
+            with open(req_file, "w") as f:
+                f.write("fastapi==0.95.0\nuvicorn==0.21.1")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("FastAPI", results["frameworks"])
+
+    # Should detect React from package.json
+    def test_detects_react_from_package_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"react": "18.2.0", "react-dom": "18.2.0"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("React", results["frameworks"])
+
+    # Should detect Express from package.json
+    def test_detects_express_from_package_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"express": "4.18.2"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Express", results["frameworks"])
+
+    # Should detect Next.js from package.json
+    def test_detects_nextjs_from_package_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"next": "13.4.0", "next.js": "1.0.0"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Next.js", results["frameworks"])
+
+    # Should detect Vue from package.json
+    def test_detects_vue_from_package_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"vue": "3.3.4"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Vue", results["frameworks"])
+
+    # Should detect Angular from package.json
+    def test_detects_angular_from_package_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"@angular/core": "16.0.0"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Angular", results["frameworks"])
+
+    # Should detect Spring Boot from pom.xml
+    def test_detects_spring_boot_from_pom_xml(self):
+        with tempfile.TemporaryDirectory() as td:
+            pom_file = os.path.join(td, "pom.xml")
+            with open(pom_file, "w") as f:
+                f.write('''<project>
+                    <parent>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-parent</artifactId>
+                    </parent>
+                </project>''')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Spring Boot", results["frameworks"])
+
+    # Should detect multiple Python frameworks from requirements.txt
+    def test_detects_multiple_python_frameworks(self):
+        with tempfile.TemporaryDirectory() as td:
+            req_file = os.path.join(td, "requirements.txt")
+            with open(req_file, "w") as f:
+                f.write("flask==2.0.1\ndjango==4.2.0\nfastapi==0.95.0")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Flask", results["frameworks"])
+            self.assertIn("Django", results["frameworks"])
+            self.assertIn("FastAPI", results["frameworks"])
+
+    # Should detect multiple JavaScript frameworks from package.json
+    def test_detects_multiple_js_frameworks(self):
+        with tempfile.TemporaryDirectory() as td:
+            pkg_file = os.path.join(td, "package.json")
+            with open(pkg_file, "w") as f:
+                f.write('{"dependencies": {"react": "18.2.0", "express": "4.18.2", "vue": "3.3.4"}}')
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("React", results["frameworks"])
+            self.assertIn("Express", results["frameworks"])
+            self.assertIn("Vue", results["frameworks"])
+
+    # Should return empty frameworks list when no framework config files exist
+    def test_no_frameworks_without_config_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            # Create a Python file but no requirements.txt
+            py_file = os.path.join(td, "app.py")
+            with open(py_file, "w") as f:
+                f.write("print('hello world')")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertEqual(results["frameworks"], [])
+
+    # Should be case-insensitive when detecting frameworks
+    def test_framework_detection_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as td:
+            req_file = os.path.join(td, "requirements.txt")
+            with open(req_file, "w") as f:
+                # Write FLASK in uppercase
+                f.write("FLASK==2.0.1")
+
+            results = detect_languages_and_frameworks(td)
+            self.assertIn("Flask", results["frameworks"])
 
 # Let the test run directly if this file is executed
 if __name__ == "__main__":

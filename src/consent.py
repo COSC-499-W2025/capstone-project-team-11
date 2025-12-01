@@ -7,13 +7,35 @@ from config import save_config, load_config
 def describe_data_access(items: Optional[Iterable[str]] = None) -> None:
     if items is None:
         items = [
-            "file names and directory structure",
-            "file metadata (size, modification time)",
-            "file contents when opened for scanning/parsing"
+            "FILE SYSTEM ACCESS:",
+            "  - File names, directory names, and complete directory structure",
+            "  - Full absolute file paths (stored in local database)",
+            "  - File metadata: sizes, modification times, creation times",
+            "  - Complete file contents for code analysis (used during language/framework/skill detection)",
+            "  - Any content from files stored in zipped (.zip) folders within a scanned directory",
+            "",
+            "GIT REPOSITORY DATA (if applicable):",
+            "  - Repository remote URL",
+            "  - All commit author names (No email addresses are stored)",
+            "  - Commit counts, dates, and file-level contribution statistics",
+            "  - Lines added/removed per author and per file",
+            "  - Repository creation date and activity timelines",
+            "  - File collaboration patterns (individual vs collaborative ownership)",
+            "",
+            "LOCAL DATA STORAGE:",
+            "  - All scan results are stored in unencrypted SQLite database (file_data.db)",
+            "  - User preferences are written to a file in a hidden folder in the user's home directory (~/.mda/config.json)",
+            "  - Generated reports in output/ and resumes/ directories (JSON, TXT, Markdown)",
+            "",
+            "WHAT WE DO NOT ACCESS:",
+            "  - No network requests or external API calls",
+            "  - No data transmission to external services",
+            "  - No access to any files outside of user-provided scan directories",
         ]
-    print("The scanner may access the following data on your machine:")
+    print("The scanner can access the following data on your local machine:")
+    print()
     for item in items:
-        print(f" - {item}")
+        print(f"{item}")
     print()
 
 # Prompt the user for a yes/no answer. Returns True for yes, False for no.

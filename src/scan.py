@@ -4,9 +4,12 @@ import time
 import subprocess
 import zipfile
 import io
+import threading
+import contextlib
 import tempfile
 import json
 import sqlite3
+
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
@@ -17,6 +20,7 @@ from detect_skills import detect_skills
 from file_utils import is_valid_format
 from db import get_connection, init_db, save_scan
 from collab_summary import summarize_project_contributions
+from datetime import datetime
 
 # Try to import contribution metrics module; support running as package or standalone
 try:
@@ -51,6 +55,38 @@ def _zip_mtime_to_epoch(dt_tuple):
         return 0.0
 
 
+def _print_progress(current: int, total: int, label: str = ""):
+    """Single-line filling progress bar.
+
+    - When `total` > 0: shows a fixed-width bar that fills proportionally.
+    - When `total` is 0 or unknown: shows a simple counter.
+    This intentionally avoids printing individual filenames.
+    """
+    try:
+        # determine basic strings
+        if total and total > 0:
+            pct = int((current / total) * 100)
+            width = 30
+            filled = int((current / total) * width)
+            if filled > width:
+                filled = width
+            bar = '[' + ('#' * filled) + ('-' * (width - filled)) + ']'
+            msg = f"Scanning {bar} {pct:3d}% ({current}/{total})"
+        else:
+            msg = f"Scanning: {current} files"
+
+        # Write with carriage return and flush (single-line)
+        sys.stdout.write('\r' + msg + ' ' * 10)
+        sys.stdout.flush()
+
+        # When complete, terminate the line
+        if total and current >= total:
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+    except Exception:
+        pass
+
+
 def _is_macos_junk(name: str) -> bool:
     """Return True if the path or filename is a macOS metadata file/dir we should ignore."""
     if not name:
@@ -64,7 +100,7 @@ def _is_macos_junk(name: str) -> bool:
 
 
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
-              show_collaboration: bool = False, extract_root: str = None):
+              show_collaboration: bool = False, extract_root: str = None, progress: dict = None):
     """
     Internal: scan an already-open ZipFile and collect/print entries.
     - display_prefix: the accumulated path like "/path/to.zip" or "/path/to.zip:inner.zip"
@@ -80,9 +116,11 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         # Skip macOS junk files
         if _is_macos_junk(name):
             continue
-        # Skip unsupported file formats
+        # Skip unsupported file formats (silent)
         if not is_valid_format(name):
-            print(f"Skipping unsupported file format in zip: {name}")
+            # track silently; do not print file names
+            if progress is not None:
+                progress['skipped'] = progress.get('skipped', 0) + 1
             continue
         # Respect non-recursive by including only root-level entries (no '/')
         if not recursive and ('/' in name or name.endswith('/')):
@@ -91,14 +129,11 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         display = f"{display_prefix}:{name}"
         if file_type is None or name.lower().endswith(file_type.lower()):
             files_found.append((display, info.file_size, _zip_mtime_to_epoch(info.date_time)))
-            print(display)
-            if show_collaboration:
-                collab = "unknown"
-                if extract_root:
-                    candidate = os.path.join(extract_root, name)
-                    if os.path.exists(candidate):
-                        collab = get_collaboration_info(candidate)
-                print(f"  Collaboration: {collab}")
+            # update progress bar if provided (label with zip basename only)
+            if progress is not None:
+                progress['current'] = progress.get('current', 0) + 1
+                _print_progress(progress['current'], progress.get('total', 0), display_prefix)
+            # Do not print per-file collaboration info here to avoid exposing filenames
 
         # If recursive and this entry itself is a .zip, descend into it
         if recursive and name.lower().endswith('.zip'):
@@ -115,7 +150,8 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                             file_type,
                             files_found,
                             show_collaboration=show_collaboration,
-                            extract_root=tmpdir
+                            extract_root=tmpdir,
+                            progress=progress
                         )
             except zipfile.BadZipFile:
                 pass
@@ -145,19 +181,70 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
     )
 
 
+def _run_with_progress(func, args=(), kwargs=None, label: str = "Working", total_steps: int = 30):
+    """Run `func(*args, **kwargs)` in a background thread while showing a filling progress bar.
+
+    Returns (result, captured_stdout, error)
+    """
+    if kwargs is None:
+        kwargs = {}
+    buf = io.StringIO()
+    result_container = {}
+
+    def _runner():
+        try:
+            with contextlib.redirect_stdout(buf):
+                result_container['result'] = func(*args, **kwargs)
+        except Exception as e:
+            result_container['error'] = e
+
+    th = threading.Thread(target=_runner)
+    th.daemon = True
+    th.start()
+
+    step = 0
+    # animate until finished
+    while th.is_alive():
+        step = (step + 1) % (total_steps + 1)
+        if step == 0:
+            step = total_steps
+        _print_progress(step, total_steps, label)
+        time.sleep(0.08)
+
+    # ensure final 100%
+    _print_progress(total_steps, total_steps, label)
+
+    return result_container.get('result'), buf.getvalue(), result_container.get('error')
+
+
 def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
     """Prints file names inside a zip archive."""
     if not os.path.exists(zip_path) or not zipfile.is_zipfile(zip_path):
         print("Directory does not exist.")
         return
 
-    print(f"\nScanning zip archive: {zip_path}")
-    if file_type:
-        print(f"Filtering by file type: {file_type}")
-    print()
+    # Use only an in-place progress display; avoid printing individual file names
 
     files_found = []
     with zipfile.ZipFile(zip_path) as zf:
+        # determine total matching entries for progress
+        total_entries = 0
+        for info in zf.infolist():
+            if hasattr(info, 'is_dir') and info.is_dir():
+                continue
+            name = info.filename
+            if _is_macos_junk(name):
+                continue
+            if not is_valid_format(name):
+                continue
+            if not recursive and ('/' in name or name.endswith('/')):
+                continue
+            if file_type is None or name.lower().endswith(file_type.lower()):
+                total_entries += 1
+
+        progress = {'current': 0, 'total': total_entries, 'skipped': 0}
+        # show initial progress line (label with archive basename only)
+        _print_progress(0, progress['total'], zip_path)
         with tempfile.TemporaryDirectory() as tmpdir:
             zf.extractall(tmpdir)
             _scan_zip(
@@ -167,7 +254,8 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 file_type,
                 files_found,
                 show_collaboration=show_collaboration,
-                extract_root=tmpdir
+                extract_root=tmpdir,
+                progress=progress,
             )
 
             # Optionally persist results to DB (collect metadata first)
@@ -176,8 +264,17 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 file_meta = {}
                 try:
                     # detect languages/skills/contributors from extracted tree
-                    langs = detect_languages_and_frameworks(tmpdir).get('languages', [])
-                    skills = detect_skills(tmpdir).get('skills', [])
+                    # Run language detection under the progress/capture helper to avoid noisy prints
+                    langs_res, langs_out, langs_err = _run_with_progress(
+                        detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
+                    )
+                    langs = langs_res.get('languages', []) if langs_res else []
+
+                    # Run skill detection using the same runner so output is captured
+                    skills_res, skills_out, skills_err = _run_with_progress(
+                        detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
+                    )
+                    skills = skills_res.get('skills', []) if skills_res else []
                     metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
                     contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
 
@@ -236,11 +333,13 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     newest = max(files_found, key=lambda t: t[2] or 0)
     oldest = min(files_found, key=lambda t: t[2] or 0)
 
+    # Concise file statistics (do not show file paths)
     print("\n=== File Statistics ===")
-    print(f"Largest file: {largest[0]} ({largest[1]} bytes)")
-    print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
-    print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2]) if newest[2] else 'unknown'})")
-    print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
+    print(f"Total files found: {len(files_found)}")
+    print(f"Largest file size: {largest[1]} bytes")
+    print(f"Smallest file size: {smallest[1]} bytes")
+    print(f"Most recently modified: {time.ctime(newest[2]) if newest[2] else 'unknown'}")
+    print(f"Least recently modified: {time.ctime(oldest[2]) if oldest[2] else 'unknown'}")
     return files_found
 
 
@@ -389,6 +488,8 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print()
 
     files_found = []
+    # determine total files to scan for progress display
+    total_files = 0
     if recursive:
         for root, dirs, files in os.walk(path):
             dirs[:] = [d for d in dirs if d != '__MACOSX']
@@ -396,7 +497,34 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 if _is_macos_junk(file):
                     continue
                 if not is_valid_format(file):
-                    print(f"Skipping unsupported file format: {file}")
+                    continue
+                if file_type is None or file.lower().endswith(file_type.lower()):
+                    total_files += 1
+    else:
+        try:
+            for file in os.listdir(path):
+                full_path = os.path.join(path, file)
+                if os.path.isfile(full_path):
+                    if _is_macos_junk(file):
+                        continue
+                    if not is_valid_format(file):
+                        continue
+                    if file_type is None or file.lower().endswith(file_type.lower()):
+                        total_files += 1
+        except Exception:
+            total_files = 0
+
+    progress = {'current': 0, 'total': total_files}
+
+    if recursive:
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d != '__MACOSX']
+            for file in files:
+                if _is_macos_junk(file):
+                    continue
+                if not is_valid_format(file):
+                    # silently count skipped files, do not print names
+                    progress['skipped'] = progress.get('skipped', 0) + 1
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     full_path = os.path.join(root, file)
@@ -409,9 +537,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     except Exception:
                         mtime = None
                     files_found.append((full_path, size, mtime))
-                    print(full_path)
-                    if show_collaboration:
-                        print(f"  Collaboration: {get_collaboration_info(full_path)}")
+                    progress['current'] += 1
+                    # label progress with the scan root (not the filename)
+                    _print_progress(progress['current'], progress['total'], path)
+                    # do not print per-file collaboration info during scan
     else:
         for file in os.listdir(path):
             full_path = os.path.join(path, file)
@@ -419,7 +548,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 if _is_macos_junk(file):
                     continue
                 if not is_valid_format(file):
-                    print(f"Skipping unsupported file format: {file}")
+                    progress['skipped'] = progress.get('skipped', 0) + 1
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     try:
@@ -431,9 +560,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     except Exception:
                         mtime = None
                     files_found.append((full_path, size, mtime))
-                    print(full_path)
-                    if show_collaboration:
-                        print(f"  Collaboration: {get_collaboration_info(full_path)}")
+                    progress['current'] += 1
+                    _print_progress(progress['current'], progress['total'], path)
+                    # do not print per-file collaboration info during scan
+    
 
     if not files_found:
         print("No files found matching your criteria.")
@@ -452,23 +582,30 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
     # Optionally persist scan results to the database
     if save_to_db:
+        # Detect project-level metadata and persist with the scan
         try:
-            # Detect project-level metadata and persist with the scan
-            try:
-                langs = detect_languages_and_frameworks(path).get('languages', [])
-            except Exception:
-                langs = None
-            try:
-                skills = detect_skills(path).get('skills', [])
-            except Exception:
-                skills = None
-            try:
-                metrics = analyze_repo_path(path) if analyze_repo is not None else None
-                contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
-            except Exception:
-                contributors = None
+            langs_res, langs_out, langs_err = _run_with_progress(
+                detect_languages_and_frameworks, args=(path,), label="Detect languages", total_steps=40
+            )
+            langs = langs_res.get('languages', []) if langs_res else None
+        except Exception:
+            langs = None
 
-            # build file metadata (owner) for each file
+        try:
+            skills_res, skills_out, skills_err = _run_with_progress(
+                detect_skills, args=(path,), label="Detect skills", total_steps=40
+            )
+            skills = skills_res.get('skills', []) if skills_res else None
+        except Exception:
+            skills = None
+
+        try:
+            metrics = analyze_repo_path(path) if analyze_repo is not None else None
+            contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
+        except Exception:
+            contributors = None
+
+        # build file metadata (owner) for each file
             file_meta = {}
             for item in files_found:
                 display = item[0] if isinstance(item, tuple) else item
@@ -510,6 +647,98 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 print("Warning: failed to persist scan results to database.")
     return files_found
 
+def _make_json_safe(obj):
+    from datetime import datetime
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_make_json_safe(v) for v in obj]
+    return obj
+
+def write_scan_report(output_dir, scan_path, files_found, langs_summary, skills_summary, contrib_metrics=None):
+    """
+    Write both TXT and JSON reports summarizing scan results.
+    """
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Extract the name of the folder or ZIP file being scanned
+    scan_name = os.path.basename(scan_path.rstrip("/\\"))
+
+    # Clean up invalid filename characters just in case
+    scan_name = "".join(c for c in scan_name if c.isalnum() or c in ('-', '_'))
+
+    base_name = f"{scan_name}_scan_{timestamp}"
+
+    txt_path = os.path.join(output_dir, base_name + ".txt")
+    json_path = os.path.join(output_dir, base_name + ".json")
+
+    # Compute statistics
+    largest = max(files_found, key=lambda t: t[1] or 0)
+    smallest = min(files_found, key=lambda t: t[1] or 0)
+    newest = max(files_found, key=lambda t: t[2] or 0)
+    oldest = min(files_found, key=lambda t: t[2] or 0)
+
+    # ----- TXT OUTPUT -----
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(f"Scanning directory: {scan_path}\n\n")
+
+        f.write("=== File Statistics ===\n")
+        f.write(f"Largest file: {largest[0]} ({largest[1]} bytes)\n")
+        f.write(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)\n")
+        f.write(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})\n")
+        f.write(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})\n\n")
+
+        f.write("=== Detected Languages Summary ===\n")
+        for k in ["high_confidence", "medium_confidence", "low_confidence", "frameworks"]:
+            if langs_summary.get(k):
+                f.write(f"{k.replace('_',' ').title()}: {', '.join(langs_summary[k])}\n")
+        f.write("\n")
+
+        f.write("=== Detected Skills Summary ===\n")
+        if skills_summary.get("skills"):
+            f.write(", ".join(skills_summary["skills"]) + "\n")
+        else:
+            f.write("No significant skills detected.\n")
+        f.write("\n")
+
+        if contrib_metrics:
+            f.write("=== Contribution Metrics ===\n")
+            for key, value in contrib_metrics.items():
+                f.write(f"{key}: {value}\n")
+
+        # ----- JSON OUTPUT -----
+        json_data = {
+            "scan_path": scan_path,
+            "file_stats": {
+                "largest": {"path": largest[0], "size": largest[1]},
+                "smallest": {"path": smallest[0], "size": smallest[1]},
+                "newest": {"path": newest[0], "mtime": newest[2]},
+                "oldest": {"path": oldest[0], "mtime": oldest[2]},
+            },
+            "languages": langs_summary,
+            "skills": skills_summary,
+            "contribution_metrics": contrib_metrics,
+            "files_found": [
+                {"path": p, "size": s, "mtime": m} 
+                for (p, s, m) in files_found
+            ]
+        }
+
+        # Ensure JSON-serializable data (fix datetime objects)
+        safe_json = _make_json_safe(json_data)
+
+        with open(json_path, "w", encoding="utf-8") as jf:
+            json.dump(safe_json, jf, indent=4)
+
+    print(f"\n[INFO] Scan reports saved to:")
+    print(f"  {txt_path}")
+    print(f"  {json_path}")
 
 def run_with_saved_settings(
     directory=None,
@@ -550,12 +779,53 @@ def run_with_saved_settings(
         save_to_db=save_to_db,
     )
 
-    # After scan, summarize detected skills first
+    # After scan, run language detection and then summarize detected skills
+    scan_target = final.get("directory")
+
+    print("\n=== Detecting Languages ===")
+    langs_res, langs_out, langs_err = _run_with_progress(
+        detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
+    )
+    langs_summary = langs_res or {}
+    if langs_summary.get("languages"):
+        print("\n=== Detected Languages Summary ===")
+        if langs_summary.get("high_confidence"):
+            print("High confidence:", ", ".join(langs_summary.get("high_confidence")))
+        if langs_summary.get("medium_confidence"):
+            print("Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
+        if langs_summary.get("low_confidence"):
+            print("Low confidence:", ", ".join(langs_summary.get("low_confidence")))
+        if langs_summary.get("frameworks"):
+            print("Frameworks:", ", ".join(langs_summary.get("frameworks")))
+    else:
+        print("\nNo languages detected.")
+
     print("\n=== Detecting Skills ===")
-    skills_summary = detect_skills(directory)
-    if skills_summary["skills"]:
+    skills_res, skills_out, skills_err = _run_with_progress(
+        detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
+    )
+    skills_summary = skills_res or {}
+
+     # === WRITE OUTPUT REPORT FILES ===
+    output_dir = os.path.join("output", "scan_reports")
+    write_scan_report(
+        output_dir=output_dir,
+        scan_path=scan_target,
+        files_found=list_files_in_directory(
+            scan_target,
+            recursive=final["recursive_choice"],
+            file_type=final["file_type"]
+        ),
+        langs_summary=langs_summary,
+        skills_summary=skills_summary,
+        contrib_metrics=analyze_repo_path(scan_target)
+            if final.get("show_contribution_metrics")
+            else None
+    )
+    
+    if skills_summary.get("skills"):
         print("\n=== Detected Skills Summary ===")
-        print(", ".join(skills_summary["skills"]))
+        print(", ".join(skills_summary.get("skills")))
     else:
         print("\nNo significant skills detected.")
 
@@ -575,183 +845,32 @@ def run_with_saved_settings(
 
 
 if __name__ == "__main__":
-    import os
-    import sys
-
-    while True:
-        print("\n=== Scan Manager ===")
-        print("1. Run a new scan")
-        print("2. View previous scan insights")
-        print("3. Exit")
-
-        choice = input("Select an option (1/2/3): ").strip()
-
-        insights_root = os.path.join("output")
-
-        # EXIT PROGRAM
-        if choice == "3":
-            print("Exiting program.")
-            sys.exit(0)
-
-        # OPTION 2 — VIEW PREVIOUS INSIGHT FILES
-        if choice == "2":
-            print("\n=== Previous Scan Insights ===")
-
-            if not os.path.exists(insights_root):
-                print("No insights found.")
-                continue
-
-            # Collect all insight files
-            all_files = []
-            for root, dirs, files in os.walk(insights_root):
-                for f in files:
-                    if f.endswith(".json") or f.endswith(".txt"):
-                        all_files.append(os.path.join(root, f))
-
-            if not all_files:
-                print("No insight files found.")
-                continue
-
-            print("\nAvailable Insights:")
-            for i, full_path in enumerate(all_files, 1):
-                print(f"{i}. {os.path.basename(full_path)}")
-
-            print("\n1. Delete a scan insight")
-            print("2. Back to main menu")
-            sub_choice = input("Select an option (1/2): ").strip()
-
-            # DELETE AN INSIGHT
-            if sub_choice == "1":
-                delete_num = input("Enter the number of the insight to delete: ").strip()
-
-                try:
-                    idx = int(delete_num) - 1
-                    file_to_delete = all_files[idx]
-                    os.remove(file_to_delete)
-                    print(f"Deleted: {os.path.basename(file_to_delete)}")
-                except:
-                    print("Invalid selection. No file deleted.")
-
-                continue  # back to main menu
-
-            # BACK TO MAIN MENU
-            elif sub_choice == "2":
-                continue
-
-            else:
-                print("Invalid option. Returning to main menu.")
-                continue
-
-        # OPTION 1 — RUN NEW SCAN 
-        if choice == "1":
-            break  # exits the menu loop and continues to scan logic
-
-        print("Invalid option. Please select 1, 2, or 3.")
-
-    # Handle data consent first
-    current = load_config(None)
-    # If user previously accepted consent, display an unobtrusive prompt to re-run ask_for_data_consent().
-    # This lets users who previously gave consent to view the consent prompt again and change their answer if they wish.
-    if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
-            current = load_config(None)
-            consent = ask_for_data_consent(config_path=default_config_path())
-            if not consent:
-                print("Data access consent not granted, aborting application.")
-                sys.exit(0)
-    else:
-        # If user hasn't explicitly accepted, always prompt so they can set or change their preference.
-        consent = ask_for_data_consent(config_path=default_config_path())
-        if not consent:
-            print("Data access consent not granted, aborting application.")
-            sys.exit(0)
-
-    # Load current settings
-    current = load_config(None)
+    """
+    This module is now integrated into the main menu system.
+    To run scanning operations, please use the main menu:
     
-    # Only prompt for reuse of scan settings if config.json has at least one non-default value.
-    if not is_default_config(current):
-        use_saved = ask_yes_no(
-            "Would you like to use the settings from your most recent scan?\n"
-            f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
-            f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
-            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
-            f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
-            f"  Show Contribution Metrics:  {current.get('show_contribution_metrics')}\n"
-            f"  Show Contribution Summary:  {current.get('show_contribution_summary')}\n"
-            "Proceed with these settings? (y/n): "
-        )
-    else:
-        use_saved = False
-
-    if use_saved and current.get("directory"):
-        # Use saved settings and only ask about database
-        
-        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
-        
-        run_with_saved_settings(
-            directory=current.get("directory"),
-            recursive_choice=current.get("recursive_choice"),
-            file_type=current.get("file_type"),
-            show_collaboration=current.get("show_collaboration"),
-            show_contribution_metrics=current.get("show_contribution_metrics"),
-            show_contribution_summary=current.get("show_contribution_summary"),
-            save=False,
-            save_to_db=save_db,
-        )
-    else:
-        # Collect all scan settings first
-        directory = input("Enter directory path or zip file path: ").strip()
-        directory = directory if directory else None
-        recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
-        file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
-        file_type = file_type if file_type else None
-        show_collab = ask_yes_no("Show collaboration info? (y/n): ")
-        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ")
-        show_summary = ask_yes_no("Show contribution summary? (y/n): ")
-
-        # Ask about saving settings after collecting all of them
-        remember = ask_yes_no("Save these settings for next time? (y/n): ")
-        
-        # Ask about database last
-        save_db = ask_yes_no("Save scan results to database? (y/n): ")
-
-        run_with_saved_settings(
-            directory=directory,
-            recursive_choice=recursive_choice,
-            file_type=file_type,
-            show_collaboration=show_collab,
-            show_contribution_metrics=show_metrics,
-            show_contribution_summary=show_summary,
-            save=remember,
-            save_to_db=save_db,
-        )
-
-    try:
-        from project_info_output import gather_project_info, output_project_info
-    except Exception:
-        try:
-            from .project_info_output import gather_project_info, output_project_info
-        except Exception:
-            gather_project_info = None
-            output_project_info = None
-
-    selected_dir = current.get("directory") if use_saved else locals().get("directory")
-
-    if selected_dir is None:
-        # Nothing to summarize
-        pass
-    elif gather_project_info is None or output_project_info is None:
-        print("Project summary functions not available (couldn't import project_info_output).")
-    else:
-        if ask_yes_no("Would you like to generate a project summary report (JSON & TXT)? (y/n): ", False):
-            try:
-                info = gather_project_info(selected_dir)
-                project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
-                out_dir = os.path.join("output", project_name)
-                os.makedirs(out_dir, exist_ok=True)
-                json_path, txt_path = output_project_info(info, output_dir=out_dir)
-                print(f"Summary reports saved to: {out_dir}")
-            except Exception as e:
-                print(f"Failed to generate summary report: {e}")
+    python -m src.main_menu
+    or
+    python src/main_menu.py
+    
+    The main menu provides access to all scanning features along with
+    other project analysis tools.
+    """
+    import sys
+    print("\n" + "=" * 60)
+    print("  SCAN MODULE - INTEGRATED INTO MAIN MENU")
+    print("=" * 60)
+    print("\nThis module is now part of the unified main menu system.")
+    print("To access scanning features, please run the main menu:\n")
+    print("  python -m src.main_menu")
+    print("  or")
+    print("  python src/main_menu.py\n")
+    print("The main menu provides access to:")
+    print("  - Directory/archive scanning")
+    print("  - Database inspection")
+    print("  - Project ranking")
+    print("  - Project summaries")
+    print("  - And more...\n")
+    print("=" * 60)
+    sys.exit(0)
 
