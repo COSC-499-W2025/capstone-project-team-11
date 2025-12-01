@@ -175,6 +175,29 @@ Week 13 Plans:
 
 <img width="1654" height="826" alt="image" src="https://github.com/user-attachments/assets/50650c4d-d5df-4e45-a3f9-000c79d1142c" />
 
+# Tyler's Week 13 Personal Log (24-30 Nov.)
+
+Focus of the week was modifying the scan.py file to auto create and output project key information and modified it to include all the new and present analysis added
+
+<img width="741" height="572" alt="image" src="https://github.com/user-attachments/assets/ff94da51-bce1-4344-b1d1-c47ce7b30c84" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Added to scan.py to output key information to file on scan
+- Removed the need for the previous key information file
+- Modified key information output for projects to include detect langs analysis
+- Finished slides for team presentation
+- Finished individual log 13
+- Finished peer reviews for week 13
+- Finished team log for week 13
+
+Week 13 Plans:
+- Work on the video for our project and clean up any minor things to polish up the project for video
+
+<img width="1893" height="387" alt="image" src="https://github.com/user-attachments/assets/cab2bf05-9419-483f-ae9e-e3147a871c1b" />
+
+
 
 
 
