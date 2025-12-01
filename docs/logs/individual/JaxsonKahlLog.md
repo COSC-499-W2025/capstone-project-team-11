@@ -240,3 +240,40 @@ This was a good week for our group as we have been in a steady flow of each memb
 - Finalise project outputs for Milestone 1 Presentations
 
 <img width="833" height="496" alt="Screenshot 2025-11-23 at 8 03 50 PM" src="https://github.com/user-attachments/assets/b76ea4d1-ec35-4c93-b49e-1bc6ec8cb98a" />
+
+# Week 13 Personal Logs (November 24th - 30th)
+
+<img width="703" height="492" alt="Screenshot 2025-11-30 at 4 02 48 PM" src="https://github.com/user-attachments/assets/c71c8c83-f0bb-415a-a478-2b8f456f528e" />
+
+## Tasks Completed:
+This week, I focused on generating a resume-ready Markdown file for any contributor found in any of the scanned projects
+- Closed issue #176
+
+### Reflection of the past week:
+This was a good week for our group as we have been in a steady flow of each member committing code. All of our code was committed before Sunday night to avoid merger errors, improving on our problems from the previous weeks. For the upcoming week, we plan on preparing for the presentation and reworking some of our designs to reflect the current system before the term ends. We are also working on the team contract and the final reflections.
+
+### Additions and Features:
+- **`generate_resume.py`** Scans output for project info JSONs and repo-level contribution JSONs. Aggregates per-user projects, technologies, and skills. Renders a Markdown resume with a timestamp and writes it to resumes/resume_<username>_<YYYYmmddTHHMMSSZ>.md. Interactive username selection: prints a clean numbered list of detected candidate usernames and accepts either a number or exact username. Blacklists bot accounts (githubclassroombot) by default and offers --allow-bots to override.
+- **`main_menu.py`** Added menu entry 6. Generate Resume. Added handle_generate_resume() that delegates to generate_resume.py. Keeps the main menu behavior consistent and non-blocking.
+
+### Testing:
+- **`test_generate_resume.py`** Tests included: normalize_project_name() behavior. collect_projects() and aggregate_for_user() return shapes and content. render_markdown() output and generation timestamp. CLI-level behavior: file generation for a user, blacklist enforcement for bots, and override via --allow-bots. Uses temporary output directories in tests to avoid touching repository data.
+
+### Reviews: 
+- Daniel's Refactor/skills timeline module (PR #180)
+- Travis' Main menu module that acts as a unified CLI interface (PR #181)
+- Tyler's Auto Output Key Information On Scan That Includes All New Analysis Info (PR #186)
+- Tanner's Updated the unit testing suite for data-access consent feature (PR #187)
+  
+## In progress tasks
+- Presentation preparation
+- Updating system architecture and data flow diagrams
+- Team contract
+- Reflection
+
+## Planned tasks for next sprint
+- Christmas Break
+
+<img width="835" height="417" alt="Screenshot 2025-11-30 at 5 33 09 PM" src="https://github.com/user-attachments/assets/997854ef-4b79-4eeb-ba9f-e620a7e3e049" />
+
+
