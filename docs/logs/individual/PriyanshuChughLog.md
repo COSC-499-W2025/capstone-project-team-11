@@ -208,3 +208,21 @@ After  reading break we got straight back into the routine of things and did pre
 ## Week 13 Plans
 To be honest not a lot of issues left to picked up and the quiz upcoming this week and some other classes will be taking a lot of time from my week .But I will be helping my peers with reviews or tweaking  functions and helping plan for the demo and making sure we are prepared it for it. 
 
+# Week 13 (November 24th - 30th)
+
+<img width="1511" height="756" alt="Screenshot 2025-11-30 at 8 06 48 PM" src="https://github.com/user-attachments/assets/984de644-8c0c-4bda-8b4b-0eae42dee8d4" />
+
+## Tasks Completed
+Refactored the Skills Exercised (Chronologically) logic out of inspect_db.py into a new skill_timeline.py module.
+Updated inspect_db.py to use the new skills timeline module.
+Added unit tests for the skills timeline feature.
+Worked on the Milestone 1 presentation.
+Individual logs.
+
+## Reflection 
+As a team, we focused on finalizing the remaining deliverables and refining key features. My main contribution was Refactoring the skills exercise chronlogically and adding unit tests for it. Overall, this was a good week as we moved into the final stretch before the deadline.
+ 
+## Week 13 Plans
+We are in the final week of the semester so there is a lot of tasks that need to be completed. I will be working on and helping others with updating our documentation and helping complete the  project for video demo. And also working on our presentation that we have in class on Wednesday,
+
+
