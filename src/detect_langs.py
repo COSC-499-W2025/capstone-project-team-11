@@ -760,7 +760,7 @@ def detect_languages_and_frameworks(directory):
                     language_data[lang] = {"pattern_count": 0, "has_extension": False, "found_in_code_file": False}
                 language_data[lang]["has_extension"] = True
                 language_data[lang]["found_in_code_file"] = True  # Extension match means it's definitely a code file
-                print(f"Detected {lang} from file extension: {file_path}")
+                # print(f"Detected {lang} from file extension: {file_path}")
 
             # Detect languages by using syntax patterns
             pattern_results = scan_file_content(file_path)
@@ -772,7 +772,7 @@ def detect_languages_and_frameworks(directory):
                 # Mark if this detection came from a code file (not just text/docs)
                 if is_code_file:
                     language_data[language]["found_in_code_file"] = True
-                print(f"Detected {language} from content patterns ({match_count} matches): {file_path}")
+                # print(f"Detected {language} from content patterns ({match_count} matches): {file_path}")
 
             # ===== FRAMEWORK DETECTION =====
             # Check for frameworks in config/package/dependency files (package.json, requirements.txt, etc.)
@@ -781,7 +781,7 @@ def detect_languages_and_frameworks(directory):
                 if framework not in framework_data:
                     framework_data[framework] = {"pattern_count": 0, "found_in_config": False}
                 framework_data[framework]["found_in_config"] = True
-                print(f"Detected {framework} in config file: {file_path}")
+                # print(f"Detected {framework} in config file: {file_path}")
 
             # Detect frameworks by code patterns
             framework_pattern_results = scan_file_for_frameworks(file_path)
@@ -790,7 +790,7 @@ def detect_languages_and_frameworks(directory):
                     framework_data[framework] = {"pattern_count": 0, "found_in_config": False}
                 # Keep track of total matches for this framework
                 framework_data[framework]["pattern_count"] += match_count
-                print(f"Detected {framework} from code patterns ({match_count} matches): {file_path}")
+                # print(f"Detected {framework} from code patterns ({match_count} matches): {file_path}")
 
     # Log filtering statistics
     print(f"\n[Filtering Stats] Scanned: {files_scanned} files | Skipped: {files_skipped} files, {dirs_skipped} directories")
