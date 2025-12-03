@@ -120,15 +120,16 @@ def handle_scan_directory():
             save_to_db=save_db,
         )
     
-    # Optionally generate project summary
-    # selected_dir = current.get("directory") if use_saved else directory
-    # if selected_dir and ask_yes_no("Would you like to generate a project summary report (JSON & TXT)? (y/n): ", False):
-    #     try:
-    #         from scan import generate_project_summary_report
-    #         generate_project_summary_report(scan_results, selected_dir)
-    #         print("[INFO] Project summary report generated successfully.")
-    #     except Exception as e:
-    #         print(f"Failed to generate summary report: {e}")
+    selected_dir = current.get("directory") if use_saved else directory
+    try:
+        info = gather_project_info(selected_dir)
+        project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
+        out_dir = os.path.join("output", project_name)
+        os.makedirs(out_dir, exist_ok=True)
+        json_path, txt_path = output_project_info(info, output_dir=out_dir)
+        print(f"Summary reports saved to: {out_dir}")
+    except Exception as e:
+        print(f"Failed to generate summary report: {e}")
 
 
 
