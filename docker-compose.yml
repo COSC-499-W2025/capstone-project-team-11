@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     build:
@@ -8,27 +6,26 @@ services:
     image: capstone-app:dev
     container_name: capstone-team11
     working_dir: /app
-    stdin_open: true          #needed for input() in scan.py
+    stdin_open: true
     tty: true
+
+    # Mount project code and automatically mount each teammate’s home directory
     volumes:
-      - ./:/app:rw
-    command: python -m src.scan   #CLI mode (change when proj root changed)
+      - ./:/app
+      - ./data:/app/data
+      - ${MDA_SCAN_ROOT:-$HOME}:/host 
 
-    #FastAPI
-    # ports:
-    #   - "8000:8000"
-    # command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000
-
-    restart: "no"
+    command: python -m src.main_menu
 
   tests:
     build:
       context: .
       dockerfile: Dockerfile
     image: capstone-app:test
-    container_name: tests
+    container_name: capstone-tests
     working_dir: /app
+
     volumes:
-      - ./:/app:rw
-    # Do not set SCANNER_NONINTERACTIVE here so unit tests that patch input() still work.
-    command: python -m unittest discover -s test -p "*_test.py"
+      - ./:/app
+
+    command: python -m unittest discover -s test -p "*test*.py"
