@@ -583,6 +583,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     # Optionally persist scan results to the database
     if save_to_db:
         # Detect project-level metadata and persist with the scan
+        langs = None
+        skills = None
+        contributors = None
+
         try:
             langs_res, langs_out, langs_err = _run_with_progress(
                 detect_languages_and_frameworks, args=(path,), label="Detect languages", total_steps=40
@@ -606,43 +610,47 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             contributors = None
 
         # build file metadata (owner) for each file
-            file_meta = {}
-            for item in files_found:
-                display = item[0] if isinstance(item, tuple) else item
+        file_meta = {}
+        for item in files_found:
+            display = item[0] if isinstance(item, tuple) else item
+            owner = None
+            try:
+                owner = get_collaboration_info(display)
+            except Exception:
                 owner = None
-                try:
-                    owner = get_collaboration_info(display)
-                except Exception:
-                    owner = None
-                # infer language from extension for filesystem files
+            # infer language from extension for filesystem files
+            lang = None
+            try:
+                _, ext = os.path.splitext(display)
+                if ext:
+                    lang = LANGUAGE_MAP.get(ext.lower())
+            except Exception:
                 lang = None
-                try:
-                    _, ext = os.path.splitext(display)
-                    if ext:
-                        lang = LANGUAGE_MAP.get(ext.lower())
-                except Exception:
-                    lang = None
-                file_meta[display] = {'owner': owner, 'language': lang}
+            file_meta[display] = {'owner': owner, 'language': lang}
 
-            # Try to detect repo information for the path being scanned
-            project_created_at, project_repo_url = _get_repo_info(path)
+        # Try to detect repo information for the path being scanned
+        project_created_at, project_repo_url = _get_repo_info(path)
 
-            _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
-                          file_metadata=file_meta,
-                          detected_languages=langs,
-                          detected_skills=skills,
-                          contributors=contributors,
-                          project_created_at=project_created_at,
-                          project_repo_url=project_repo_url)
+        persist_kwargs = dict(
+            scan_source=path,
+            files_found=files_found,
+            project=os.path.basename(path),
+            notes=None,
+            file_metadata=file_meta,
+            detected_languages=langs,
+            detected_skills=skills,
+            contributors=contributors,
+            project_created_at=project_created_at,
+            project_repo_url=project_repo_url,
+        )
+
+        try:
+            _persist_scan(**persist_kwargs)
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
             try:
                 init_db()
-                _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
-                              file_metadata=file_meta,
-                              detected_languages=langs,
-                              detected_skills=skills,
-                              contributors=contributors)
+                _persist_scan(**persist_kwargs)
             except Exception:
                 print("Warning: failed to persist scan results to database.")
     return files_found

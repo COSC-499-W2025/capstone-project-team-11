@@ -83,7 +83,8 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "3. Rank projects" in output
     assert "4. Summarize contributor projects" in output
     assert "5. Generate Project Summary Report" in output
-    assert "6. Exit" in output
+    assert "6. Generate Resume" in output
+    assert "7. Exit" in output
 
 
 # Test safe_query()
