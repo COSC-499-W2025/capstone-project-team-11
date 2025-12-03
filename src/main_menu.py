@@ -274,6 +274,25 @@ def handle_inspect_database():
                 else:
                     print('   (no linked files)')
 
+        # Resumes summary
+        print('\n' + '=' * 80)
+        print('Resumes (recent)')
+        print('=' * 80)
+        resumes = safe_query(cur, """
+            SELECT r.id, r.username, r.resume_path, r.generated_at, c.name AS contributor_name
+            FROM resumes r
+            LEFT JOIN contributors c ON c.id = r.contributor_id
+            ORDER BY r.generated_at DESC
+            LIMIT 10
+        """)
+        if not resumes:
+            print(' No resumes saved')
+        else:
+            for r in resumes:
+                uname = r['username'] or r['contributor_name'] or '<unknown>'
+                print(f"[{r['id']}] user={uname} | generated={human_ts(r['generated_at'])}")
+                print(f"    path: {r['resume_path']}")
+
         # Skills timeline
         print('\n' + '=' * 80)
         print('Skills Exercised (Chronologically — Grouped by Skill)')
@@ -402,7 +421,7 @@ def handle_generate_resume():
         print(f"Resume generator script not found at: {script_path}")
         return
 
-    cmd = [sys.executable, script_path]
+    cmd = [sys.executable, script_path, '--save-to-db']
     try:
         # Run the script and inherit stdio so the generator can prompt the user
         result = subprocess.run(cmd)
@@ -442,4 +461,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
