@@ -11,9 +11,11 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
+from db import save_resume
 
 
 def find_json_and_txt(root):
@@ -280,6 +282,7 @@ def main():
     parser.add_argument('--output-root', '-r', default='output', help='Path to the output folder')
     parser.add_argument('--resume-dir', '-d', default='resumes', help='Directory to write generated resumes')
     parser.add_argument('--allow-bots', action='store_true', help='Allow generating resumes for known bot accounts (not recommended)')
+    parser.add_argument('--save-to-db', action='store_true', help='Save generated resume metadata to the database')
     args = parser.parse_args()
 
     if not os.path.isdir(args.output_root):
@@ -358,6 +361,15 @@ def main():
     out_path = os.path.join(args.resume_dir, f"resume_{username}_{ts_fname}.md")
     with open(out_path, 'w', encoding='utf-8') as fh:
         fh.write(md)
+
+    if args.save_to_db:
+        try:
+            save_resume(username=username, resume_path=out_path, metadata=agg, generated_at=ts_iso)
+            print(f"Resume saved to database for user '{username}'.")
+        except sqlite3.OperationalError as e:
+            print(f"Warning: failed to save resume to database (schema missing?): {e}")
+        except Exception as e:
+            print(f"Warning: failed to save resume to database: {e}")
 
     print(f"Resume written: {out_path}")
     return 0

@@ -2,6 +2,7 @@ import sqlite3
 import os
 import time
 import json
+from datetime import datetime
 
 # Allow overriding database path via environment for tests or custom locations
 DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
@@ -192,6 +193,50 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
 
         conn.commit()
         return scan_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def save_resume(username: str, resume_path: str, metadata: dict = None, generated_at: str = None):
+    """Persist a generated resume into the DB.
+
+    - username: GitHub username the resume was generated for
+    - resume_path: filesystem path to the written resume markdown
+    - metadata: aggregated data used to render the resume (stored as JSON)
+    - generated_at: optional timestamp; defaults to current UTC if not provided
+
+    Returns resume_id on success.
+    """
+    if not username or not resume_path:
+        raise ValueError("username and resume_path are required")
+
+    conn = get_connection()
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        # Ensure contributor exists for this username
+        cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (username,))
+        cur.execute("SELECT id FROM contributors WHERE name = ?", (username,))
+        contrib_row = cur.fetchone()
+        contrib_id = contrib_row['id'] if contrib_row else None
+
+        metadata_json = json.dumps(metadata or {}, default=str)
+        ts = generated_at or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+
+        cur.execute(
+            """
+            INSERT INTO resumes (contributor_id, username, resume_path, metadata_json, generated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (contrib_id, username, resume_path, metadata_json, ts)
+        )
+        resume_id = cur.lastrowid
+        conn.commit()
+        return resume_id
     except Exception:
         conn.rollback()
         raise
