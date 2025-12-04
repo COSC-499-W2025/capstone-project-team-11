@@ -46,7 +46,8 @@ def print_main_menu():
     print("4. Summarize contributor projects")
     print("5. Generate Project Summary Report")
     print("6. Generate Resume")
-    print("7. Exit")
+    print("7. View Resumes")
+    print("8. Exit")
 
 
 def handle_scan_directory():
@@ -431,11 +432,153 @@ def handle_generate_resume():
         print(f"Failed to run resume generator: {e}")
 
 
+def _pager(text: str):
+    """Display text with paging if available, else print."""
+    try:
+        import pydoc
+        pydoc.pager(text)
+    except Exception:
+        print(text)
+
+
+def _list_resumes(cur):
+    """Return list of resumes rows ordered by recent generated_at."""
+    return safe_query(cur, """
+        SELECT r.id, r.username, r.resume_path, r.generated_at, c.name AS contributor_name, r.metadata_json
+        FROM resumes r
+        LEFT JOIN contributors c ON c.id = r.contributor_id
+        ORDER BY r.generated_at DESC
+        LIMIT 50
+    """)
+
+
+def _print_resume_list(resumes):
+    """Print numbered resume list."""
+    if not resumes:
+        print(" No resumes saved")
+        return
+    print("\nAvailable resumes (most recent first):")
+    for idx, r in enumerate(resumes, start=1):
+        uname = r['username'] or r['contributor_name'] or '<unknown>'
+        print(f"  {idx}. user={uname} | generated={human_ts(r['generated_at'])}")
+        print(f"     path: {r['resume_path']}")
+
+
+def _preview_resume(path: str, lines: int = 30):
+    """Return a preview (first N lines) of a resume file, lightly rendered."""
+    try:
+        with open(path, 'r', encoding='utf-8') as fh:
+            content = fh.read().splitlines()
+    except Exception as e:
+        return None, f"Failed to read resume file: {e}"
+
+    preview_lines = content[:lines]
+    truncated = len(content) > lines
+    rendered = _markdown_to_plain("\n".join(preview_lines))
+    return rendered, truncated
+
+
+def _markdown_to_plain(text: str) -> str:
+    """Lightweight markdown-to-plain renderer for terminal viewing."""
+    import re
+
+    lines = []
+    for raw in text.splitlines():
+        line = raw
+        # Headings: remove leading #'s, uppercase
+        if line.lstrip().startswith("#"):
+            line = re.sub(r"^\s*#+\s*", "", line).strip()
+            line = line.upper()
+        # Links: [text](url) -> text (url)
+        line = re.sub(r"\[(.*?)\]\((.*?)\)", r"\1 (\2)", line)
+        # Bold/italic/backticks: strip markers
+        line = line.replace("**", "").replace("__", "")
+        line = line.replace("*", "").replace("_", "").replace("`", "")
+        # Bullets: keep as-is; if nested, normalize spacing
+        line = re.sub(r"^\s*[-•]\s*", "- ", line)
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _delete_resume(conn, resume_row):
+    """Delete resume row and corresponding file (best-effort for file)."""
+    cur = conn.cursor()
+    cur.execute("DELETE FROM resumes WHERE id = ?", (resume_row["id"],))
+    conn.commit()
+    # sqlite3.Row supports key access but not .get
+    path = resume_row["resume_path"] if "resume_path" in resume_row.keys() else None
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+            return True, "Deleted from database and removed file."
+        except Exception as e:
+            return True, f"Deleted from database but failed to remove file: {e}"
+    return True, "Deleted from database; file not found or already removed."
+
+
+def handle_view_resumes():
+    """List resumes from the DB and allow viewing content."""
+    print("\n=== View Resumes ===")
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        resumes = _list_resumes(cur)
+        _print_resume_list(resumes)
+        if not resumes:
+            conn.close()
+            return
+
+        choice = input("\nEnter number to view/delete (blank to cancel): ").strip()
+        if not choice:
+            conn.close()
+            return
+        if not choice.isdigit() or not (1 <= int(choice) <= len(resumes)):
+            print("Invalid selection.")
+            conn.close()
+            return
+        selected = resumes[int(choice) - 1]
+        path = selected['resume_path']
+        uname = selected['username'] or selected['contributor_name'] or '<unknown>'
+        print(f"\nSelected resume for {uname}: {path}")
+        action = input("Choose action: (v)iew, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        if action == 'c':
+            conn.close()
+            return
+        if action == 'd':
+            confirm = input("Are you sure you want to delete this resume? (y/n): ").strip().lower()
+            if confirm != 'y':
+                conn.close()
+                return
+            ok, msg = _delete_resume(conn, selected)
+            print(msg)
+            conn.close()
+            return
+
+        print(f"\nOpening resume for {uname}: {path}")
+        preview, truncated_or_error = _preview_resume(path)
+        if preview is None:
+            print(truncated_or_error)
+            conn.close()
+            return
+        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
+        print("\n--- Preview ---\n")
+        print(preview)
+    except sqlite3.OperationalError as e:
+        print(f"Resumes table not available: {e}")
+    except Exception as e:
+        print(f"Error viewing resumes: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-7): ").strip()
+        choice = input("\nSelect an option (1-8): ").strip()
         
         if choice == "1":
             handle_scan_directory()
@@ -450,6 +593,8 @@ def main():
         elif choice == "6":
             handle_generate_resume()
         elif choice == "7":
+            handle_view_resumes()
+        elif choice == "8":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
