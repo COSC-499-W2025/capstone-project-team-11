@@ -55,9 +55,10 @@ def get_project_path(project_name: str) -> Optional[str]:
             return None
         
         # Handle zip file paths (format: "/path/to.zip:inner/path/file.py")
-        if ':' in file_path:
-            # Extract the zip path part
-            zip_part = file_path.split(':')[0]
+        zip_sep_index = file_path.lower().find(".zip:")
+        if zip_sep_index != -1:
+            # Extract the zip path portion (including the .zip file itself)
+            zip_part = file_path[:zip_sep_index + len(".zip")]
             # Try to find the project root by going up from the zip location
             # For zip files, we'll use the directory containing the zip
             potential_root = os.path.dirname(zip_part)
