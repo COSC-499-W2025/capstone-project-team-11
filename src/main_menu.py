@@ -30,7 +30,8 @@ from rank_projects import (
     rank_projects_contribution_summary,
     print_projects_contribution_summary,
     rank_projects_by_contributor,
-    print_projects_by_contributor
+    print_projects_by_contributor,
+    _get_all_contributors
 )
 from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
@@ -352,6 +353,15 @@ def handle_rank_projects():
     # This is outside the try block to ensure it always runs
     try:
         print()  # Add extra line for visibility
+        
+        # Display available contributors
+        contributors = _get_all_contributors()
+        if contributors:
+            print("=== Available Contributors ===")
+            for i, contrib in enumerate(contributors, 1):
+                print(f"  {i}. {contrib}")
+            print()
+        
         name = input('Enter a contributor name to show per-project importance (leave blank to skip): ').strip()
         if name:
             print(f"\nRanking projects by contributor: {name}\n")

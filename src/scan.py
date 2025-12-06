@@ -99,6 +99,66 @@ def _is_macos_junk(name: str) -> bool:
     return False
 
 
+def _determine_project_collaboration(path: str) -> str:
+    """Determine if a project is collaborative or individual.
+    
+    Returns 'Collaborative' if the project is a git repo with multiple authors,
+    otherwise returns 'Individual'.
+    """
+    repo_root = _find_git_root(path)
+    if not repo_root:
+        # Not a git repo, assume individual
+        return "Individual"
+    
+    try:
+        # Get all unique authors from git log
+        result = subprocess.run(
+            ["git", "log", "--format=%an"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            cwd=repo_root,
+            timeout=5,
+        )
+        
+        if result.returncode != 0 or not result.stdout:
+            return "Individual"
+        
+        # Get unique authors
+        authors = set(author.strip() for author in result.stdout.splitlines() if author.strip())
+        
+        # If multiple authors, it's collaborative
+        if len(authors) > 1:
+            return "Collaborative"
+        else:
+            return "Individual"
+    except Exception:
+        # If we can't determine, assume individual
+        return "Individual"
+
+
+def _display_skipped_files_summary(skipped_files_list):
+    """Display skipped files categorized by file extension."""
+    if not skipped_files_list:
+        return
+    
+    # Categorize by extension
+    by_extension = {}
+    for file_path in skipped_files_list:
+        _, ext = os.path.splitext(file_path)
+        if not ext:
+            ext = "(no extension)"
+        by_extension.setdefault(ext, 0)
+        by_extension[ext] += 1
+    
+    # Display summary
+    total = len(skipped_files_list)
+    print(f"\n=== Skipped Files ({total} files due to unsupported format) ===")
+    for ext in sorted(by_extension.keys()):
+        count = by_extension[ext]
+        print(f"  {ext}: {count} file(s)")
+
+
 def _resolve_extracted_root(extract_root: str) -> str:
     """
     Given a directory where an archive was extracted, attempt to pick the actual project root.
@@ -438,6 +498,10 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     print(f"Smallest file size: {smallest[1]} bytes")
     print(f"Most recently modified: {time.ctime(newest[2]) if newest[2] else 'unknown'}")
     print(f"Least recently modified: {time.ctime(oldest[2]) if oldest[2] else 'unknown'}")
+    
+    # Determine and display collaboration status
+    collab_status = _determine_project_collaboration(tmpdir)
+    print(f"\nProject Type: {collab_status}")
     return files_found
 
 
@@ -695,6 +759,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
     print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2]) if newest[2] else 'unknown'})")
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
+    
+    # Determine and display collaboration status
+    collab_status = _determine_project_collaboration(path)
+    print(f"\nProject Type: {collab_status}")
     # Optionally persist scan results to the database
     if save_to_db:
         # Detect project-level metadata and persist with the scan
