@@ -38,6 +38,7 @@ IGNORED_DIRECTORIES = {
     ".idea",
     ".vscode",
     ".vs",
+    "__MACOSX",
 }
 
 # =============================================================================
@@ -193,6 +194,34 @@ TEXT_EXTENSIONS = {
 
 # Combined set of all scannable extensions
 SCANNABLE_EXTENSIONS = CODE_EXTENSIONS | TEXT_EXTENSIONS
+
+# Names/patterns representing files we should ignore entirely (macOS artifacts, nested archives)
+NOISE_FILE_NAMES = {".DS_Store"}
+NOISE_FILE_PREFIXES = ("._",)
+NOISE_FILE_EXTENSIONS = {".zip"}
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def should_skip_artifact(path: str) -> bool:
+    """Return True for macOS metadata or archive containers we should ignore."""
+    try:
+        name = os.path.basename(path)
+        if name in NOISE_FILE_NAMES:
+            return True
+        if any(name.startswith(prefix) for prefix in NOISE_FILE_PREFIXES):
+            return True
+        ext = os.path.splitext(name)[1].lower()
+        if ext in NOISE_FILE_EXTENSIONS:
+            return True
+        # Skip any files residing under __MACOSX directories
+        parts = path.split(os.sep)
+        if "__MACOSX" in parts:
+            return True
+    except Exception:
+        return False
+    return False
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -742,6 +771,9 @@ def detect_languages_and_frameworks(directory):
 
         for file in files:
             file_path = os.path.join(root, file)
+
+            if should_skip_artifact(file_path):
+                continue
 
             # Check if this file should be scanned based on extension
             should_scan, is_code_file = should_scan_file(file)

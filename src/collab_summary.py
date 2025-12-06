@@ -28,13 +28,25 @@ def is_git_repo(path: str, strict: bool = False) -> bool:
     return False
 
 
+def _should_skip_file(path: Path) -> bool:
+    """Return True for macOS artifacts or container archives we want to ignore."""
+    name = path.name
+    if name == '.DS_Store' or name.startswith('._'):
+        return True
+    if name.lower().endswith('.zip'):
+        return True
+    if any(part == '__MACOSX' for part in path.parts):
+        return True
+    return False
+
+
 def summarize_contributions_non_git(path: str) -> dict:
     """
     Fallback for non-Git projects.
     Detects authors from inline 'Author:' comments or defaults to Unknown.
     """
     path = Path(path).resolve()
-    files = [f for f in Path(path).glob("**/*") if f.is_file()]
+    files = [f for f in Path(path).glob("**/*") if f.is_file() and not _should_skip_file(f)]
     if not files:
         return {}
 

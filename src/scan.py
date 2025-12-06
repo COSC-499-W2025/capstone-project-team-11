@@ -170,11 +170,17 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         # Respect non-recursive by including only root-level entries (no '/')
         if not recursive and ('/' in name or name.endswith('/')):
             continue
-        # Record this file if it matches the filter (or no filter)
         display = f"{display_prefix}:{name}"
         actual_rel = name.replace('/', os.sep)
         actual_path = _safe_join_extract_root(extract_root, actual_rel) if extract_root else None
-        if file_type is None or name.lower().endswith(file_type.lower()):
+
+        is_zip_entry = name.lower().endswith('.zip')
+        wants_zip_files = bool(file_type and file_type.lower() == '.zip')
+        should_record = (file_type is None or name.lower().endswith(file_type.lower()))
+        if is_zip_entry and recursive and not wants_zip_files:
+            should_record = False
+
+        if should_record:
             files_found.append((display, info.file_size, _zip_mtime_to_epoch(info.date_time)))
             # update progress bar if provided (label with zip basename only)
             if progress is not None:
