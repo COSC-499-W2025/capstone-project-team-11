@@ -99,6 +99,29 @@ def _is_macos_junk(name: str) -> bool:
     return False
 
 
+def _display_skipped_files_summary(skipped_files_list):
+    """Display skipped files categorized by file extension."""
+    if not skipped_files_list:
+        return
+    
+    # Categorize by extension
+    by_extension = {}
+    for file_path in skipped_files_list:
+        _, ext = os.path.splitext(file_path)
+        if not ext:
+            ext = "(no extension)"
+        by_extension.setdefault(ext, 0)
+        by_extension[ext] += 1
+    
+    # Display summary
+    total = len(skipped_files_list)
+    print(f"\n=== Skipped Files ({total} files due to unsupported format) ===")
+    for ext in sorted(by_extension.keys()):
+        count = by_extension[ext]
+        print(f"  {ext}: {count} file(s)")
+
+
+
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
               show_collaboration: bool = False, extract_root: str = None, progress: dict = None):
     """
@@ -116,11 +139,13 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         # Skip macOS junk files
         if _is_macos_junk(name):
             continue
-        # Skip unsupported file formats (silent)
+        # Skip unsupported file formats (track them)
         if not is_valid_format(name):
-            # track silently; do not print file names
             if progress is not None:
                 progress['skipped'] = progress.get('skipped', 0) + 1
+                if 'skipped_files' not in progress:
+                    progress['skipped_files'] = []
+                progress['skipped_files'].append(f"{display_prefix}:{name}")
             continue
         # Respect non-recursive by including only root-level entries (no '/')
         if not recursive and ('/' in name or name.endswith('/')):
@@ -242,7 +267,7 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
             if file_type is None or name.lower().endswith(file_type.lower()):
                 total_entries += 1
 
-        progress = {'current': 0, 'total': total_entries, 'skipped': 0}
+        progress = {'current': 0, 'total': total_entries, 'skipped': 0, 'skipped_files': []}
         # show initial progress line (label with archive basename only)
         _print_progress(0, progress['total'], zip_path)
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -257,6 +282,10 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 extract_root=tmpdir,
                 progress=progress,
             )
+        
+        # Display skipped files summary
+        if progress.get('skipped', 0) > 0:
+            _display_skipped_files_summary(progress.get('skipped_files', []))
 
             # Optionally persist results to DB (collect metadata first)
             if save_to_db and files_found:
@@ -514,7 +543,8 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         except Exception:
             total_files = 0
 
-    progress = {'current': 0, 'total': total_files}
+    progress = {'current': 0, 'total': total_files, 'skipped': 0, 'skipped_files': []}
+    _print_progress(0, total_files, path)
 
     if recursive:
         for root, dirs, files in os.walk(path):
@@ -523,8 +553,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 if _is_macos_junk(file):
                     continue
                 if not is_valid_format(file):
-                    # silently count skipped files, do not print names
+                    # track skipped files
                     progress['skipped'] = progress.get('skipped', 0) + 1
+                    full_path = os.path.join(root, file)
+                    progress['skipped_files'].append(full_path)
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     full_path = os.path.join(root, file)
@@ -538,8 +570,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                         mtime = None
                     files_found.append((full_path, size, mtime))
                     progress['current'] += 1
-                    # label progress with the scan root (not the filename)
-                    _print_progress(progress['current'], progress['total'], path)
+                    # Update progress every 10 files to avoid too many redraws
+                    if progress['current'] % 10 == 0:
+                        _print_progress(progress['current'], progress['total'], path)
                     # do not print per-file collaboration info during scan
     else:
         for file in os.listdir(path):
@@ -549,6 +582,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     continue
                 if not is_valid_format(file):
                     progress['skipped'] = progress.get('skipped', 0) + 1
+                    progress['skipped_files'].append(full_path)
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     try:
@@ -561,13 +595,18 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                         mtime = None
                     files_found.append((full_path, size, mtime))
                     progress['current'] += 1
-                    _print_progress(progress['current'], progress['total'], path)
+                    # Update progress every 10 files to avoid too many redraws
+                    if progress['current'] % 10 == 0:
+                        _print_progress(progress['current'], progress['total'], path)
                     # do not print per-file collaboration info during scan
     
 
-    if not files_found:
-        print("No files found matching your criteria.")
-        return []
+    # Ensure final progress bar is shown at 100%
+    _print_progress(progress['current'], progress['total'], path)
+    
+    # Display skipped files summary before final statistics
+    if progress.get('skipped', 0) > 0:
+        _display_skipped_files_summary(progress.get('skipped_files', []))
 
     # files_found entries are tuples (path, size, mtime)
     largest = max(files_found, key=lambda t: t[1] or 0)
