@@ -89,8 +89,10 @@ class TestRankProjects(unittest.TestCase):
             {'project': 'long-project-name', 'first_scan': '2025-02-01 01:00:00', 'last_scan': '2025-02-02 01:00:00', 'scans_count': 2},
         ]
         buf = StringIO()
-        with redirect_stdout(buf):
-            rank_projects.print_projects(projects)
+        # Mock the collaboration status function to avoid database calls
+        with patch('rank_projects._get_project_collaboration_status', return_value='Individual'):
+            with redirect_stdout(buf):
+                rank_projects.print_projects(projects)
         out = buf.getvalue()
 
         # Basic checks for header and project names
