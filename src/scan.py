@@ -159,26 +159,7 @@ def _determine_project_collaboration(path: str) -> str:
         return "Individual"
 
 
-def _display_skipped_files_summary(skipped_files_list):
-    """Display skipped files categorized by file extension."""
-    if not skipped_files_list:
-        return
-    
-    # Categorize by extension
-    by_extension = {}
-    for file_path in skipped_files_list:
-        _, ext = os.path.splitext(file_path)
-        if not ext:
-            ext = "(no extension)"
-        by_extension.setdefault(ext, 0)
-        by_extension[ext] += 1
-    
-    # Display summary
-    total = len(skipped_files_list)
-    print(f"\n=== Skipped Files ({total} files due to unsupported format) ===")
-    for ext in sorted(by_extension.keys()):
-        count = by_extension[ext]
-        print(f"  {ext}: {count} file(s)")
+
 
 
 def _resolve_extracted_root(extract_root: str) -> str:
