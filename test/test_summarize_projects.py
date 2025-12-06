@@ -325,17 +325,12 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
             'git_metrics': None
         }
         
-        output_dir = os.path.join(self.temp_dir, 'output')
-        os.makedirs(output_dir, exist_ok=True)
-        
         with patch('summarize_projects.get_connection', return_value=self.conn):
             with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
                 with patch('summarize_projects.get_project_path', return_value=project_dir):
                     with patch('project_info_output.gather_project_info', return_value=mock_info):
-                        with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(output_dir, 'combined_summary.txt')):
-                            result = summarize_projects.summarize_top_ranked_projects(
-                                'TestUser', output_dir=output_dir
-                            )
+                        with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(self.temp_dir, 'combined_summary.txt')):
+                            result = summarize_projects.summarize_top_ranked_projects('TestUser')
                             
                             self.assertEqual(len(result), 1)
                             self.assertEqual(result[0]['project'], 'test-project')
