@@ -55,9 +55,10 @@ def get_project_path(project_name: str) -> Optional[str]:
             return None
         
         # Handle zip file paths (format: "/path/to.zip:inner/path/file.py")
-        if ':' in file_path:
-            # Extract the zip path part
-            zip_part = file_path.split(':')[0]
+        zip_sep_index = file_path.lower().find(".zip:")
+        if zip_sep_index != -1:
+            # Extract the zip path portion (including the .zip file itself)
+            zip_part = file_path[:zip_sep_index + len(".zip")]
             # Try to find the project root by going up from the zip location
             # For zip files, we'll use the directory containing the zip
             potential_root = os.path.dirname(zip_part)
@@ -108,18 +109,19 @@ def get_project_path(project_name: str) -> Optional[str]:
         pass
 
 
-def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None, output_dir: str = "output") -> List[Dict]:
+def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None) -> List[Dict]:
     """Generate summaries for a contributor's top-ranked projects.
     
     Args:
         contributor_name: Name of the contributor to rank projects for
         limit: Maximum number of top projects to summarize (None for all)
-        output_dir: Directory where summary files should be saved
     
     Returns:
         List of dicts with keys: project, project_path, summary_paths (dict with json_path, txt_path),
         and error (if summary generation failed).
     """
+    default_output_dir = "output"  # Default output directory
+
     # Try to import project_info_output functions
     try:
         from project_info_output import gather_project_info, output_project_info
@@ -139,6 +141,12 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
     
     results = []
     print(f"\nGenerating summaries for top {len(top_projects)} project(s) for '{contributor_name}'...\n")
+    
+    try:
+        os.makedirs(default_output_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating output directory: {e}")
+        return []
     
     for i, project_info in enumerate(top_projects, 1):
         project_name = project_info["project"]
@@ -162,7 +170,7 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
         # Generate summary using existing project_info_output functions
         try:
             info = gather_project_info(project_path)
-            json_path, txt_path = output_project_info(info, output_dir=output_dir)
+            json_path, txt_path = output_project_info(info, output_dir=default_output_dir)
             print(f"  [SUCCESS] Summary generated: {txt_path}\n")
             results.append({
                 "project": project_name,
@@ -361,13 +369,12 @@ def generate_combined_summary(
     return summary_path
 
 
-def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None, output_dir: str = "output") -> List[Dict]:
+def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None) -> List[Dict]:
     """Generate a combined summary for a contributor's top-ranked projects.
     
     Args:
         contributor_name: Name of the contributor to rank projects for
         limit: Maximum number of top projects to summarize (None for all)
-        output_dir: Directory where the combined summary file should be saved
     
     Returns:
         List of dicts with keys: project, project_path, project_info (dict from gather_project_info),
@@ -440,7 +447,7 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
                 contributor_name=contributor_name,
                 ranked_projects=top_projects,
                 project_data_list=successful_results,
-                output_dir=output_dir
+                output_dir="output"
             )
             print(f"[SUCCESS] Combined summary: {combined_path}\n")
         except Exception as e:
@@ -476,8 +483,7 @@ def main():
     
     summarize_top_ranked_projects(
         contributor_name=args.contributor_name,
-        limit=args.limit,
-        output_dir=args.output_dir
+        limit=args.limit
     )
 
 

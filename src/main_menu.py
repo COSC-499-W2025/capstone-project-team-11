@@ -372,15 +372,10 @@ def handle_summarize_contributor_projects():
     limit_input = input("Limit number of top projects (leave blank for all): ").strip()
     limit = int(limit_input) if limit_input.isdigit() else None
     
-    output_dir = input("Output directory [output]: ").strip()
-    if not output_dir:
-        output_dir = "output"
-    
     try:
         results = summarize_top_ranked_projects(
             contributor_name=contributor_name,
-            limit=limit,
-            output_dir=output_dir
+            limit=limit
         )
         print(f"\nProcessed {len(results)} project(s).")
     except Exception as e:
