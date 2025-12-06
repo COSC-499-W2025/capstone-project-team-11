@@ -433,73 +433,73 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
         if progress.get('skipped', 0) > 0:
             _display_skipped_files_summary(progress.get('skipped_files', []))
 
-            # Optionally persist results to DB (collect metadata first)
-            if save_to_db and files_found:
-                # prepare placeholder for file metadata in case of failures
-                file_meta = {}
-                try:
-                    # detect languages/skills/contributors from extracted tree
-                    # Run language detection under the progress/capture helper to avoid noisy prints
-                    langs_res, langs_out, langs_err = _run_with_progress(
-                        detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
-                    )
-                    langs = langs_res.get('languages', []) if langs_res else []
+        # Optionally persist results to DB (collect metadata first)
+        if save_to_db and files_found:
+            # prepare placeholder for file metadata in case of failures
+            file_meta = {}
+            try:
+                # detect languages/skills/contributors from extracted tree
+                # Run language detection under the progress/capture helper to avoid noisy prints
+                langs_res, langs_out, langs_err = _run_with_progress(
+                    detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
+                )
+                langs = langs_res.get('languages', []) if langs_res else []
 
-                    # Run skill detection using the same runner so output is captured
-                    skills_res, skills_out, skills_err = _run_with_progress(
-                        detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
-                    )
-                    skills = skills_res.get('skills', []) if skills_res else []
-                    metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
-                    contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
+                # Run skill detection using the same runner so output is captured
+                skills_res, skills_out, skills_err = _run_with_progress(
+                    detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
+                )
+                skills = skills_res.get('skills', []) if skills_res else []
+                metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
+                contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
 
-                    # Build per-file metadata (owner) where possible
-                    for item in files_found:
-                        display = item[0] if isinstance(item, tuple) else item
-                        owner = None
-                        candidate = extracted_locations.get(display)
-                        if candidate and os.path.exists(candidate):
-                            owner = get_collaboration_info(candidate)
-                        # also infer language from filename extension
-                        lang = None
-                        try:
-                            if candidate and os.path.isfile(candidate):
-                                _, ext = os.path.splitext(candidate)
-                            else:
-                                # fallback: use display name (may include zip metadata)
-                                inner = display.split(':')[-1]
-                                _, ext = os.path.splitext(inner)
-                            if ext:
-                                lang = LANGUAGE_MAP.get(ext.lower())
-                        except Exception:
-                            lang = None
-                        file_meta[display] = {'owner': owner, 'language': lang}
-
-                    # Attempt to detect repo-level info from the extracted tree
-                    project_created_at, project_repo_url = _get_repo_info(tmpdir)
-
-                    _persist_scan(
-                        zip_path,
-                        files_found,
-                        project=None,
-                        notes=None,
-                        file_metadata=file_meta,
-                        detected_languages=langs,
-                        detected_skills=skills,
-                        contributors=contributors,
-                        project_created_at=project_created_at,
-                        project_repo_url=project_repo_url,
-                    )
-                except sqlite3.OperationalError:
+                # Build per-file metadata (owner) where possible
+                for item in files_found:
+                    display = item[0] if isinstance(item, tuple) else item
+                    owner = None
+                    candidate = extracted_locations.get(display)
+                    if candidate and os.path.exists(candidate):
+                        owner = get_collaboration_info(candidate)
+                    # also infer language from filename extension
+                    lang = None
                     try:
-                        init_db()
-                        _persist_scan(zip_path, files_found, project=None, notes=None,
-                                      file_metadata=file_meta,
-                                      detected_languages=langs,
-                                      detected_skills=skills,
-                                      contributors=contributors)
+                        if candidate and os.path.isfile(candidate):
+                            _, ext = os.path.splitext(candidate)
+                        else:
+                            # fallback: use display name (may include zip metadata)
+                            inner = display.split(':')[-1]
+                            _, ext = os.path.splitext(inner)
+                        if ext:
+                            lang = LANGUAGE_MAP.get(ext.lower())
                     except Exception:
-                        print("Warning: failed to persist zip scan results to database.")
+                        lang = None
+                    file_meta[display] = {'owner': owner, 'language': lang}
+
+                # Attempt to detect repo-level info from the extracted tree
+                project_created_at, project_repo_url = _get_repo_info(tmpdir)
+
+                _persist_scan(
+                    zip_path,
+                    files_found,
+                    project=None,
+                    notes=None,
+                    file_metadata=file_meta,
+                    detected_languages=langs,
+                    detected_skills=skills,
+                    contributors=contributors,
+                    project_created_at=project_created_at,
+                    project_repo_url=project_repo_url,
+                )
+            except sqlite3.OperationalError:
+                try:
+                    init_db()
+                    _persist_scan(zip_path, files_found, project=None, notes=None,
+                                  file_metadata=file_meta,
+                                  detected_languages=langs,
+                                  detected_skills=skills,
+                                  contributors=contributors)
+                except Exception:
+                    print("Warning: failed to persist zip scan results to database.")
     finally:
         if temp_extract is not None:
             temp_extract.cleanup()

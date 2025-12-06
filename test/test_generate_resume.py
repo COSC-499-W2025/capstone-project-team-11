@@ -158,6 +158,11 @@ class RobustGenerateResumeTests(unittest.TestCase):
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT username, resume_path, metadata_json FROM resumes").fetchall()
         conn.close()
+        
+        # Close any cached connections to allow cleanup
+        import gc
+        gc.collect()
+        
         self.assertTrue(any(r['username'] == 'alice' for r in rows))
 
 
