@@ -219,3 +219,27 @@ As a group, we also spent time preparing and refining our presentation slides fo
 - Update system architecture for Milestone 2 requirements
 
 ---
+
+# Week 14 Personal Log (Dec 1st – Dec 7th)
+
+This week was busy as our team wrapped up the remaining Milestone 1 tasks and finalized our deliverables. We divided the remaining work across the group, and I focused on a mix of development fixes, architecture updates, and documentation as most of our coding was done.
+
+One of my main contributions was **PR #212**, which fixes a Windows file path issue that caused summary generation to fail. The update standardizes how paths are parsed and makes the summary and reporting tools work consistently across both macOS and Windows environments. I also spent time updating our **system architecture diagram** so it accurately reflects the Milestone 1 implementation. This included organizing the layers, clarifying the flow between the CLI, scanners, detection engine, and database, and adding the resume output and consent/config elements. The updated diagram now gives a clean, accurate overview of how the system behaves end-to-end.
+
+I feel it has been a succecsul milestone/semester and am happy with where our project is at thus far.
+
+<img width="1086" height="645" alt="Screenshot 2025-12-07 at 2 24 57 PM" src="https://github.com/user-attachments/assets/b271c4cc-709a-470b-bc03-3f83f974189e" />
+
+## Tasks Completed
+- Submitted **PR #212** fixing Windows file path issues  
+- Updated the system architecture diagram to match Milestone 1 functionality  
+- Reviewed multiple bug-fix PRs from teammates
+- Completed Individual Log
+- Completed Team Log for team this week
+- Participated in final checks for Milestone 1 deliverables 
+
+<img width="1071" height="159" alt="Screenshot 2025-12-07 at 3 39 31 PM" src="https://github.com/user-attachments/assets/22714fb2-33db-4fbd-8822-9a511b7fe9fa" />
+
+Plans for reading break:
+- Begin outlining work for **Milestone 2**
+- Improve summary/report generation pipeline based on milestone feedback
