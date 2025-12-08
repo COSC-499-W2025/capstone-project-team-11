@@ -187,3 +187,36 @@ As we approach the deadline for Milestone 1, as a team we worked towards finaliz
 
 ## Week 13 Plans
 This is the final week of the semester so we have a lot of tasks that need to be completed. I will be working and helping others with the presentation in class on Wednesday, updating the documentation (DFD, System Architecture, etc.), finalizing project for video demo.
+
+
+# Week 14 (December 1st - 7th)
+
+<img width="800" height="472" alt="image" src="https://github.com/user-attachments/assets/b6459a8c-aa27-4dbd-997f-83adbdb39976" />
+
+## Tasks completed:
+- Worked on the milestone 1 presentation slides
+- Presented milestone 1 in front of class
+- Reworked the feature to distinguish an individual project vs a collaborative project.
+  - Added determine_project_collaboration() function in scan.py that checks git history.
+  - Returns "Collaborative" if project has 2+ unique authors, "Individual" otherwise
+  - Integrated into scan output to display project type at the end of scanningAdded get_project_collaboration_status() in rank_projects.py to count distinct contributors per project from database
+- Fixed the following failing tests
+  - test_zip_scan_persists_nested_files
+  - test_nested_zip_file_paths_are_recorded_with_zip_colon_format
+  - test_cli_saves_resume_to_db
+  - test_print_projects_output
+- Created the group contract.
+- Milestone 1 reflection quiz
+- Approved and reviewed PRs
+- Individual logs
+
+
+## Reflection
+This is the final week of the semester and the deadline for milestone 1. It was a very stressful week with lots of things that needed to get done such as small bugs for features that were hard to film the demo for, the presentation in front of the class, and all the documentation to update and add. Overall, as a team we worked really hard and collaborated very well. Everyone was around to help out and there were no issues in finishing the final touches of the project for this first milestone. I am very pleased how we worked together and were able to get the work done!
+
+## Winter Break plans
+Sleep and relax. Potentially look into APIs and LLMs to integrate.
+
+
+
+
