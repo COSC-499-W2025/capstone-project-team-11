@@ -325,3 +325,36 @@ Next week is our final opportunity to work on the project before milestone 1's d
 
 I was finally able to mark "Revise Coding Project Language/Framework Detection" (Issue #129) as "Done"
 <img width="1874" height="894" alt="week13-kanban" src="https://github.com/user-attachments/assets/f6860480-09fc-4f02-bf95-91e1090f04e4" />
+
+# Week #14 - December 1st - 7th
+
+<img width="708" height="539" alt="week14-tasks" src="https://github.com/user-attachments/assets/1788150e-bb17-4d75-82a4-7ad70a01c94f" />
+
+## Tasks Completed:
+We came together to discuss this week's task priorities and assignments at the beginning of the week on Monday. We realized we didn't have any major code contributions to push, outside of small bug and inconsistency fixes and a lttle bit of final polish. But we realized we had to redesign the majority of our documentation, create a team contract, and make a video demo for our scanner at the end of milestone 1. So we assigned each team member a larger, single task to complete, while keeping all other teammates informed about changes, and providing everyone an equal opportunity to influence any adjustments made.  
+
+This week I had a number of unique tasks, over the past week I:
+- Completed my portion of the in-class presentation slides, performed my section, and answered some related questions afterwards during the Q+A
+- Completed my portion of the Milestone 1 Video Demo (intro/outro, deliverable text overlays, recorded footage and voiceovers for deliverables 1 through 10, editing/polish)
+- Completed my Milestone #1 Self-Reflection Canvas assignment
+- Helped discover/review/fix a small number of last-minute codebase/functionality bugs 
+
+### Other Contributions:
+In addition to these changes, I performed my usual responsibilities of:
+- Communicating regularly throughout the week in our Discord server and describing my changes and implementations to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log PRs as necessary
+- Completing both my individual log and peer review for week 13
+
+## Reflection Points
+I feel like this week was as good as our team has ever worked together. On Monday, we all came together in the Discord to decide on task priorities and assignments, we worked through our list effectively and everyone was happy with the task allocations. Everyone worked hard to get our in-class presentation ready for viewing, and everyone showed up and performed well during our presentation on Wednesday. For the rest of the week, we all grinded out our individual assigned tasks, and I am very impressed with the quality and cohesion of everyone's efforts. All work was completed by Sunday afternoon at the latest, and all PRs and merges went over smoothly. Communication in the Discord was excellent, everyone was bouncing ideas off the rest of the group and looking for feedback, screenshots and recordings were used to showcase task progress and any issues encountered. Overall I could not be happier and it felt like a very cohesive and hardowrking week where everyone was at their best. I hope we can take this momentum/pace into term 2 and hit the ground runnning.
+
+## Next Week (Week #15 and onwards)
+By tonight (Sunday, Dec. 7th, 2025) at 11:59pm, we will be completely done with both term 1 and milestone 1. I may push a few changes to our codebase over winter break, but it is more likely that I will take some time off from the project, and revisit it with a fresh attitude and pair of eyes when we start up again at the beginning of January.  
+
+## Kanban Board at End of Week #13
+
+I was able to complete, and mark the following issues as "Done" this week:
+- Milestone #1 Video Demonstration (Issue #199)
+- Request User permission Before Use of External Services (Issue #24)
+- Workaround Analysis if User Denies External Service Permissions (Issue #25)
+<img width="1874" height="893" alt="week14-kanban" src="https://github.com/user-attachments/assets/bc6922b4-360c-40da-9114-3505db336c17" />
