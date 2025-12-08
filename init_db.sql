@@ -1,6 +1,7 @@
 -- Drop old tables if they exist
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS scans;
+DROP TABLE IF EXISTS resumes;
 DROP TABLE IF EXISTS project_skills;
 DROP TABLE IF EXISTS file_languages;
 DROP TABLE IF EXISTS file_contributors;
@@ -86,6 +87,20 @@ CREATE TABLE IF NOT EXISTS project_skills (
     FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (skill_id) REFERENCES skills(id)
 );
+
+-- Generated resumes linked to contributors
+CREATE TABLE IF NOT EXISTS resumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contributor_id INTEGER,
+    username TEXT NOT NULL,
+    resume_path TEXT NOT NULL,
+    metadata_json TEXT,
+    generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_resumes_username ON resumes (username);
+CREATE INDEX IF NOT EXISTS idx_resumes_generated_at ON resumes (generated_at);
 
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name);

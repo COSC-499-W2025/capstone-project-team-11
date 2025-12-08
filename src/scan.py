@@ -99,8 +99,116 @@ def _is_macos_junk(name: str) -> bool:
     return False
 
 
+def _display_skipped_files_summary(skipped_files_list):
+    """Display skipped files categorized by file extension."""
+    if not skipped_files_list:
+        return
+
+    # Categorize by extension
+    by_extension = {}
+    for file_path in skipped_files_list:
+        _, ext = os.path.splitext(file_path)
+        if not ext:
+            ext = "(no extension)"
+        by_extension.setdefault(ext, 0)
+        by_extension[ext] += 1
+
+    # Display summary
+    total = len(skipped_files_list)
+    print(f"\n=== Skipped Files ({total} files due to unsupported format) ===")
+    for ext in sorted(by_extension.keys()):
+        count = by_extension[ext]
+        print(f"  {ext}: {count} file(s)")
+        
+        
+def _determine_project_collaboration(path: str) -> str:
+    """Determine if a project is collaborative or individual.
+    
+    Returns 'Collaborative' if the project is a git repo with multiple authors,
+    otherwise returns 'Individual'.
+    """
+    repo_root = _find_git_root(path)
+    if not repo_root:
+        # Not a git repo, assume individual
+        return "Individual"
+    
+    try:
+        # Get all unique authors from git log
+        result = subprocess.run(
+            ["git", "log", "--format=%an"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            cwd=repo_root,
+            timeout=5,
+        )
+        
+        if result.returncode != 0 or not result.stdout:
+            return "Individual"
+        
+        # Get unique authors
+        authors = set(author.strip() for author in result.stdout.splitlines() if author.strip())
+        
+        # If multiple authors, it's collaborative
+        if len(authors) > 1:
+            return "Collaborative"
+        else:
+            return "Individual"
+    except Exception:
+        # If we can't determine, assume individual
+        return "Individual"
+
+
+
+
+
+def _resolve_extracted_root(extract_root: str) -> str:
+    """
+    Given a directory where an archive was extracted, attempt to pick the actual project root.
+    If the extraction produced a single non-junk directory, descend into it so downstream
+    detectors operate on the real project folder (rather than the container directory).
+    """
+    try:
+        entries = [entry for entry in os.listdir(extract_root) if not _is_macos_junk(entry)]
+        if len(entries) == 1:
+            candidate = os.path.join(extract_root, entries[0])
+            if os.path.isdir(candidate):
+                return candidate
+    except Exception:
+        pass
+    return extract_root
+
+
+def _prepare_nested_extract_root(parent_root: str, relative_name: str) -> str:
+    """
+    Create a directory under parent_root where a nested archive should be extracted.
+    We suffix with '__unzipped' to avoid collisions with existing directories.
+    """
+    if not parent_root:
+        return None
+    rel = relative_name.rstrip('/').replace('\\', '/')
+    base, _ = os.path.splitext(rel)
+    if not base:
+        base = "nested"
+    rel_path = f"{base}__unzipped".replace('/', os.sep)
+    target = _safe_join_extract_root(parent_root, rel_path)
+    os.makedirs(target, exist_ok=True)
+    return target
+
+
+def _safe_join_extract_root(root: str, relative_path: str) -> str:
+    """Join root/relative_path while preventing traversal outside the extraction root."""
+    combined = os.path.normpath(os.path.join(root, relative_path))
+    root_abs = os.path.abspath(root)
+    combined_abs = os.path.abspath(combined)
+    if os.path.commonpath([root_abs, combined_abs]) != root_abs:
+        return root
+    return combined
+
+
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
-              show_collaboration: bool = False, extract_root: str = None, progress: dict = None):
+              show_collaboration: bool = False, extract_root: str = None, progress: dict = None,
+              extracted_paths: dict = None):
     """
     Internal: scan an already-open ZipFile and collect/print entries.
     - display_prefix: the accumulated path like "/path/to.zip" or "/path/to.zip:inner.zip"
@@ -116,33 +224,47 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
         # Skip macOS junk files
         if _is_macos_junk(name):
             continue
-        # Skip unsupported file formats (silent)
+        # Skip unsupported file formats (track them)
         if not is_valid_format(name):
-            # track silently; do not print file names
             if progress is not None:
                 progress['skipped'] = progress.get('skipped', 0) + 1
+                if 'skipped_files' not in progress:
+                    progress['skipped_files'] = []
+                progress['skipped_files'].append(f"{display_prefix}:{name}")
             continue
         # Respect non-recursive by including only root-level entries (no '/')
         if not recursive and ('/' in name or name.endswith('/')):
             continue
-        # Record this file if it matches the filter (or no filter)
         display = f"{display_prefix}:{name}"
-        if file_type is None or name.lower().endswith(file_type.lower()):
+        actual_rel = name.replace('/', os.sep)
+        actual_path = _safe_join_extract_root(extract_root, actual_rel) if extract_root else None
+
+        is_zip_entry = name.lower().endswith('.zip')
+        wants_zip_files = bool(file_type and file_type.lower() == '.zip')
+        should_record = (file_type is None or name.lower().endswith(file_type.lower()))
+        if is_zip_entry and recursive and not wants_zip_files:
+            should_record = False
+
+        if should_record:
             files_found.append((display, info.file_size, _zip_mtime_to_epoch(info.date_time)))
             # update progress bar if provided (label with zip basename only)
             if progress is not None:
                 progress['current'] = progress.get('current', 0) + 1
                 _print_progress(progress['current'], progress.get('total', 0), display_prefix)
             # Do not print per-file collaboration info here to avoid exposing filenames
+            if extracted_paths is not None and actual_path and os.path.exists(actual_path):
+                extracted_paths[display] = actual_path
 
         # If recursive and this entry itself is a .zip, descend into it
         if recursive and name.lower().endswith('.zip'):
             try:
-                with zf.open(info) as nested_file:
-                    nested_bytes = nested_file.read()
-                with zipfile.ZipFile(io.BytesIO(nested_bytes)) as nested_zf:
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        nested_zf.extractall(tmpdir)
+                nested_rel = name.replace('/', os.sep)
+                nested_zip_path = _safe_join_extract_root(extract_root, nested_rel) if extract_root else None
+                nested_extract_root = _prepare_nested_extract_root(extract_root, name) if extract_root else None
+                if nested_zip_path and os.path.exists(nested_zip_path):
+                    with zipfile.ZipFile(nested_zip_path) as nested_zf:
+                        if nested_extract_root:
+                            nested_zf.extractall(nested_extract_root)
                         _scan_zip(
                             nested_zf,
                             f"{display}",
@@ -150,9 +272,27 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
                             file_type,
                             files_found,
                             show_collaboration=show_collaboration,
-                            extract_root=tmpdir,
-                            progress=progress
+                            extract_root=nested_extract_root,
+                            progress=progress,
+                            extracted_paths=extracted_paths
                         )
+                else:
+                    with zf.open(info) as nested_file:
+                        nested_bytes = nested_file.read()
+                    with zipfile.ZipFile(io.BytesIO(nested_bytes)) as nested_zf:
+                        with tempfile.TemporaryDirectory() as tmpdir:
+                            nested_zf.extractall(tmpdir)
+                            _scan_zip(
+                                nested_zf,
+                                f"{display}",
+                                recursive,
+                                file_type,
+                                files_found,
+                                show_collaboration=show_collaboration,
+                                extract_root=tmpdir,
+                                progress=progress,
+                                extracted_paths=extracted_paths
+                            )
             except zipfile.BadZipFile:
                 pass
 
@@ -217,7 +357,7 @@ def _run_with_progress(func, args=(), kwargs=None, label: str = "Working", total
     return result_container.get('result'), buf.getvalue(), result_container.get('error')
 
 
-def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
+def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False, extract_dir=None):
     """Prints file names inside a zip archive."""
     if not os.path.exists(zip_path) or not zipfile.is_zipfile(zip_path):
         print("Directory does not exist.")
@@ -226,27 +366,38 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     # Use only an in-place progress display; avoid printing individual file names
 
     files_found = []
-    with zipfile.ZipFile(zip_path) as zf:
-        # determine total matching entries for progress
-        total_entries = 0
-        for info in zf.infolist():
-            if hasattr(info, 'is_dir') and info.is_dir():
-                continue
-            name = info.filename
-            if _is_macos_junk(name):
-                continue
-            if not is_valid_format(name):
-                continue
-            if not recursive and ('/' in name or name.endswith('/')):
-                continue
-            if file_type is None or name.lower().endswith(file_type.lower()):
-                total_entries += 1
+    temp_extract = None
+    tmpdir = None
+    try:
+        if extract_dir:
+            tmpdir = extract_dir
+            os.makedirs(tmpdir, exist_ok=True)
+        else:
+            temp_extract = tempfile.TemporaryDirectory()
+            tmpdir = temp_extract.name
 
-        progress = {'current': 0, 'total': total_entries, 'skipped': 0}
-        # show initial progress line (label with archive basename only)
-        _print_progress(0, progress['total'], zip_path)
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path) as zf:
+            # determine total matching entries for progress
+            total_entries = 0
+            for info in zf.infolist():
+                if hasattr(info, 'is_dir') and info.is_dir():
+                    continue
+                name = info.filename
+                if _is_macos_junk(name):
+                    continue
+                if not is_valid_format(name):
+                    continue
+                if not recursive and ('/' in name or name.endswith('/')):
+                    continue
+                if file_type is None or name.lower().endswith(file_type.lower()):
+                    total_entries += 1
+
+            progress = {'current': 0, 'total': total_entries, 'skipped': 0}
+            # show initial progress line (label with archive basename only)
+            _print_progress(0, progress['total'], zip_path)
+
             zf.extractall(tmpdir)
+            extracted_locations = {}
             _scan_zip(
                 zf,
                 zip_path,
@@ -256,73 +407,83 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 show_collaboration=show_collaboration,
                 extract_root=tmpdir,
                 progress=progress,
+                extracted_paths=extracted_locations,
             )
+        
+        # Display skipped files summary
+        if progress.get('skipped', 0) > 0:
+            _display_skipped_files_summary(progress.get('skipped_files', []))
 
-            # Optionally persist results to DB (collect metadata first)
-            if save_to_db and files_found:
-                # prepare placeholder for file metadata in case of failures
-                file_meta = {}
-                try:
-                    # detect languages/skills/contributors from extracted tree
-                    # Run language detection under the progress/capture helper to avoid noisy prints
-                    langs_res, langs_out, langs_err = _run_with_progress(
-                        detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
-                    )
-                    langs = langs_res.get('languages', []) if langs_res else []
+        # Optionally persist results to DB (collect metadata first)
+        if save_to_db and files_found:
+            # prepare placeholder for file metadata in case of failures
+            file_meta = {}
+            try:
+                # detect languages/skills/contributors from extracted tree
+                # Run language detection under the progress/capture helper to avoid noisy prints
+                langs_res, langs_out, langs_err = _run_with_progress(
+                    detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
+                )
+                langs = langs_res.get('languages', []) if langs_res else []
 
-                    # Run skill detection using the same runner so output is captured
-                    skills_res, skills_out, skills_err = _run_with_progress(
-                        detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
-                    )
-                    skills = skills_res.get('skills', []) if skills_res else []
-                    metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
-                    contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
+                # Run skill detection using the same runner so output is captured
+                skills_res, skills_out, skills_err = _run_with_progress(
+                    detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
+                )
+                skills = skills_res.get('skills', []) if skills_res else []
+                metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
+                contributors = list(metrics['commits_per_author'].keys()) if metrics and metrics.get('commits_per_author') else None
 
-                    # Build per-file metadata (owner) where possible
-                    for item in files_found:
-                        display = item[0] if isinstance(item, tuple) else item
-                        # display format: zip_path:inner/path
-                        inner = display.split(':', 1)[1] if ':' in display else None
-                        owner = None
-                        if inner:
-                            candidate = os.path.join(tmpdir, inner)
-                            if os.path.exists(candidate):
-                                owner = get_collaboration_info(candidate)
-                        # also infer language from filename extension
-                        lang = None
-                        try:
-                            _, ext = os.path.splitext(inner or display)
-                            if ext:
-                                lang = LANGUAGE_MAP.get(ext.lower())
-                        except Exception:
-                            lang = None
-                        file_meta[display] = {'owner': owner, 'language': lang}
-
-                    # Attempt to detect repo-level info from the extracted tree
-                    project_created_at, project_repo_url = _get_repo_info(tmpdir)
-
-                    _persist_scan(
-                        zip_path,
-                        files_found,
-                        project=None,
-                        notes=None,
-                        file_metadata=file_meta,
-                        detected_languages=langs,
-                        detected_skills=skills,
-                        contributors=contributors,
-                        project_created_at=project_created_at,
-                        project_repo_url=project_repo_url,
-                    )
-                except sqlite3.OperationalError:
+                # Build per-file metadata (owner) where possible
+                for item in files_found:
+                    display = item[0] if isinstance(item, tuple) else item
+                    owner = None
+                    candidate = extracted_locations.get(display)
+                    if candidate and os.path.exists(candidate):
+                        owner = get_collaboration_info(candidate)
+                    # also infer language from filename extension
+                    lang = None
                     try:
-                        init_db()
-                        _persist_scan(zip_path, files_found, project=None, notes=None,
-                                      file_metadata=file_meta,
-                                      detected_languages=langs,
-                                      detected_skills=skills,
-                                      contributors=contributors)
+                        if candidate and os.path.isfile(candidate):
+                            _, ext = os.path.splitext(candidate)
+                        else:
+                            # fallback: use display name (may include zip metadata)
+                            inner = display.split(':')[-1]
+                            _, ext = os.path.splitext(inner)
+                        if ext:
+                            lang = LANGUAGE_MAP.get(ext.lower())
                     except Exception:
-                        print("Warning: failed to persist zip scan results to database.")
+                        lang = None
+                    file_meta[display] = {'owner': owner, 'language': lang}
+
+                # Attempt to detect repo-level info from the extracted tree
+                project_created_at, project_repo_url = _get_repo_info(tmpdir)
+
+                _persist_scan(
+                    zip_path,
+                    files_found,
+                    project=None,
+                    notes=None,
+                    file_metadata=file_meta,
+                    detected_languages=langs,
+                    detected_skills=skills,
+                    contributors=contributors,
+                    project_created_at=project_created_at,
+                    project_repo_url=project_repo_url,
+                )
+            except sqlite3.OperationalError:
+                try:
+                    init_db()
+                    _persist_scan(zip_path, files_found, project=None, notes=None,
+                                  file_metadata=file_meta,
+                                  detected_languages=langs,
+                                  detected_skills=skills,
+                                  contributors=contributors)
+                except Exception:
+                    print("Warning: failed to persist zip scan results to database.")
+    finally:
+        if temp_extract is not None:
+            temp_extract.cleanup()
 
     if not files_found:
         print("No files found matching your criteria.")
@@ -340,6 +501,10 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
     print(f"Smallest file size: {smallest[1]} bytes")
     print(f"Most recently modified: {time.ctime(newest[2]) if newest[2] else 'unknown'}")
     print(f"Least recently modified: {time.ctime(oldest[2]) if oldest[2] else 'unknown'}")
+    
+    # Determine and display collaboration status
+    collab_status = _determine_project_collaboration(tmpdir)
+    print(f"\nProject Type: {collab_status}")
     return files_found
 
 
@@ -464,7 +629,7 @@ def get_collaboration_info(file_path: str) -> str:
     return f"collaborative ({', '.join(authors)})"
 
 
-def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False):
+def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False, zip_extract_dir=None):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -476,7 +641,14 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
-        return list_files_in_zip(path, recursive=recursive, file_type=file_type, show_collaboration=show_collaboration, save_to_db=save_to_db)
+        return list_files_in_zip(
+            path,
+            recursive=recursive,
+            file_type=file_type,
+            show_collaboration=show_collaboration,
+            save_to_db=save_to_db,
+            extract_dir=zip_extract_dir,
+        )
 
     if not os.path.exists(path) or not os.path.isdir(path):
         print("Directory does not exist.")
@@ -514,7 +686,8 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         except Exception:
             total_files = 0
 
-    progress = {'current': 0, 'total': total_files}
+    progress = {'current': 0, 'total': total_files, 'skipped': 0, 'skipped_files': []}
+    _print_progress(0, total_files, path)
 
     if recursive:
         for root, dirs, files in os.walk(path):
@@ -523,8 +696,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 if _is_macos_junk(file):
                     continue
                 if not is_valid_format(file):
-                    # silently count skipped files, do not print names
+                    # track skipped files
                     progress['skipped'] = progress.get('skipped', 0) + 1
+                    full_path = os.path.join(root, file)
+                    progress['skipped_files'].append(full_path)
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     full_path = os.path.join(root, file)
@@ -538,8 +713,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                         mtime = None
                     files_found.append((full_path, size, mtime))
                     progress['current'] += 1
-                    # label progress with the scan root (not the filename)
-                    _print_progress(progress['current'], progress['total'], path)
+                    # Update progress every 10 files to avoid too many redraws
+                    if progress['current'] % 10 == 0:
+                        _print_progress(progress['current'], progress['total'], path)
                     # do not print per-file collaboration info during scan
     else:
         for file in os.listdir(path):
@@ -549,6 +725,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     continue
                 if not is_valid_format(file):
                     progress['skipped'] = progress.get('skipped', 0) + 1
+                    progress['skipped_files'].append(full_path)
                     continue
                 if file_type is None or file.lower().endswith(file_type.lower()):
                     try:
@@ -561,13 +738,18 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                         mtime = None
                     files_found.append((full_path, size, mtime))
                     progress['current'] += 1
-                    _print_progress(progress['current'], progress['total'], path)
+                    # Update progress every 10 files to avoid too many redraws
+                    if progress['current'] % 10 == 0:
+                        _print_progress(progress['current'], progress['total'], path)
                     # do not print per-file collaboration info during scan
     
 
-    if not files_found:
-        print("No files found matching your criteria.")
-        return []
+    # Ensure final progress bar is shown at 100%
+    _print_progress(progress['current'], progress['total'], path)
+    
+    # Display skipped files summary before final statistics
+    if progress.get('skipped', 0) > 0:
+        _display_skipped_files_summary(progress.get('skipped_files', []))
 
     # files_found entries are tuples (path, size, mtime)
     largest = max(files_found, key=lambda t: t[1] or 0)
@@ -580,6 +762,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)")
     print(f"Most recently modified: {newest[0]} ({time.ctime(newest[2]) if newest[2] else 'unknown'})")
     print(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2]) if oldest[2] else 'unknown'})")
+    
+    # Determine and display collaboration status
+    collab_status = _determine_project_collaboration(path)
+    print(f"\nProject Type: {collab_status}")
     # Optionally persist scan results to the database
     if save_to_db:
         # Detect project-level metadata and persist with the scan
@@ -587,17 +773,17 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             langs_res, langs_out, langs_err = _run_with_progress(
                 detect_languages_and_frameworks, args=(path,), label="Detect languages", total_steps=40
             )
-            langs = langs_res.get('languages', []) if langs_res else None
+            langs = langs_res.get('languages', []) if langs_res else []
         except Exception:
-            langs = None
+            langs = []
 
         try:
             skills_res, skills_out, skills_err = _run_with_progress(
                 detect_skills, args=(path,), label="Detect skills", total_steps=40
             )
-            skills = skills_res.get('skills', []) if skills_res else None
+            skills = skills_res.get('skills', []) if skills_res else []
         except Exception:
-            skills = None
+            skills = []
 
         try:
             metrics = analyze_repo_path(path) if analyze_repo is not None else None
@@ -606,27 +792,28 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             contributors = None
 
         # build file metadata (owner) for each file
-            file_meta = {}
-            for item in files_found:
-                display = item[0] if isinstance(item, tuple) else item
+        file_meta = {}
+        for item in files_found:
+            display = item[0] if isinstance(item, tuple) else item
+            owner = None
+            try:
+                owner = get_collaboration_info(display)
+            except Exception:
                 owner = None
-                try:
-                    owner = get_collaboration_info(display)
-                except Exception:
-                    owner = None
-                # infer language from extension for filesystem files
+            # infer language from extension for filesystem files
+            lang = None
+            try:
+                _, ext = os.path.splitext(display)
+                if ext:
+                    lang = LANGUAGE_MAP.get(ext.lower())
+            except Exception:
                 lang = None
-                try:
-                    _, ext = os.path.splitext(display)
-                    if ext:
-                        lang = LANGUAGE_MAP.get(ext.lower())
-                except Exception:
-                    lang = None
-                file_meta[display] = {'owner': owner, 'language': lang}
+            file_meta[display] = {'owner': owner, 'language': lang}
 
-            # Try to detect repo information for the path being scanned
-            project_created_at, project_repo_url = _get_repo_info(path)
+        # Try to detect repo information for the path being scanned
+        project_created_at, project_repo_url = _get_repo_info(path)
 
+        try:
             _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
                           file_metadata=file_meta,
                           detected_languages=langs,
@@ -642,103 +829,13 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                               file_metadata=file_meta,
                               detected_languages=langs,
                               detected_skills=skills,
-                              contributors=contributors)
+                              contributors=contributors,
+                              project_created_at=project_created_at,
+                              project_repo_url=project_repo_url)
             except Exception:
                 print("Warning: failed to persist scan results to database.")
     return files_found
 
-def _make_json_safe(obj):
-    from datetime import datetime
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, dict):
-        return {k: _make_json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_make_json_safe(v) for v in obj]
-    return obj
-
-def write_scan_report(output_dir, scan_path, files_found, langs_summary, skills_summary, contrib_metrics=None):
-    """
-    Write both TXT and JSON reports summarizing scan results.
-    """
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # Extract the name of the folder or ZIP file being scanned
-    scan_name = os.path.basename(scan_path.rstrip("/\\"))
-
-    # Clean up invalid filename characters just in case
-    scan_name = "".join(c for c in scan_name if c.isalnum() or c in ('-', '_'))
-
-    base_name = f"{scan_name}_scan_{timestamp}"
-
-    txt_path = os.path.join(output_dir, base_name + ".txt")
-    json_path = os.path.join(output_dir, base_name + ".json")
-
-    # Compute statistics
-    largest = max(files_found, key=lambda t: t[1] or 0)
-    smallest = min(files_found, key=lambda t: t[1] or 0)
-    newest = max(files_found, key=lambda t: t[2] or 0)
-    oldest = min(files_found, key=lambda t: t[2] or 0)
-
-    # ----- TXT OUTPUT -----
-    with open(txt_path, "w", encoding="utf-8") as f:
-        f.write(f"Scanning directory: {scan_path}\n\n")
-
-        f.write("=== File Statistics ===\n")
-        f.write(f"Largest file: {largest[0]} ({largest[1]} bytes)\n")
-        f.write(f"Smallest file: {smallest[0]} ({smallest[1]} bytes)\n")
-        f.write(f"Most recently modified: {newest[0]} ({time.ctime(newest[2])})\n")
-        f.write(f"Least recently modified: {oldest[0]} ({time.ctime(oldest[2])})\n\n")
-
-        f.write("=== Detected Languages Summary ===\n")
-        for k in ["high_confidence", "medium_confidence", "low_confidence", "frameworks"]:
-            if langs_summary.get(k):
-                f.write(f"{k.replace('_',' ').title()}: {', '.join(langs_summary[k])}\n")
-        f.write("\n")
-
-        f.write("=== Detected Skills Summary ===\n")
-        if skills_summary.get("skills"):
-            f.write(", ".join(skills_summary["skills"]) + "\n")
-        else:
-            f.write("No significant skills detected.\n")
-        f.write("\n")
-
-        if contrib_metrics:
-            f.write("=== Contribution Metrics ===\n")
-            for key, value in contrib_metrics.items():
-                f.write(f"{key}: {value}\n")
-
-        # ----- JSON OUTPUT -----
-        json_data = {
-            "scan_path": scan_path,
-            "file_stats": {
-                "largest": {"path": largest[0], "size": largest[1]},
-                "smallest": {"path": smallest[0], "size": smallest[1]},
-                "newest": {"path": newest[0], "mtime": newest[2]},
-                "oldest": {"path": oldest[0], "mtime": oldest[2]},
-            },
-            "languages": langs_summary,
-            "skills": skills_summary,
-            "contribution_metrics": contrib_metrics,
-            "files_found": [
-                {"path": p, "size": s, "mtime": m} 
-                for (p, s, m) in files_found
-            ]
-        }
-
-        # Ensure JSON-serializable data (fix datetime objects)
-        safe_json = _make_json_safe(json_data)
-
-        with open(json_path, "w", encoding="utf-8") as jf:
-            json.dump(safe_json, jf, indent=4)
-
-    print(f"\n[INFO] Scan reports saved to:")
-    print(f"  {txt_path}")
-    print(f"  {json_path}")
 
 def run_with_saved_settings(
     directory=None,
@@ -770,78 +867,74 @@ def run_with_saved_settings(
     # Merge for current run
     final = merge_settings(settings_to_save, config)
 
+    scan_path_input = final.get("directory")
+    zip_extract_ctx = None
+    zip_extract_path = None
+    if scan_path_input and os.path.isfile(scan_path_input) and scan_path_input.lower().endswith('.zip'):
+        zip_extract_ctx = tempfile.TemporaryDirectory()
+        zip_extract_path = zip_extract_ctx.name
+
     # Run scan
-    list_files_in_directory(
-        final["directory"],
-        recursive=final["recursive_choice"],
-        file_type=final["file_type"],
-        show_collaboration=final.get("show_collaboration", False),
-        save_to_db=save_to_db,
-    )
-
-    # After scan, run language detection and then summarize detected skills
-    scan_target = final.get("directory")
-
-    print("\n=== Detecting Languages ===")
-    langs_res, langs_out, langs_err = _run_with_progress(
-        detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
-    )
-    langs_summary = langs_res or {}
-    if langs_summary.get("languages"):
-        print("\n=== Detected Languages Summary ===")
-        if langs_summary.get("high_confidence"):
-            print("High confidence:", ", ".join(langs_summary.get("high_confidence")))
-        if langs_summary.get("medium_confidence"):
-            print("Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
-        if langs_summary.get("low_confidence"):
-            print("Low confidence:", ", ".join(langs_summary.get("low_confidence")))
-        if langs_summary.get("frameworks"):
-            print("Frameworks:", ", ".join(langs_summary.get("frameworks")))
-    else:
-        print("\nNo languages detected.")
-
-    print("\n=== Detecting Skills ===")
-    skills_res, skills_out, skills_err = _run_with_progress(
-        detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
-    )
-    skills_summary = skills_res or {}
-
-     # === WRITE OUTPUT REPORT FILES ===
-    output_dir = os.path.join("output", "scan_reports")
-    write_scan_report(
-        output_dir=output_dir,
-        scan_path=scan_target,
-        files_found=list_files_in_directory(
-            scan_target,
+    try:
+        list_files_in_directory(
+            final["directory"],
             recursive=final["recursive_choice"],
-            file_type=final["file_type"]
-        ),
-        langs_summary=langs_summary,
-        skills_summary=skills_summary,
-        contrib_metrics=analyze_repo_path(scan_target)
-            if final.get("show_contribution_metrics")
-            else None
-    )
-    
-    if skills_summary.get("skills"):
-        print("\n=== Detected Skills Summary ===")
-        print(", ".join(skills_summary.get("skills")))
-    else:
-        print("\nNo significant skills detected.")
+            file_type=final["file_type"],
+            show_collaboration=final.get("show_collaboration", False),
+            save_to_db=save_to_db,
+            zip_extract_dir=zip_extract_path,
+        )
 
-    # Then show contribution metrics if requested
-    if final.get("show_contribution_metrics"):
-        try:
-            print("\n=== Contribution Metrics ===")
-            metrics = analyze_repo_path(final["directory"])
-            if metrics and 'pretty_print_metrics' in globals():
-                pretty_print_metrics(metrics)
-        except Exception as e:
-            print(f"Error analyzing contribution metrics: {e}")
+        scan_target = _resolve_extracted_root(zip_extract_path) if zip_extract_path else scan_path_input
 
-    # Show contribution summary if requested
-    if final.get("show_contribution_summary"):
-        summarize_project_contributions(final["directory"])
+        # After scan, run language detection and then summarize detected skills
+        print("\n=== Detecting Languages ===")
+        langs_res, langs_out, langs_err = _run_with_progress(
+            detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
+        )
+        langs_summary = langs_res or {}
+        if langs_summary.get("languages"):
+            print("\n=== Detected Languages Summary ===")
+            if langs_summary.get("high_confidence"):
+                print("High confidence:", ", ".join(langs_summary.get("high_confidence")))
+            if langs_summary.get("medium_confidence"):
+                print("Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
+            if langs_summary.get("low_confidence"):
+                print("Low confidence:", ", ".join(langs_summary.get("low_confidence")))
+            if langs_summary.get("frameworks"):
+                print("Frameworks:", ", ".join(langs_summary.get("frameworks")))
+        else:
+            print("\nNo languages detected.")
+
+        print("\n=== Detecting Skills ===")
+        skills_res, skills_out, skills_err = _run_with_progress(
+            detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
+        )
+        skills_summary = skills_res or {}
+
+        
+        if skills_summary.get("skills"):
+            print("\n=== Detected Skills Summary ===")
+            print(", ".join(skills_summary.get("skills")))
+        else:
+            print("\nNo significant skills detected.")
+
+        # Then show contribution metrics if requested
+        if final.get("show_contribution_metrics"):
+            try:
+                print("\n=== Contribution Metrics ===")
+                metrics = analyze_repo_path(scan_target)
+                if metrics and 'pretty_print_metrics' in globals():
+                    pretty_print_metrics(metrics)
+            except Exception as e:
+                print(f"Error analyzing contribution metrics: {e}")
+
+        # Show contribution summary if requested
+        if final.get("show_contribution_summary"):
+            summarize_project_contributions(scan_target)
+    finally:
+        if zip_extract_ctx is not None:
+            zip_extract_ctx.cleanup()
 
 
 if __name__ == "__main__":
@@ -873,4 +966,3 @@ if __name__ == "__main__":
     print("  - And more...\n")
     print("=" * 60)
     sys.exit(0)
-

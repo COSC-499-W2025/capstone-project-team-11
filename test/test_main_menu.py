@@ -23,6 +23,9 @@ from main_menu import (
     safe_query,
     human_ts,
     handle_inspect_database,
+    _preview_resume,
+    _markdown_to_plain,
+    _delete_resume,
 )
 
 
@@ -65,6 +68,7 @@ def create_temp_db():
         CREATE TABLE file_languages(file_id INTEGER, language_id INTEGER);
         CREATE TABLE contributors(id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE file_contributors(file_id INTEGER, contributor_id INTEGER);
+        CREATE TABLE resumes(id INTEGER PRIMARY KEY, contributor_id INTEGER, username TEXT, resume_path TEXT, metadata_json TEXT, generated_at TEXT);
     """)
 
     conn.commit()
@@ -83,7 +87,9 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "3. Rank projects" in output
     assert "4. Summarize contributor projects" in output
     assert "5. Generate Project Summary Report" in output
-    assert "6. Exit" in output
+    assert "6. Generate Resume" in output
+    assert "7. View Resumes" in output
+    assert "8. Exit" in output
 
 
 # Test safe_query()
@@ -149,3 +155,75 @@ def test_handle_inspect_database_works(monkeypatch, capsys):
     assert "Projects and skills" in out
     assert "Top languages" in out
     assert "Contributors" in out
+
+
+def test_preview_resume_reads_file(tmp_path):
+    p = tmp_path / "resume.md"
+    p.write_text("line1\nline2\nline3\n", encoding="utf-8")
+    preview, truncated = _preview_resume(str(p), lines=2)
+    assert "line1" in preview and "line2" in preview
+    assert truncated is True
+
+
+def test_markdown_to_plain_simple():
+    md = "# Title\n- bullet\n**bold** and `code`\n[link](http://x.com)"
+    out = _markdown_to_plain(md)
+    assert "TITLE" in out
+    assert "- bullet" in out
+    assert "bold" in out and "code" in out
+    assert "link (http://x.com)" in out
+
+
+def test_delete_resume_removes_db_row_and_file(tmp_path):
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    cur.executescript("""
+        CREATE TABLE contributors(id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE resumes(id INTEGER PRIMARY KEY, contributor_id INTEGER, username TEXT, resume_path TEXT, metadata_json TEXT, generated_at TEXT);
+    """)
+    db.commit()
+
+    # create file
+    resume_file = tmp_path / "resume.md"
+    resume_file.write_text("hello", encoding="utf-8")
+
+    cur.execute("INSERT INTO contributors(name) VALUES ('alice')")
+    cur.execute(
+        "INSERT INTO resumes(contributor_id, username, resume_path, metadata_json, generated_at) VALUES (1, 'alice', ?, '{}', '2025-01-01')",
+        (str(resume_file),)
+    )
+    db.commit()
+
+    row = db.execute("SELECT * FROM resumes WHERE id = 1").fetchone()
+    ok, msg = _delete_resume(db, row)
+    assert ok is True
+    assert not os.path.exists(resume_file)
+    rows = db.execute("SELECT COUNT(*) AS c FROM resumes").fetchone()
+    assert rows["c"] == 0
+
+
+def test_delete_resume_handles_missing_file(tmp_path):
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    cur.executescript("""
+        CREATE TABLE contributors(id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE resumes(id INTEGER PRIMARY KEY, contributor_id INTEGER, username TEXT, resume_path TEXT, metadata_json TEXT, generated_at TEXT);
+    """)
+    db.commit()
+
+    missing_path = tmp_path / "missing.md"
+    cur.execute("INSERT INTO contributors(name) VALUES ('bob')")
+    cur.execute(
+        "INSERT INTO resumes(contributor_id, username, resume_path, metadata_json, generated_at) VALUES (1, 'bob', ?, '{}', '2025-01-02')",
+        (str(missing_path),)
+    )
+    db.commit()
+
+    row = db.execute("SELECT * FROM resumes WHERE id = 1").fetchone()
+    ok, msg = _delete_resume(db, row)
+    assert ok is True
+    assert "file not found" in msg.lower() or "already removed" in msg.lower()
+    rows = db.execute("SELECT COUNT(*) AS c FROM resumes").fetchone()
+    assert rows["c"] == 0

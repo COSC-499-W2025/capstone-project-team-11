@@ -13,6 +13,50 @@ from sqlite3 import OperationalError
 from contrib_metrics import canonical_username
 
 
+def _get_project_collaboration_status(project_name: str) -> str:
+    """Determine if a project is collaborative or individual based on contributor count.
+    
+    Returns 'Collaborative' if the project has 2+ unique contributors, 'Individual' otherwise.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # Count distinct contributors for this project
+        cur.execute(
+            "SELECT COUNT(DISTINCT c.id) AS contrib_count "
+            "FROM contributors c "
+            "JOIN file_contributors fc ON c.id = fc.contributor_id "
+            "JOIN files f ON fc.file_id = f.id "
+            "JOIN scans s ON f.scan_id = s.id "
+            "WHERE s.project = ?",
+            (project_name,)
+        )
+        row = cur.fetchone()
+        contrib_count = row['contrib_count'] if row else 0
+        
+        if contrib_count >= 2:
+            return "Collaborative"
+        else:
+            return "Individual"
+    except Exception:
+        return "Individual"
+
+
+def _get_all_contributors() -> List[str]:
+    """Get a sorted list of all unique contributor names from the database, normalized."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT DISTINCT name FROM contributors ORDER BY name")
+        rows = cur.fetchall()
+        normalized = [canonical_username(row['name']) for row in rows]
+        # Remove duplicates while preserving order
+        seen = set()
+        return [x for x in normalized if not (x in seen or seen.add(x))]
+    except Exception:
+        return []
+
+
 def rank_projects(order: str = "desc", limit: Optional[int] = None) -> List[Dict]:
     """Return a list of projects aggregated from the scans table.
 
@@ -75,24 +119,28 @@ def print_projects(projects: List[Dict]):
     if not projects:
         print("No projects found in the database.")
         return
-    headers = ["Project", "Created", "First Scan", "Last Scan", "Scans"]
+    headers = ["Project", "Type", "Created", "First Scan", "Last Scan", "Scans"]
     # Compute column widths
     col_widths = [len(h) for h in headers]
     for p in projects:
         col_widths[0] = max(col_widths[0], len(str(p["project"])))
-        col_widths[1] = max(col_widths[1], len(str(human_ts(p.get("created_at") or ""))))
-        col_widths[2] = max(col_widths[2], len(str(human_ts(p["first_scan"] or ""))))
-        col_widths[3] = max(col_widths[3], len(str(human_ts(p["last_scan"] or ""))))
-        col_widths[4] = max(col_widths[4], len(str(p["scans_count"])))
+        collab_status = _get_project_collaboration_status(p["project"])
+        col_widths[1] = max(col_widths[1], len(collab_status))
+        col_widths[2] = max(col_widths[2], len(str(human_ts(p.get("created_at") or ""))))
+        col_widths[3] = max(col_widths[3], len(str(human_ts(p["first_scan"] or ""))))
+        col_widths[4] = max(col_widths[4], len(str(human_ts(p["last_scan"] or ""))))
+        col_widths[5] = max(col_widths[5], len(str(p["scans_count"])))
 
     # Print header
-    fmt = f"{{:<{col_widths[0]}}}  {{:<{col_widths[1]}}}  {{:<{col_widths[2]}}}  {{:<{col_widths[3]}}}  {{:>{col_widths[4]}}}"
+    fmt = f"{{:<{col_widths[0]}}}  {{:<{col_widths[1]}}}  {{:<{col_widths[2]}}}  {{:<{col_widths[3]}}}  {{:<{col_widths[4]}}}  {{:>{col_widths[5]}}}"
     print(fmt.format(*headers))
-    print("-" * (sum(col_widths) + 8))
+    print("-" * (sum(col_widths) + 12))
 
     for p in projects:
+        collab_status = _get_project_collaboration_status(p["project"])
         print(fmt.format(
             p["project"],
+            collab_status,
             human_ts(p.get("created_at") or ""),
             human_ts(p["first_scan"] or ""),
             human_ts(p["last_scan"] or ""),
@@ -113,25 +161,29 @@ def print_projects_contribution_summary(projects: List[Dict]):
     if not projects:
         print("No contribution summary available.")
         return
-    headers = ["Project", "TotalFiles", "Contributors", "TopContributor", "TopFiles", "TopFraction"]
+    headers = ["Project", "Type", "TotalFiles", "Contributors", "TopContributor", "TopFiles", "TopFraction"]
     col_widths = [len(h) for h in headers]
     for p in projects:
         col_widths[0] = max(col_widths[0], len(str(p["project"])))
-        col_widths[1] = max(col_widths[1], len(str(p.get("total_files", 0))))
-        col_widths[2] = max(col_widths[2], len(str(p.get("contributors_count", 0))))
-        col_widths[3] = max(col_widths[3], len(str(p.get("top_contributor") or "")))
-        col_widths[4] = max(col_widths[4], len(str(p.get("top_contrib_files", 0))))
-        col_widths[5] = max(col_widths[5], len("0.00"))
+        collab_status = _get_project_collaboration_status(p["project"])
+        col_widths[1] = max(col_widths[1], len(collab_status))
+        col_widths[2] = max(col_widths[2], len(str(p.get("total_files", 0))))
+        col_widths[3] = max(col_widths[3], len(str(p.get("contributors_count", 0))))
+        col_widths[4] = max(col_widths[4], len(str(p.get("top_contributor") or "")))
+        col_widths[5] = max(col_widths[5], len(str(p.get("top_contrib_files", 0))))
+        col_widths[6] = max(col_widths[6], len("0.00"))
 
     fmt = (
-        f"{{:<{col_widths[0]}}}  {{:>{col_widths[1]}}}  {{:>{col_widths[2]}}}  {{:<{col_widths[3]}}}  "
-        f"{{:>{col_widths[4]}}}  {{:>{col_widths[5]}}}"
+        f"{{:<{col_widths[0]}}}  {{:<{col_widths[1]}}}  {{:>{col_widths[2]}}}  {{:>{col_widths[3]}}}  {{:<{col_widths[4]}}}  "
+        f"{{:>{col_widths[5]}}}  {{:>{col_widths[6]}}}"
     )
     print(fmt.format(*headers))
-    print("-" * (sum(col_widths) + 10))
+    print("-" * (sum(col_widths) + 14))
     for p in projects:
+        collab_status = _get_project_collaboration_status(p["project"])
         print(fmt.format(
             p["project"],
+            collab_status,
             p.get("total_files", 0),
             p.get("contributors_count", 0),
             p.get("top_contributor") or "",
@@ -330,19 +382,22 @@ def print_projects_by_contributor(projects: List[Dict], contributor_name: str):
     if not projects:
         print(f"No projects found for contributor '{contributor_name}'.")
         return
-    headers = ["Project", "ContribFiles", "TotalFiles", "Score"]
+    headers = ["Project", "Type", "ContribFiles", "TotalFiles", "Score"]
     col_widths = [len(h) for h in headers]
     for p in projects:
         col_widths[0] = max(col_widths[0], len(str(p["project"])))
-        col_widths[1] = max(col_widths[1], len(str(p["contrib_files"])))
-        col_widths[2] = max(col_widths[2], len(str(p["total_files"])))
-        col_widths[3] = max(col_widths[3], len("0.00"))
+        collab_status = _get_project_collaboration_status(p["project"])
+        col_widths[1] = max(col_widths[1], len(collab_status))
+        col_widths[2] = max(col_widths[2], len(str(p["contrib_files"])))
+        col_widths[3] = max(col_widths[3], len(str(p["total_files"])))
+        col_widths[4] = max(col_widths[4], len("0.00"))
 
-    fmt = f"{{:<{col_widths[0]}}}  {{:>{col_widths[1]}}}  {{:>{col_widths[2]}}}  {{:>{col_widths[3]}}}"
+    fmt = f"{{:<{col_widths[0]}}}  {{:<{col_widths[1]}}}  {{:>{col_widths[2]}}}  {{:>{col_widths[3]}}}  {{:>{col_widths[4]}}}"
     print(fmt.format(*headers))
-    print("-" * (sum(col_widths) + 6))
+    print("-" * (sum(col_widths) + 10))
     for p in projects:
-        print(fmt.format(p["project"], p["contrib_files"], p["total_files"], f"{p['score']:.2f}"))
+        collab_status = _get_project_collaboration_status(p["project"])
+        print(fmt.format(p["project"], collab_status, p["contrib_files"], p["total_files"], f"{p['score']:.2f}"))
 
 
 def main():
@@ -371,7 +426,15 @@ def main():
         # Otherwise, if running interactively, ask the user whether they'd like a per-user ranking
         try:
             if sys.stdin and sys.stdin.isatty():
-                name = input('\nEnter a contributor name to show per-project importance (leave blank to skip): ').strip()
+                # Display available contributors
+                contributors = _get_all_contributors()
+                if contributors:
+                    print("\n=== Available Contributors ===")
+                    for i, contrib in enumerate(contributors, 1):
+                        print(f"  {i}. {contrib}")
+                    print()
+                
+                name = input('Enter a contributor name to show per-project importance (leave blank to skip): ').strip()
                 if name:
                     print(f"\nRanking projects by contributor: {name}\n")
                     user_projects = rank_projects_by_contributor(name, limit=args.limit)
@@ -379,7 +442,6 @@ def main():
         except Exception:
             # If input isn't available (non-interactive), simply skip
             pass
-
 
 if __name__ == "__main__":
     main()

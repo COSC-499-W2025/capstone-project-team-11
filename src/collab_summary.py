@@ -28,13 +28,25 @@ def is_git_repo(path: str, strict: bool = False) -> bool:
     return False
 
 
+def _should_skip_file(path: Path) -> bool:
+    """Return True for macOS artifacts or container archives we want to ignore."""
+    name = path.name
+    if name == '.DS_Store' or name.startswith('._'):
+        return True
+    if name.lower().endswith('.zip'):
+        return True
+    if any(part == '__MACOSX' for part in path.parts):
+        return True
+    return False
+
+
 def summarize_contributions_non_git(path: str) -> dict:
     """
     Fallback for non-Git projects.
     Detects authors from inline 'Author:' comments or defaults to Unknown.
     """
     path = Path(path).resolve()
-    files = [f for f in Path(path).glob("**/*") if f.is_file()]
+    files = [f for f in Path(path).glob("**/*") if f.is_file() and not _should_skip_file(f)]
     if not files:
         return {}
 
@@ -61,11 +73,12 @@ def summarize_contributions_non_git(path: str) -> dict:
     return contributions
 
 
-def identify_contributions(project_path: str, output_dir: str = "output", strict_git: bool = False) -> dict:
+def identify_contributions(project_path: str, output_dir: str = "output", strict_git: bool = False, write_output: bool = True) -> dict:
     """
     Identify and summarize individual contributions for a project.
     Works for both Git and non-Git folders.
-    Exports JSON summary to output_dir.
+
+    When write_output is True, export a JSON summary to output_dir.
     """
     if not os.path.exists(project_path):
         raise FileNotFoundError(f"{project_path} not found")
@@ -90,15 +103,6 @@ def identify_contributions(project_path: str, output_dir: str = "output", strict
             contributions[author]["file_count"] = len(contributions[author]["files"])
         project_type = "non_git"
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = os.path.join(output_dir, f"contributions_{project_type}_{timestamp}.json")
-
-    with open(output_path, "w") as f:
-        json.dump(contributions, f, indent=4)
-
-    print(f"[INFO] Contribution summary saved to {output_path}")
     return contributions
 
 
@@ -106,7 +110,7 @@ def summarize_project_contributions(directory: str, output_dir: str = "output"):
     """Summarize and print contribution details for a project directory."""
     try:
         print("\n=== Contribution Summary ===")
-        contributions = identify_contributions(directory, output_dir=output_dir)
+        contributions = identify_contributions(directory, output_dir=output_dir, write_output=False)
         if not contributions:
             print("No contributions detected.")
             return

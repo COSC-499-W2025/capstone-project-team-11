@@ -4,6 +4,8 @@ import unittest
 import json
 import tempfile
 import subprocess
+import importlib
+import sqlite3
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
@@ -130,6 +132,38 @@ class RobustGenerateResumeTests(unittest.TestCase):
         self.assertEqual(proc3.returncode, 0, msg=f"stdout:{proc3.stdout}\nstderr:{proc3.stderr}")
         files2 = os.listdir(self.resume_dir)
         self.assertTrue(any(f.startswith('resume_githubclassroombot_') and f.endswith('.md') for f in files2))
+
+    def test_cli_saves_resume_to_db(self):
+        db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        # Ensure both this process and the subprocess use the temp DB
+        os.environ['FILE_DATA_DB_PATH'] = db_path
+        env = os.environ.copy()
+
+        # Initialize database with resumes table
+        import db as db_mod
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+
+        cmd = [
+            sys.executable, os.path.join('src', 'generate_resume.py'),
+            '--output-root', self.output_root,
+            '--resume-dir', self.resume_dir,
+            '--username', 'alice',
+            '--save-to-db'
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        self.assertEqual(proc.returncode, 0, msg=f"stdout:{proc.stdout}\nstderr:{proc.stderr}")
+
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT username, resume_path, metadata_json FROM resumes").fetchall()
+        conn.close()
+        
+        # Close any cached connections to allow cleanup
+        import gc
+        gc.collect()
+        
+        self.assertTrue(any(r['username'] == 'alice' for r in rows))
 
 
 if __name__ == '__main__':

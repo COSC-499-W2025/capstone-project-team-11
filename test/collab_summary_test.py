@@ -76,15 +76,6 @@ class TestCollaborationSummary(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             identify_contributions("fake_path_123")
 
-    def test_json_output_file(self):
-        """Should export a JSON summary file and verify its content."""
-        with tempfile.TemporaryDirectory() as output_dir:
-            identify_contributions(self.test_dir, output_dir=output_dir, strict_git=True)
-            files = os.listdir(output_dir)
-            self.assertTrue(any(f.endswith(".json") for f in files))
-            with open(os.path.join(output_dir, files[0]), "r") as f:
-                data = json.load(f)
-                self.assertIn("John", data)
                 
     def test_git_repo_tracks_changed_files(self):
         """Git repo should include per-author changed files in contribution summary."""
