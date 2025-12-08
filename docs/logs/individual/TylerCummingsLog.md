@@ -197,6 +197,27 @@ Week 13 Plans:
 
 <img width="1893" height="387" alt="image" src="https://github.com/user-attachments/assets/cab2bf05-9419-483f-ae9e-e3147a871c1b" />
 
+# Tyler's Week 14 Personal Log (1-7 Dec.)
+
+Focus of the week was cleaning up our code and making sure we have completed all parts for milestone 1, make the contract, make the video presentation and slideshow presentation and present our project to the class.
+
+<img width="976" height="571" alt="image" src="https://github.com/user-attachments/assets/55ff2b73-6359-43fb-b20e-0ab7b4dca0fc" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+- Presented our slides to class and prof.
+- Tested all the code for milestones 11-20 and made recommended changes to teammates
+- Made script, video and edited the videos for each milestone part (11-20)
+- Reviewed team contract
+- Reviewed code changes and bug fixes for project
+- Finished individual log 14
+- Finished peer reviews for week 14
+
+Week 15 Plans:
+- Exams
+
+<img width="1877" height="786" alt="image" src="https://github.com/user-attachments/assets/210157dd-ce94-435c-968e-3638e2699354" />
+*All issues for milestone 1 have been completed, nothing to do until next term*
 
 
 
