@@ -276,4 +276,50 @@ This was a good week for our group as we have been in a steady flow of each memb
 
 <img width="835" height="417" alt="Screenshot 2025-11-30 at 5 33 09 PM" src="https://github.com/user-attachments/assets/997854ef-4b79-4eeb-ba9f-e620a7e3e049" />
 
+# Week 14 Personal Logs (December 1st - 7th)
 
+<img width="684" height="493" alt="Screenshot 2025-12-07 at 4 59 34 PM" src="https://github.com/user-attachments/assets/1b281de6-93cc-4d61-bc4e-3513425c7471" />
+
+## Tasks Completed:
+This week, I focused on preparing for our Milestone 1 presentation, the individual reflection, and the final deliverable, which was retrieving and deleting generated resume items
+- Closed issue #35
+
+### Reflection of the past week:
+With exams starting and projects wrapping up in other courses, this was still a good week for our group. All group members completed something to do with the end of milestone 1. We also completed our presentation for Milestone 1, which we had prepared for. We are not too sure what is planned for the week coming back from Christmas break, but we will decide that when classes resume again.
+
+
+### Additions and Features:
+- **`main_menu.py`** wires the scan flow to persist results on demand and, after any scan, immediately derives project info and writes the JSON/TXT reports under an `/output/<project_name>/` folder for easier follow-up. This fixes the empty resume generation problem we encountered.
+- **`scan.py`** reinstates database persistence during scans: language/skill detection falls back to empty lists, file metadata is always built, and retries after `init_db()` carry the same project metadata, eliminating the previous UnboundLocalError when saving.
+- **`collab_summary.py`** now keeps `identify_contributions()` focused on returning structured data: the JSON file write is suppressed by default and `summarize_project_contributions()` calls it with `write_output=False`, so scans no longer drop contributions artifacts in `/output/`.
+- **`init_db.sql`**: adds resumes table plus indexes to store generated resumes linked to contributors.
+- **`db.py`**: introduces save_resume helper to persist resume path/metadata with contributor linkage and timestamp.
+- **`generate_resume.py`**: adds --save-to-db flag and calls save_resume after writing markdown, with error handling for missing schema.
+- **`main_menu.py`**: when inspecting DB, now lists recent resumes; resume generator menu runs with --save-to-db.
+- **`main_menu.py`**: Built a full “View Resumes” flow—lists recent resumes, prompts to view or delete, renders Markdown to readable plain text for previews and full paging, and deletes via _delete_resume, which removes the DB row then tries to remove the file with clear messaging. Added helpers for markdown-to-plain rendering, resume listing, previewing, paging, and fixed sqlite3.Row access during deletion.
+- **`scan.py`**: 
+   - Added `_resolve_extracted_root`, `_prepare_nested_extract_root`, and` _safe_join_extract_root` helpers to safely unpack archives (and nested archives) into real directories so they're scanned exactly once, without leaking temp dirs or allowing path traversal.
+   - Updated `_scan_zip` to track the actual extracted path for each zip:path entry, skip macOS junk and nested containers, avoid counting nested zips as files unless the user explicitly filters for .zip, and descend into nested archives using the shared extraction tree.
+   - `list_files_in_zip` now keeps a single temp extraction directory, builds accurate file metadata (owner/language) using the tracked real paths, and passes that directory to language/skill detection.
+   - `list_files_in_directory` and run_with_saved_settings detect when the target is a zip, extract it once, reuse that path for contributions/metrics/summaries, and clean up afterward.
+- **`project_info_output.py`**:  extracts zip targets (outer and nested) before running any detectors so project summaries operate on actual files, not archive placeholders.
+- **`collab_summary.py`** ignores .DS_Store, __MACOSX, ._*, and .zip files when summarizing non-git contributions, preventing archive containers and macOS metadata from inflating the “Changed files” list.
+- **`detect_langs.py`** and **`detect_skills.py`** share the same artifact filter to keep language/skill stats from counting container zips or macOS junk, ensuring [Filtering Stats] reflect only real files.
+
+### Testing:
+- **`test_main_menu.py`**  updated `test_print_main_menu_outputs_correct_text` to reflect new menu options.
+- Removed **`test_json_output_file`** since the contribution JSON is no longer needed.
+- **`test_generate_resume.py`**: ensures temp DB path applies to subprocess and adds a test verifying resume rows are created.
+- **`test_main_menu.py`**: Updated menu output expectations, added coverage for the markdown renderer and preview helper, and added deletion tests that use sqlite3.Row rows to ensure DB rows are removed, files are deleted, and missing files are handled gracefully.
+
+### Reviews: 
+- Tyler's Milestone 1 videos (PR #208)
+- Daniel's Reworked skipped unsupported file formats (PR #210)
+  
+## In progress tasks
+- No tasks currently in progress
+
+## Planned tasks for next sprint
+- Christmas Break
+
+<img width="739" height="495" alt="Screenshot 2025-12-07 at 5 11 10 PM" src="https://github.com/user-attachments/assets/7d882fb9-c604-445b-af30-0e1f3ce73727" />
