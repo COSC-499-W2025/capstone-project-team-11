@@ -584,3 +584,80 @@ For week 14, we have discussed it as a team and decided that we hope to:
 - Create Team Contract
 - Milestone 1 Video Demo
 - Milestone 1 Self-Reflection
+
+---
+
+# Team #11 - Week 14 Team Log (December 1st – December 7th)
+Team Members      --> GitHub Username  
+- Priyanshu Chugh --> priyanshupc04  
+- Tyler Cummings  --> TylerC-3042  
+- Tanner Dyck     --> TannerDyck  
+- Travis Frank    --> travis-frank  
+- Jaxson Kahl     --> jaxsonkahl  
+- Daniel Sokic    --> danielsokic  
+
+## Overview:
+This week marked the final week of Milestone 1, and our team focused on completing all remaining deliverables and preparing for our Milestone 1 presentation, which we successfully delivered on Wednesday. Each member contributed meaningful updates, PRs, and documentation refinements this week as we wrapped everything up. Daniel completed the formal Team Contract and implemented key fixes related to unsupported file formats and improving the distinction between individual and collaborative projects. Jaxson submitted multiple PRs that included saving the resume to the DB along with Removal/Retrieval of a resume. Priyanshu updated the Data Flow Diagram and revised the README to match our current system. Tanner and Tyler jointly recorded and polished the Milestone 1 video demo, covering all required deliverables. Travis reworked the System Architecture diagram and improved scanning and summary consistency. All members took part in code reviews and finalized their logs and peer reviews. Overall, this was a strong finish to Milestone 1 and showcased our team's consistency, communication, and commitment to quality.
+
+## Burnup Chart:
+<img width="994" height="552" alt="Screenshot 2025-12-07 at 6 28 00 PM" src="https://github.com/user-attachments/assets/40e60bd3-c542-4310-a4f7-c51ca8cf4a2e" />
+
+## Team Member's Completed Tasks:
+### Daniel:
+- Completed Team Contract  
+- PR #210: Reworked logic for skipped/unsupported file formats  
+- PR #216: Implemented fix to correctly distinguish individual vs collaborative projects
+
+### Jaxson:
+- PR #206: Generated resume save to Database 
+- PR #207: Added Functionality for Retrieving and Deleting Previous Resume Items
+- PR #209: Added fixes for zip handling
+
+### Priyanshu:
+- Updated and refined the Data Flow Diagram  
+- Updated and reorganized the README according to the current system architecture and workflow  
+
+### Tanner:
+- Recorded Milestone 1 Video Demo (deliverables #1–10)
+
+### Tyler:
+- Recorded Milestone 1 Video Demo (deliverables #11–20)
+
+### Travis:
+- Reworked System Architecture Diagram to reflect current system design  
+- PR #212: Fixed windows path resolution bug in contributor project summary
+
+### All Members:
+- Code reviews and verification  
+- Completion of individual logs and peer reviews  
+- Prepared for and delivered the Milestone 1 presentation
+
+<img width="1080" height="293" alt="Screenshot 2025-12-07 at 6 29 28 PM" src="https://github.com/user-attachments/assets/059d9a9f-c099-4d1f-b817-55c88d4fe77d" />
+
+## Testing Report:
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
+
+### Tests added:
+
+**test_generate_resume.py**
+- `test_cli_saves_resume_to_db`: Ensures that running generate_resume.py with `--save-to-db` correctly inserts a resume row for the specified user into the SQLite database.
+
+**test_main_menu.py**
+- `test_preview_resume_reads_file`: Verifies that resume previews display the requested number of lines and correctly indicate when output is truncated.
+- `test_markdown_to_plain_simple`: Confirms that Markdown is converted to readable plain text, including headers, bullets, bold text, code spans, and links.
+- `test_delete_resume_removes_db_row_and_file`: Ensures that deleting a resume removes both the file from disk and its corresponding row from the database.
+- `test_delete_resume_handles_missing_file`: Ensures that resume deletion succeeds even when the file no longer exists, and the database row is still properly removed.
+
+- Refactoring across the test suite updated imports, function names, and paths to match new resume-related modules and main menu helpers introduced during the codebase cleanup.
+
+<img width="1241" height="30" alt="Screenshot 2025-12-07 at 6 30 20 PM" src="https://github.com/user-attachments/assets/e4735e5e-5be7-45e1-b0d6-9a08495d3989" />
+
+
+## Team Reflection:
+As we reached the **end of Milestone 1**, our team demonstrated strong coordination, accountability, and communication. Members were proactive in finalizing diagrams, documentation, and presentation materials. Our Milestone 1 presentation went smoothly overall and we were able to finish on time with clear time management. The instructor provided helpful feedback, noting strengths such as our Markdown resume feature and overall pacing, while also pointing out areas for improvement like ensuring all team members can respond to Q&A question. This milestone helped us establish a solid foundation for future development, strengthened our understanding of team expectations, and improved our internal workflows. We are satisfied with the quality of our work and feel prepared to transition into Milestone 2 after hearing instructor and TA feedback.
+
+## Looking Ahead to Milestone 2:
+- Final submission of Milestone 1 deliverables  
+- Begin planning next development steps for Milestone 2  
+- Conduct a milestone retrospective to identify process improvements  
+- Adjust workflows based on TA/professor feedback
