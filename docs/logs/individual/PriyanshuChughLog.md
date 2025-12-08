@@ -226,3 +226,24 @@ As a team, we focused on finalizing the remaining deliverables and refining key 
 We are in the final week of the semester so there is a lot of tasks that need to be completed. I will be working on and helping others with updating our documentation and helping complete the  project for video demo. And also working on our presentation that we have in class on Wednesday,
 
 
+
+# Week 14 (December 1st - 7th)
+
+<img width="1131" height="640" alt="Screenshot 2025-12-07 at 4 31 28 PM" src="https://github.com/user-attachments/assets/cc2959ca-e380-4324-9b4b-c7b4d705f9b8" />
+
+## Tasks completed:
+- Worked on the milestone 1 presentation slides
+- Presented milestone 1 in front of class
+- Created a new Level 1 Data Flow Diagram that accurately represents the project’s Python CLI architecture, data stores, and workflow.
+- Updated the entire README.md, replacing outdated Electron/FastAPI references with the current backend design.
+- Added full module breakdowns, detailed test descriptions, and proper Markdown formatting.
+- Improved overall documentation clarity and ensured consistency across sections (System Architecture, DFD, Src Folder, Test Folder, etc.).
+- Individual logs
+- Milestone 1 reflection quiz
+- Approved and reviewed PRs
+
+## Reflection
+This week was very stressfull but our team managed to pull through, even with last minute bug issues and I was very pleased how we overcame this week 
+
+
+
