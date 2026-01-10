@@ -219,6 +219,27 @@ Week 15 Plans:
 <img width="1877" height="786" alt="image" src="https://github.com/user-attachments/assets/210157dd-ce94-435c-968e-3638e2699354" />
 *All issues for milestone 1 have been completed, nothing to do until next term*
 
+# Tyler's T2 Week 1 Personal Log (5-11 Jan.)
+Focus of the week was starting the new milestone issues/deliverables. I worked on completeing the allow incremental information by adding another zipped folder of files for the same portfolio or résumé. This week I completed the resume portion of it.
+
+<img width="2382" height="1210" alt="image" src="https://github.com/user-attachments/assets/5375b00d-0685-4b7d-8f6c-147065369a59" />
+
+Tasks Completed:
+- Implemented the “add new project to existing resume” feature in main_menu.py.
+- Developed resume_scan in regenerate_resume_scan.py to handle directory or zip scans for resume regeneration.
+- Implemented regenerate_resume.py logic to overwrite existing resumes with updated project data.
+- Wrote full unit tests for the new resume addition and regeneration features (test_main_menu_add_resume.py, test_resume_scan.py, test_regenerate_resume.py).
+- Documented PR contribution with filled-out PR template reflecting the changes and testing procedures.
+- Reviewed teammates code changes, pr's and bug fixes
+- Finished individual log T2 week 1
+- Finished peer reviews for T2 week 1
+
+Week 15 Plans:
+- Finish milestone 21 by doing what I did for resumes but now for portfolios
+- Speak with team on modifying file structure, layout, integrations to make it more streamlined, organized and efficient for scalability
+
+<img width="2692" height="1210" alt="image" src="https://github.com/user-attachments/assets/60a00e82-6fae-4145-9ba9-cb01be0bc6f5" />
+
 
 
 
