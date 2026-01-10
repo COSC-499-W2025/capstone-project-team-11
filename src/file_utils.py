@@ -10,6 +10,10 @@ ALLOWED_FORMATS = {
     '.ipynb', '.r', '.rb', '.php', '.sql'
 }
 
+IMAGE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'
+}
+
 def is_valid_format(filename: str) -> bool:
     """
     Check if the file format is valid based on its extension.
@@ -20,3 +24,10 @@ def is_valid_format(filename: str) -> bool:
         return False
     _, ext = os.path.splitext(filename.strip().lower())
     return ext in ALLOWED_FORMATS
+
+def is_image_file(filename: str) -> bool:
+    """Return True if filename looks like a supported image file."""
+    if not filename or not isinstance(filename, str):
+        return False
+    _, ext = os.path.splitext(filename.strip().lower())
+    return ext in IMAGE_EXTENSIONS
