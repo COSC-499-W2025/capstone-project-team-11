@@ -46,6 +46,8 @@ class TestDatabaseModule(unittest.TestCase):
         expected = {'scans', 'files', 'projects', 'contributors', 'languages', 'skills', 'file_contributors', 'file_languages', 'project_skills'}
         # All expected tables should be present (init_db.sql may create others as well)
         self.assertTrue(expected.issubset(names))
+        cols = {r[1] for r in self._fetchall("PRAGMA table_info(projects)")}
+        self.assertIn('thumbnail_path', cols)
 
     def test_save_scan_with_file_metadata_and_links(self):
         # Prepare two file tuples
@@ -68,7 +70,8 @@ class TestDatabaseModule(unittest.TestCase):
             detected_languages=['Python', 'JSON (Web Config)'],
             detected_skills=['testing'],
             contributors=['Alice', 'Bob'],
-            file_metadata=file_metadata
+            file_metadata=file_metadata,
+            project_thumbnail_path="output/proj1/thumbnail.png",
         )
 
         # One scan inserted
@@ -121,6 +124,9 @@ class TestDatabaseModule(unittest.TestCase):
             cur = conn.cursor()
             cur.execute("SELECT id FROM projects WHERE name = ?", ('proj1',))
             self.assertIsNotNone(cur.fetchone())
+            cur.execute("SELECT thumbnail_path FROM projects WHERE name = ?", ('proj1',))
+            thumb = cur.fetchone()[0]
+            self.assertEqual(thumb, "output/proj1/thumbnail.png")
             cur.execute("SELECT s.name FROM skills s JOIN project_skills ps ON s.id = ps.skill_id JOIN projects p ON ps.project_id = p.id WHERE p.name = ?", ('proj1',))
             skills = {r[0] for r in cur.fetchall()}
             self.assertIn('testing', skills)

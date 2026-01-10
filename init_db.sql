@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE,
     repo_url TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    thumbnail_path TEXT
 );
 
 -- Contributors (commit authors). We intentionally do not store emails to keep privacy.

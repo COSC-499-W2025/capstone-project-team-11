@@ -36,6 +36,7 @@ from rank_projects import (
 from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
+from file_utils import is_image_file
 
 
 def print_main_menu():
@@ -86,6 +87,23 @@ def handle_scan_directory():
     
     if use_saved and current.get("directory"):
         save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        thumbnail_source = None
+        if save_db:
+            saved_dir = current.get("directory")
+            if saved_dir and not (os.path.isfile(saved_dir) and saved_dir.lower().endswith('.zip')):
+                if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
+                    while True:
+                        path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
+                        if not path:
+                            break
+                        if not os.path.isfile(path):
+                            print("Thumbnail path does not point to a file.")
+                            continue
+                        if not is_image_file(path):
+                            print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
+                            continue
+                        thumbnail_source = path
+                        break
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=current.get("recursive_choice"),
@@ -95,6 +113,7 @@ def handle_scan_directory():
             show_contribution_summary=current.get("show_contribution_summary"),
             save=False,
             save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
         )
     else:
         directory = input("Enter directory path or zip file path: ").strip()
@@ -110,6 +129,21 @@ def handle_scan_directory():
         show_summary = ask_yes_no("Show contribution summary? (y/n): ")
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
         save_db = ask_yes_no("Save scan results to database? (y/n): ")
+        thumbnail_source = None
+        if save_db and not (os.path.isfile(directory) and directory.lower().endswith('.zip')):
+            if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
+                while True:
+                    path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
+                    if not path:
+                        break
+                    if not os.path.isfile(path):
+                        print("Thumbnail path does not point to a file.")
+                        continue
+                    if not is_image_file(path):
+                        print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
+                        continue
+                    thumbnail_source = path
+                    break
         
         run_with_saved_settings(
             directory=directory,
@@ -120,6 +154,7 @@ def handle_scan_directory():
             show_contribution_summary=show_summary,
             save=remember,
             save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
         )
     
     selected_dir = current.get("directory") if use_saved else directory

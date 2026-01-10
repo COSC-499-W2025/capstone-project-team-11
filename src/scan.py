@@ -9,6 +9,7 @@ import contextlib
 import tempfile
 import json
 import sqlite3
+import shutil
 
 
 
@@ -17,7 +18,7 @@ from config import load_config, save_config, merge_settings, config_path as defa
 from consent import ask_for_data_consent, ask_yes_no
 from detect_langs import detect_languages_and_frameworks, LANGUAGE_MAP
 from detect_skills import detect_skills
-from file_utils import is_valid_format
+from file_utils import is_valid_format, is_image_file
 from db import get_connection, init_db, save_scan
 from collab_summary import summarize_project_contributions
 from datetime import datetime
@@ -206,6 +207,38 @@ def _safe_join_extract_root(root: str, relative_path: str) -> str:
     return combined
 
 
+def _prepare_project_thumbnail(source_path: str, project_name: str) -> str:
+    """Copy a project thumbnail into output/<project> and return its relative path."""
+    if not source_path or not project_name:
+        return None
+    if not os.path.exists(source_path) or not os.path.isfile(source_path):
+        print("Warning: thumbnail file not found; skipping.")
+        return None
+
+    if not is_image_file(source_path):
+        print("Warning: unsupported thumbnail type; skipping.")
+        return None
+
+    _, ext = os.path.splitext(source_path)
+    ext = ext.lower()
+    if not ext:
+        print("Warning: thumbnail file has no extension; skipping.")
+        return None
+
+    dest_dir = os.path.join("output", project_name)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest_path = os.path.join(dest_dir, f"thumbnail{ext}")
+
+    try:
+        if os.path.abspath(source_path) != os.path.abspath(dest_path):
+            shutil.copy2(source_path, dest_path)
+    except Exception as e:
+        print(f"Warning: failed to copy thumbnail: {e}")
+        return None
+
+    return dest_path
+
+
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
               show_collaboration: bool = False, extract_root: str = None, progress: dict = None,
               extracted_paths: dict = None):
@@ -299,7 +332,7 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
 
 def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None, file_metadata: dict = None,
                   detected_languages: list = None, detected_skills: list = None, contributors: list = None,
-                  project_created_at: str = None, project_repo_url: str = None):
+                  project_created_at: str = None, project_repo_url: str = None, project_thumbnail_path: str = None):
     """Persist a scan and its file records to the database using db.save_scan.
 
     This now also attempts to persist detected languages, skills and contributors
@@ -318,6 +351,7 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
         file_metadata=file_metadata,
         project_created_at=project_created_at,
         project_repo_url=project_repo_url,
+        project_thumbnail_path=project_thumbnail_path,
     )
 
 
@@ -629,7 +663,8 @@ def get_collaboration_info(file_path: str) -> str:
     return f"collaborative ({', '.join(authors)})"
 
 
-def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False, zip_extract_dir=None):
+def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False,
+                            zip_extract_dir=None, project_thumbnail_path=None):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -768,6 +803,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     print(f"\nProject Type: {collab_status}")
     # Optionally persist scan results to the database
     if save_to_db:
+        project_name = os.path.basename(os.path.abspath(path))
         # Detect project-level metadata and persist with the scan
         try:
             langs_res, langs_out, langs_err = _run_with_progress(
@@ -814,24 +850,26 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         project_created_at, project_repo_url = _get_repo_info(path)
 
         try:
-            _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
+            _persist_scan(path, files_found, project=project_name, notes=None,
                           file_metadata=file_meta,
                           detected_languages=langs,
                           detected_skills=skills,
                           contributors=contributors,
                           project_created_at=project_created_at,
-                          project_repo_url=project_repo_url)
+                          project_repo_url=project_repo_url,
+                          project_thumbnail_path=project_thumbnail_path)
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
             try:
                 init_db()
-                _persist_scan(path, files_found, project=os.path.basename(path), notes=None,
+                _persist_scan(path, files_found, project=project_name, notes=None,
                               file_metadata=file_meta,
                               detected_languages=langs,
                               detected_skills=skills,
                               contributors=contributors,
                               project_created_at=project_created_at,
-                              project_repo_url=project_repo_url)
+                              project_repo_url=project_repo_url,
+                              project_thumbnail_path=project_thumbnail_path)
             except Exception:
                 print("Warning: failed to persist scan results to database.")
     return files_found
@@ -846,6 +884,7 @@ def run_with_saved_settings(
     show_contribution_summary=None,
     save=False,
     save_to_db=False,
+    thumbnail_source=None,
     config_path=None,
 ):
     config = load_config(config_path)
@@ -873,6 +912,10 @@ def run_with_saved_settings(
     if scan_path_input and os.path.isfile(scan_path_input) and scan_path_input.lower().endswith('.zip'):
         zip_extract_ctx = tempfile.TemporaryDirectory()
         zip_extract_path = zip_extract_ctx.name
+    project_thumbnail_path = None
+    if save_to_db and thumbnail_source and scan_path_input and not zip_extract_path:
+        project_name = os.path.basename(os.path.abspath(scan_path_input))
+        project_thumbnail_path = _prepare_project_thumbnail(thumbnail_source, project_name)
 
     # Run scan
     try:
@@ -883,6 +926,7 @@ def run_with_saved_settings(
             show_collaboration=final.get("show_collaboration", False),
             save_to_db=save_to_db,
             zip_extract_dir=zip_extract_path,
+            project_thumbnail_path=project_thumbnail_path,
         )
 
         scan_target = _resolve_extracted_root(zip_extract_path) if zip_extract_path else scan_path_input
