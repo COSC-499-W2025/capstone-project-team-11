@@ -231,11 +231,11 @@ Tasks Completed:
 - Wrote full unit tests for the new resume addition and regeneration features (test_main_menu_add_resume.py, test_resume_scan.py, test_regenerate_resume.py).
 - Documented PR contribution with filled-out PR template reflecting the changes and testing procedures.
 - Reviewed teammates code changes, pr's and bug fixes
-- Finished individual log 14
-- Finished peer reviews for week 14
+- Finished individual log T2 week 1
+- Finished peer reviews for T2 week 1
 
 Week 15 Plans:
-- Finish milestone 21 by doing what I did for resumes but for portfolios
+- Finish milestone 21 by doing what I did for resumes but now for portfolios
 - Speak with team on modifying file structure, layout, integrations to make it more streamlined, organized and efficient for scalability
 
 <img width="2692" height="1210" alt="image" src="https://github.com/user-attachments/assets/60a00e82-6fae-4145-9ba9-cb01be0bc6f5" />
