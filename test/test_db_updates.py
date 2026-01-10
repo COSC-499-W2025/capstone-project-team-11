@@ -71,7 +71,7 @@ class TestDatabaseModule(unittest.TestCase):
             detected_skills=['testing'],
             contributors=['Alice', 'Bob'],
             file_metadata=file_metadata,
-            project_thumbnail_path="output/proj1/thumbnail.png",
+            project_thumbnail_path="output/proj1/thumb.png",
         )
 
         # One scan inserted
@@ -126,7 +126,7 @@ class TestDatabaseModule(unittest.TestCase):
             self.assertIsNotNone(cur.fetchone())
             cur.execute("SELECT thumbnail_path FROM projects WHERE name = ?", ('proj1',))
             thumb = cur.fetchone()[0]
-            self.assertEqual(thumb, "output/proj1/thumbnail.png")
+            self.assertEqual(thumb, "output/proj1/thumb.png")
             cur.execute("SELECT s.name FROM skills s JOIN project_skills ps ON s.id = ps.skill_id JOIN projects p ON ps.project_id = p.id WHERE p.name = ?", ('proj1',))
             skills = {r[0] for r in cur.fetchall()}
             self.assertIn('testing', skills)

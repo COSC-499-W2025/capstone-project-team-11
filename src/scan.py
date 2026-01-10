@@ -227,7 +227,7 @@ def _prepare_project_thumbnail(source_path: str, project_name: str) -> str:
 
     dest_dir = os.path.join("output", project_name)
     os.makedirs(dest_dir, exist_ok=True)
-    dest_path = os.path.join(dest_dir, f"thumbnail{ext}")
+    dest_path = os.path.join(dest_dir, os.path.basename(source_path))
 
     try:
         if os.path.abspath(source_path) != os.path.abspath(dest_path):
