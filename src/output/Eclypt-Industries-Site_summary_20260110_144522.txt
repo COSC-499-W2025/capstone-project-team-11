@@ -1,0 +1,31 @@
+=============================================
+         PROJECT INFORMATION SUMMARY         
+=============================================
+
+Generated at: 2026-01-10T14:45:22
+Project Name: Eclypt-Industries-Site
+Project Path: C:\Users\tyler\Documents\GitHub\Eclypt-Industries-Site
+
+Languages Detected:
+CSS, HTML, JSON (Web Config), JavaScript, PHP, Python, React (TypeScript), Ruby, Swift, TypeScript
+
+Frameworks Detected:
+Next.js, React, Tailwind CSS
+
+Skills Detected:
+Technical Writing
+
+=== Contribution Summary ===
+- dylangill1921: 3 commits, ['.vscode/settings.json', 'README.md', 'web/.gitignore', 'web/README.md', 'web/app/case-studies/page.tsx', 'web/app/favicon.ico', 'web/app/get-started/page.tsx', 'web/app/globals.css', 'web/app/layout.tsx', 'web/app/page.tsx', 'web/app/start-project/page.tsx', 'web/components/layout/Navbar.tsx', 'web/components/sections/Contact.tsx', 'web/components/sections/DecisionEnablers.tsx', 'web/components/sections/Footer.tsx', 'web/components/sections/Hero.tsx', 'web/components/sections/Reviews.tsx', 'web/components/sections/Services.tsx', 'web/components/ui/Button.tsx', 'web/components/ui/ParticleBackground.tsx', 'web/components/ui/SmoothScroll.tsx', 'web/eslint.config.mjs', 'web/lib/utils.ts', 'web/next.config.ts', 'web/package-lock.json', 'web/package.json', 'web/postcss.config.mjs', 'web/public/eci.png', 'web/tailwind.config.ts', 'web/tsconfig.json'] files changed
+- dylan: 1 commits, ['README.md'] files changed
+
+=== Git Metrics ===
+Project duration: 3 days
+Total commits: 4
+Activity by category:
+  other: 3
+  design: 1
+  docs: 2
+  code: 1
+
+=============================================
