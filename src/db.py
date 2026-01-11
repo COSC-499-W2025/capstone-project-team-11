@@ -2,6 +2,7 @@ import sqlite3
 import os
 import time
 import json
+from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
 # Allow overriding database path via environment for tests or custom locations
@@ -58,16 +59,27 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
     Returns scan_id
     """
     conn = get_connection()
-    # Ensure foreign keys and sensible journaling
     conn.execute('PRAGMA foreign_keys = ON')
     cur = conn.cursor()
+
     try:
         if project_thumbnail_path is not None:
             _ensure_projects_thumbnail_column(conn)
+
         cur.execute('BEGIN')
+
+        project_name = project or os.path.basename(scan_source)
+
         # create scan
-        cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
+        cur.execute(
+            "INSERT INTO scans (project, notes) VALUES (?, ?)",
+            (project_name, notes)
+        )
         scan_id = cur.lastrowid
+
+        #  keep ONLY the newest scan's data for this project
+        prune_old_project_scans(conn, project_name, keep_scan_id=scan_id)
+
 
         # link or create project row if provided, and persist project-level metadata
         project_id = None
