@@ -350,6 +350,7 @@ This week, we mainly focused on understanding the Milestone 2 deliverables and d
 ### Reviews: 
 - Tyler's Incremental resume information (version 1) (PR #245)
 - Tyler's Individual Logs (PR #246)
+- Pri's Duplicate project scans (PR #249)
   
 ## In progress tasks
 - API endpoint integration
@@ -357,4 +358,4 @@ This week, we mainly focused on understanding the Milestone 2 deliverables and d
 ## Planned tasks for next sprint
 - Complete API Integration and start working on LLM integration
 
-<img width="737" height="443" alt="Screenshot 2026-01-11 at 10 35 38 AM" src="https://github.com/user-attachments/assets/ce579866-a307-4f92-96cb-aae78e0cddfc" />
+<img width="833" height="498" alt="Screenshot 2026-01-11 at 1 18 38 PM" src="https://github.com/user-attachments/assets/d8e1ca33-3d6a-47b6-a27a-6170cc24fc08" />
