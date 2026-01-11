@@ -597,17 +597,12 @@ from regenerate_resume_scan import resume_scan
 def handle_add_to_resume(resume_row, path):
     """
     resume_row is the DB row for the currently selected resume
-    Must contain: id, username, resume_path
     path is directory or zip to scan
     """
-
     print("\n=== Scanning new directory ===")
-
     resume_scan(path, save_to_db=True)
 
-
     print("\n=== Regenerating resume ===")
-
     regenerate_resume(
         username=resume_row["username"],
         resume_path=resume_row["resume_path"],
