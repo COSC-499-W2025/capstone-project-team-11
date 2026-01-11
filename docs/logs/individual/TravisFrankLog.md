@@ -243,3 +243,30 @@ I feel it has been a succecsul milestone/semester and am happy with where our pr
 Plans for reading break:
 - Begin outlining work for **Milestone 2**
 - Improve summary/report generation pipeline based on milestone feedback
+
+---
+
+# Semester 2 – Week 1 Personal Log (January 5th - 11th, 2026)
+
+During the first week of Semester 2, the team regrouped following the reading break to transition into Milestone 2 development. We reviewed feedback from Milestone 1, clarified technical priorities, and began implementing features aimed at strengthening project traceability and portfolio readiness. My primary focus this week was contributing to the backend design and CLI integration of the Project Evidence module, establishing infrastructure to support richer reporting and résumé-generation outputs later in the milestone.
+
+Overall, this was a highly productive first week back. Establishing a clean, testable evidence layer early in Milestone 2 positions the team well for building more advanced reporting and export features, and I’m excited to see how it integrates with our existing contribution metrics.
+
+<img width="1141" height="683" alt="Screenshot 2026-01-11 at 3 29 15 PM" src="https://github.com/user-attachments/assets/6bcc4a23-a0c7-4351-b55b-3774f07a81ba" />
+
+## Tasks Completed
+ - Reviewed Milestone 1 feedback and helped plan Milestone 2 priorities
+ - Class meeting to go over Milestone 1 deliverables
+ - Implemented **Project Evidence Module** with full backend support (Issue #234, PR #250)
+ - Integrated new **“Manage Project Evidence”** option into the main CLI menu (`main_menu.py`)
+ - Added comprehensive test coverage (`test_project_evidence.py` + menu-related tests)
+ - Updated individual log and synced team progress on the project board
+
+<img width="1071" height="114" alt="Screenshot 2026-01-11 at 3 33 57 PM" src="https://github.com/user-attachments/assets/0007c0f8-906e-428c-8f8f-cd48a301f539" />
+
+### Plans for Week 2
+- Await feedback on Pr #250
+- Begin integrating evidence data into project summary and reporting outputs to complete issue #234
+- Continue reviewing teammate PRs as Milestone 2 development ramps up  
+- Help refine documentation for the evidence management workflow  
+- Participate in team planning sessions to align on LLM integration possibilities and remaining Milestone 2 deliverables  
