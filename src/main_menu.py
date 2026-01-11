@@ -37,6 +37,7 @@ from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
+from project_evidence import handle_project_evidence
 
 
 def print_main_menu():
@@ -47,9 +48,10 @@ def print_main_menu():
     print("3. Rank projects")
     print("4. Summarize contributor projects")
     print("5. Generate Project Summary Report")
-    print("6. Generate Resume")
-    print("7. View Resumes")
-    print("8. Exit")
+    print("6. Manage Project Evidence")
+    print("7. Generate Resume")
+    print("8. View Resumes")
+    print("9. Exit")
 
 
 def handle_scan_directory():
@@ -618,7 +620,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-8): ").strip()
+        choice = input("\nSelect an option (1-9): ").strip()
         
         if choice == "1":
             handle_scan_directory()
@@ -631,14 +633,16 @@ def main():
         elif choice == "5":
             handle_generate_project_summary()
         elif choice == "6":
-            handle_generate_resume()
+            handle_project_evidence()
         elif choice == "7":
-            handle_view_resumes()
+            handle_generate_resume()
         elif choice == "8":
+            handle_view_resumes()
+        elif choice == "9":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-7.")
+            print("\nInvalid option. Please select a number between 1-9.")
         
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
