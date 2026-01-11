@@ -323,3 +323,38 @@ With exams starting and projects wrapping up in other courses, this was still a 
 - Christmas Break
 
 <img width="739" height="495" alt="Screenshot 2025-12-07 at 5 11 10 PM" src="https://github.com/user-attachments/assets/7d882fb9-c604-445b-af30-0e1f3ce73727" />
+
+# T2 Week #1 Personal Logs (Jan 5th - 11th)
+
+<img width="936" height="535" alt="Screenshot 2026-01-11 at 10 22 59 AM" src="https://github.com/user-attachments/assets/6ee6a6ed-f17b-4efb-a2e8-84f77a889b2b" />
+
+## Tasks Completed:
+This week, I worked on adding the project thumbnail feature. This feature allows the user to upload an image to be used as a thumbnail for a scanned project. This will be useful for our future frontend UI.
+- Closed issue #235
+
+### Reflection of the past week:
+This week, we mainly focused on understanding the Milestone 2 deliverables and dividing the tasks among our group members. We have had good communication among our team members and have accomplished our tasks with minimal problems so far. Next week we are planning to dive deeping into a true API integration as well as starting on our LLM route. 
+
+
+### Additions and Features:
+- **`init_db.sql`**: Added `thumbnail_path` column to `projects`
+- **`db.py`**: Added `_ensure_projects_thumbnail_column` to migrate existing DBs. `save_scan` now accepts `project_thumbnail_path` and updates the project row when provided.
+- **`file_utils.py`**: Added `IMAGE_EXTENSIONS` and `is_image_file` for thumbnail validation
+- **`scan.py`**: Added` _prepare_project_thumbnail` to copy the chosen image into `output/<project>/<original_name>.<ext>`. Threaded `project_thumbnail_path` through `_persist_scan`, `list_files_in_directory`, and `run_with_saved_settings`.
+- **`main_menu.py`**: Added optional thumbnail prompt when saving scans to the DB
+
+### Testing: 
+- **`test_db_updates.py`**: Verified `projects.thumbnail_path` exists in schema. Asserted `save_scan` persists the thumbnail path.
+- **`scan_db_test.py`**: Added a thumbnail persistence test using `_prepare_project_thumbnail` and validated the stored path.
+
+### Reviews: 
+- Tyler's Incremental resume information (version 1) (PR #245)
+- Tyler's Individual Logs (PR #246)
+  
+## In progress tasks
+- API endpoint integration
+
+## Planned tasks for next sprint
+- Complete API Integration and start working on LLM integration
+
+<img width="737" height="443" alt="Screenshot 2026-01-11 at 10 35 38 AM" src="https://github.com/user-attachments/assets/ce579866-a307-4f92-96cb-aae78e0cddfc" />
