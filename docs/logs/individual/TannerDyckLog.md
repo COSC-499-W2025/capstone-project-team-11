@@ -1,4 +1,7 @@
-# Tanner Dyck Personal Log
+# Tanner Dyck's Personal Log
+
+# ===== MILESTONE #1 =====
+
 # Week #3 - September 15th-21st
 
 <img width="1078" height="632" alt="TannerDyck-Week3Tasks" src="https://github.com/user-attachments/assets/26dfbdb3-651e-451d-b659-c27fb8ccd9ce" />
@@ -358,3 +361,36 @@ I was able to complete, and mark the following issues as "Done" this week:
 - Request User permission Before Use of External Services (Issue #24)
 - Workaround Analysis if User Denies External Service Permissions (Issue #25)
 <img width="1874" height="893" alt="week14-kanban" src="https://github.com/user-attachments/assets/bc6922b4-360c-40da-9114-3505db336c17" />
+
+# ===== MILESTONE #2 =====
+
+# Week #1 - January 5th - 11th
+
+<img width="699" height="593" alt="t2week1-tasks" src="https://github.com/user-attachments/assets/dfa38c92-1ed5-4fc5-b52e-722094323c27" />
+
+## Tasks Completed:
+This week I focused mainly on implementing an iterable and modifiable portfolio generation feature. This is not an explicit deliverable for milestone 2, but a few of milestone 2's deliverables depend on us having a portfolio generation feature that is distinct from resume generation, something that we had not addressed during milestone 1. This is a sister-feature to Jaxson's `generate_resume.py` file, so I have tried to maintain a level of parity between the two codebases, and resuse logic when possible.
+- Added `generate_portfolio.py` to host all of the core logic for portfolio assembly and generation (See PR #253 for more details)
+- Integrated portfolio generation script directly into main_menu.py
+- Added `test_portfolio_generation` to be a testing suite for portfolio-generation-related functionalities (See PR #253 for more details)
+- I also converted milestone 2's 10 deliverables into GitHub issues for our project's Kanban board and added descriptions where necessary
+
+### Other Contributions:
+In addition to these changes, I performed my usual responsibilities of:
+- Communicating regularly throughout the week in our Discord server and describing my changes and implementations to my teammates
+- Reviewing and getting familiar with code contributions made by teammates, and approving team/individual log PRs as necessary
+- Completing both my individual log and peer review for T2 Week 1
+
+## Reflection Points
+This week went fairly well in my opinion. I feel we lost a bit of momentum over our month-long break, which is to be expected. The start to this week was a little bit slow, we were all processing and trying to come up with development plans for the new set of milestone deliverables. I feel that we had some hesitancy getting started and diving back into our growing codebase. By Wednesday night we had come up with a pretty solid plan, all the teammates assigned themselves to various tasks across our Kanban board, and we had a good amount of code pushed before the weekend. This week was difficult, as the deliverables for this milestone are fairly large-scale, and depend on functionality that we did not have perfectly polished by the end of milestone 1, but we did a good job at pointing out areas we needed to tighten up. Some deliverables are currently unable to be completed due to their reliance on unpolished prior functionality, but my teammates did a great job of communicating stopping points, and build solid foundations for their features that can be finished in the coming weeks. Overall, I am happy with how we started milestone 2, and I imagine it will only improve moving forward!
+
+## Next Week (T2 Week #2)
+Next week I hope to continue polishing my "Portfolio generation feature":
+- Add database support (Create a portfolio table in the schema to allow for the saving and deletion of portfolios to/from the local database)
+- Add a "View Portfolios" option in the main menu, where users will be able to view, delete, or add to their generated portfolios (Ensures parity with current resume functionalities)
+- Add useful performance metrics for collaborative projects (user's commits vs total commits percentage, ranked collaborators per project, etc.)
+Assuming I have extra time to work on other things, I could take a look at slightly revamping resume generation, so that both file types have a high level of parity between them and are prepared for the deliverables that rely on them. 
+
+## Kanban Board at End of Week #13
+I was unable to complete or mark any issues as "Done" this week, as I mainly worked on implementing a feature we should have implemented in milestone 1. However, I picked up a few larger-scale issues that I will have as "In-progress" for a portion of this milestone. 
+<img width="1875" height="929" alt="t2week1-kanban" src="https://github.com/user-attachments/assets/0d19b401-0ba4-4924-957a-6f9904426e3a" />
