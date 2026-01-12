@@ -217,6 +217,27 @@ This is the final week of the semester and the deadline for milestone 1. It was 
 ## Winter Break plans
 Sleep and relax. Potentially look into APIs and LLMs to integrate.
 
+<br></br>
+# Milsestone 2
+<br></br>
+# Week 1 (January 5th - 11th)
+<img width="799" height="466" alt="image" src="https://github.com/user-attachments/assets/749d4e4d-0293-4f1b-9ba3-0804a918cbb7" />
+
+## Tasks completed:
+- Worked on identifying key roles of a project
+  - Heuristic Role Classification
+  - Role Pattern Mapping
+  - Contribution Breakdown Analysis
+ - Reviewed PRs
+ - Team log
+ - Individual logs
+
+## Reflection
+Overall, this week went pretty well considering we are all coming back from a long break. We all communicated well and were able to push a couple new fetures and lay down the foundation for future improvements. We also took a look at some features from milestone 1 that appeared to lose us some marks which we will address in our weekly checkin this week. This was a positive week for the group as we strive to improve our project.
+
+## Week 2 plans
+- Integrate key roles of users into the menu
+- Look into APIs and LLMs to improve insights. 
 
 
 
