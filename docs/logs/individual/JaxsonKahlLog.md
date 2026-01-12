@@ -335,7 +335,6 @@ This week, I worked on adding the project thumbnail feature. This feature allows
 ### Reflection of the past week:
 This week, we mainly focused on understanding the Milestone 2 deliverables and dividing the tasks among our group members. We have had good communication among our team members and have accomplished our tasks with minimal problems so far. Next week we are planning to dive deeping into a true API integration as well as starting on our LLM route. 
 
-
 ### Additions and Features:
 - **`init_db.sql`**: Added `thumbnail_path` column to `projects`
 - **`db.py`**: Added `_ensure_projects_thumbnail_column` to migrate existing DBs. `save_scan` now accepts `project_thumbnail_path` and updates the project row when provided.
@@ -351,6 +350,8 @@ This week, we mainly focused on understanding the Milestone 2 deliverables and d
 - Tyler's Incremental resume information (version 1) (PR #245)
 - Tyler's Individual Logs (PR #246)
 - Pri's Duplicate project scans (PR #249)
+- Travis's project evidence module and tests (PR #250)
+- Travis's Individual Logs (PR #251)
   
 ## In progress tasks
 - API endpoint integration
@@ -358,4 +359,4 @@ This week, we mainly focused on understanding the Milestone 2 deliverables and d
 ## Planned tasks for next sprint
 - Complete API Integration and start working on LLM integration
 
-<img width="833" height="498" alt="Screenshot 2026-01-11 at 1 18 38 PM" src="https://github.com/user-attachments/assets/d8e1ca33-3d6a-47b6-a27a-6170cc24fc08" />
+<img width="834" height="469" alt="Screenshot 2026-01-11 at 4 06 43 PM" src="https://github.com/user-attachments/assets/9ca555e2-3317-4788-9062-2345cc35fc5d" />
