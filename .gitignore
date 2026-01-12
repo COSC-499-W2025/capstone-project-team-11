@@ -6,7 +6,8 @@ __pycache__*
 /file_data.db
 /output
 
-# Generated resume files
+# Generated resume and portfolio files
 resumes/
+portfolios/
 
 tempCodeRunnerFile.py

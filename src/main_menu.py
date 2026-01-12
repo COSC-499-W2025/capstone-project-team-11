@@ -49,9 +49,10 @@ def print_main_menu():
     print("4. Summarize contributor projects")
     print("5. Generate Project Summary Report")
     print("6. Manage Project Evidence")
-    print("7. Generate Resume")
-    print("8. View Resumes")
-    print("9. Exit")
+    print("7. Generate Resume (User-centric)")
+    print("8. Generate Portfolio (Project-centric)")
+    print("9. View Resumes")
+    print("10. Exit")
 
 
 def handle_scan_directory():
@@ -474,6 +475,23 @@ def handle_generate_resume():
         print(f"Failed to run resume generator: {e}")
 
 
+def handle_generate_portfolio():
+    """Run the portfolio generator script."""
+    print("\n=== Generate Portfolio ===")
+    script_path = os.path.join(os.path.dirname(__file__), 'generate_portfolio.py')
+    if not os.path.exists(script_path):
+        print(f"Portfolio generator script not found at: {script_path}")
+        return
+
+    cmd = [sys.executable, script_path]
+    try:
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"Portfolio generator exited with code {result.returncode}")
+    except Exception as e:
+        print(f"Failed to run portfolio generator: {e}")
+
+
 def _pager(text: str):
     """Display text with paging if available, else print."""
     try:
@@ -653,8 +671,8 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-9): ").strip()
-        
+        choice = input("\nSelect an option (1-10): ").strip()
+
         if choice == "1":
             handle_scan_directory()
         elif choice == "2":
@@ -670,13 +688,15 @@ def main():
         elif choice == "7":
             handle_generate_resume()
         elif choice == "8":
-            handle_view_resumes()
+            handle_generate_portfolio()
         elif choice == "9":
+            handle_view_resumes()
+        elif choice == "10":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-9.")
-        
+            print("\nInvalid option. Please select a number between 1-10.")
+
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
 
