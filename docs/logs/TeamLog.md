@@ -661,3 +661,98 @@ As we reached the **end of Milestone 1**, our team demonstrated strong coordinat
 - Begin planning next development steps for Milestone 2  
 - Conduct a milestone retrospective to identify process improvements  
 - Adjust workflows based on TA/professor feedback
+
+<br></br>
+# Milestone 2
+<br></br>
+# Team 11 - Week 1 Team Log (January 5th - January 11th)
+Team Members      --> GitHub Username  
+- Priyanshu Chugh --> priyanshupc04  
+- Tyler Cummings  --> TylerC-3042  
+- Tanner Dyck     --> TannerDyck  
+- Travis Frank    --> travis-frank  
+- Jaxson Kahl     --> jaxsonkahl  
+- Daniel Sokic    --> danielsokic  
+
+## Overview
+After completing Milestone 1 and returning from winter break, the team got back together in communication and began slowly introducing new features for Milestone 2. This week, the team made strong progress across core infrastructure, data quality, automation, and intelligence features. Jaxson implemented optional project thumbnail support throughout the scan workflow, including schema updates, migration handling, file validation, and full test coverage. Daniel introduced a low-level, heuristic-based role detection system that analyzes contribution patterns and file types to transparently infer contributor roles without using LLMs. Priyanshu improved data integrity by fixing duplicate scan issues, ensuring only the latest scan data is retained per project and adding cleanup logic with supporting tests. Tyler delivered a resume regeneration workflow, enabling automated rescans and resume updates with robust unit testing and seamless integration into existing menus and scan logic. Travis worked on the evidence of success feature that implements the backend storage + user management piece. Travis communicated to the team that he plans to continue working on this feature  to integrate output models (portfolio generation, resume export, markdown reports, etc.). Tanner introduced a core portfolio generation feature that creates sectional markdown files from scanned project data, reusing components from the resume generation system. It assembles project insights, technology summaries, and contribution metrics per user, saving the portfolios in the portfolios/ folder, with plans to later integrate viewing, database tracking, and enhanced contribution metrics.Overall, the team significantly advanced usability, reliability, automation, and analytical depth of the system.
+
+## Burnup Chart
+<img width="902" height="476" alt="image" src="https://github.com/user-attachments/assets/2acf7835-161a-4b85-9a7c-6b165a49ab8a" />
+
+
+
+## Team Members Completed Tasks
+### Daniel
+- PR #243: Added Key Roles for a user
+### Jaxson
+- PR #242: Added project thumbnail persistence and tests
+### Priyanshu
+- PR #249: Feature/deduplicate project scans
+### Travis
+- PR #250: Add project evidence module and tests 
+### Tyler 
+- PR #248: Incremental resume information
+### Tanner 
+- PR #253: Added core logic for portfolio generation
+### All Members:
+- Code reviews and verification  
+- Completion of individual logs and peer reviews
+
+## Testing Report
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
+### Tests Added:
+**scan_db_test.py**
+- `test_thumbnail_path_saved_on_project`: Verifies that when a project is scanned with a provided thumbnail, the thumbnail file path is correctly saved to the projects.thumbnail_path column in the database.
+
+**test_detect_roles.py**
+- `TestCategorizeContributorRole`: Verifies that individual contributors are correctly classified into roles (Backend, Frontend, QA, UI/UX, Full Stack, Contributor) based on files and activity.
+- `TestCalculateRoleScores`: Ensures role scores are correctly computed from file extensions and activity breakdowns.
+- `TestCalculateRoleConfidence`: Validates that confidence levels are calculated appropriately for dominant, balanced, and leadership roles.
+- `TestAnalyzeProjectRoles`: Checks full project role analysis for empty, single-contributor, and multi-contributor projects.
+- `TestFormatRolesReport`: Confirms that the formatted roles report output contains the expected structure and content.
+
+**test_db_maintenance.py**
+- `test_prune_deletes_old_scans_and_related_rows`: Verifies that older scans and all their related file, contributor, and language records are fully removed while keeping the most recent scan.
+- `test_prune_returns_zero_if_no_old_scans`: Confirms that no rows are deleted when there are no older scans to prune.
+- `test_prune_ignores_other_projects`: Ensures that pruning only affects the specified project and does not delete scans or files from other projects.
+
+**test_regenerate_resume.py**
+
+- `test_normalize_project_name_preserves_acronyms`: Ensures project name normalization keeps acronyms like “API” intact.
+- `test_aggregate_for_user_collects_projects_and_metrics`: Verifies project data, technologies, skills, and metrics are correctly aggregated for a user.
+- `test_render_markdown_includes_key_sections`: Confirms the generated markdown includes all major resume sections.
+- `test_regenerate_resume_writes_file_and_saves_metadata`: Checks that resume regeneration writes the file and calls metadata saving.
+- `test_regenerate_resume_missing_username_raises`: Ensures an error is raised when username is missing.
+- `test_regenerate_resume_missing_path_raises`: Ensures an error is raised when resume path is missing.
+- `test_regenerate_resume_missing_output_root_raises`: Ensures an error is raised when the output directory does not exist.
+- `test_resume_scan_calls_headless_scan`: Verifies that a headless scan is triggered with the correct arguments.
+- `test_resume_scan_nonexistent_path_raises`: Confirms an error is raised for invalid scan paths.
+- `test_resume_scan_with_zip_file_creates_temp_dir`: Ensures zip inputs create a temp extraction directory and trigger a scan.
+
+**test_project_evidence.py**
+- `test_add_and_fetch_evidence_orders_by_created_at`: Verifies that evidence is inserted correctly and returned in descending created_at order.
+- `test_update_evidence_changes_only_requested_fields`: Ensures only the specified fields are updated and empty updates do nothing.
+- `test_delete_evidence_removes_row`: Confirms evidence rows are properly deleted and non-existent IDs are handled safely.
+- `test_format_evidence_list_includes_source_description_and_timestamp`: Checks that formatted evidence output includes source, description, URL, and trimmed timestamps, and handles empty values correctly.
+
+**test_generate_portfolio.py**
+- `test_portfolio_section_render`: Checks that PortfolioSection renders markdown correctly when enabled and returns an empty string when disabled.
+- `test_portfolio_toggle_and_render`: Verifies that Portfolio can toggle sections on/off and produces correct full markdown output.
+- `test_build_overview_section`: Ensures the overview section correctly aggregates languages, frameworks, and skills across multiple projects.
+- `test_build_project_section_types`: Confirms that projects are labeled as either Individual or Collaborative based on contributor count.
+- `test_build_tech_summary`: Tests that the technology summary section aggregates and ranks technologies across all projects.
+- `test_aggregate_projects_includes_metadata`: Checks that projects without git contributions are still included in the portfolio if metadata exists.
+- `test_build_portfolio_structure`: Verifies that the complete portfolio structure contains all required sections and accurate metadata.
+- `test_aggregate_and_build_portfolio`: Validates project collection, aggregation, and the generation of a full portfolio with correct markdown content.
+- `test_cli_generates_portfolio_file`: Ensures the CLI invocation of generate_portfolio.py creates a markdown file with the expected content for a given username.
+
+## Reflection:
+This week was productive, professional, and effective. Oftentimes it can be challenging to regroup after a long break from work however, we came back together as a team to make progress in completing deliverables for this milestone. Tasks were distributed evenly and communication was strong. Each member was able to push code this week and members were available to review PRs and discuss together about concerns and plans in the chat. Since it is only week one of this milestone, features have not been fully completed but the team has put in the work to create a solid foundation that has room for improvement and can be refined into more robust deliverables. Overall the team worked very well together in order to get started and progress through this current milestone.
+
+## Looking ahead to Week 2:
+- Distribute work and plan tasks for the week.
+- Prepare for weekly checkin.
+- Address missing marks from Milestone 1 with TA.
+- Prove PR quiz answers to TA. 
+  
