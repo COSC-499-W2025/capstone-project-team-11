@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 from collections import OrderedDict
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
 
@@ -67,7 +67,7 @@ class Portfolio:
                 lines.append(section.render())
 
         # Footer with generation timestamp
-        timestamp = self.metadata.get('generated_at', datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%SZ'))
+        timestamp = self.metadata.get('generated_at', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ'))
         lines.append(f"\n---\n_Generated: {timestamp}_\n")
 
         return '\n'.join(lines) # Returns complete portfolio in markdown format
@@ -285,7 +285,7 @@ def build_portfolio(username, projects_data, generated_ts=None):
         Portfolio object with all sections
     """
     if generated_ts is None:
-        generated_ts = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%SZ')
+        generated_ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
 
     # Organize sections (Overview -> Projects -> Tech Summary)
     sections = OrderedDict()
@@ -399,8 +399,8 @@ def main():
         return 1
 
     # Build portfolio with timestamps
-    ts_iso = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%SZ')
-    ts_fname = datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')
+    ts_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
+    ts_fname = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 
     portfolio = build_portfolio(username, portfolio_projects, ts_iso)
 
