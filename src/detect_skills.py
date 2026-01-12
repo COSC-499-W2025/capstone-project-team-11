@@ -106,8 +106,16 @@ def detect_skills(directory):
 
     return {
         "languages": langs_and_frameworks["languages"],
+        "high_confidence_languages": langs_and_frameworks["high_confidence"],
+        "medium_confidence_languages": langs_and_frameworks["medium_confidence"],
+        "low_confidence_languages": langs_and_frameworks["low_confidence"],
         "frameworks": langs_and_frameworks["frameworks"],
-        "skills": sorted(all_skills)
+        "high_confidence_frameworks": langs_and_frameworks["high_confidence_frameworks"],
+        "medium_confidence_frameworks": langs_and_frameworks["medium_confidence_frameworks"],
+        "low_confidence_frameworks": langs_and_frameworks["low_confidence_frameworks"],
+        "skills": sorted(all_skills),
+        "language_details": langs_and_frameworks["language_details"],
+        "framework_details": langs_and_frameworks["framework_details"]
     }
 
 # Lets us run this directly from terminal to test a folder.

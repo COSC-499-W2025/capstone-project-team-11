@@ -124,9 +124,18 @@ def gather_project_info(project_path: str) -> dict:
             "project_name": project_name,
             "project_path": display_path,
             "detected_type": "coding_project",
+            # Unfiltered lists
             "languages": skills_data.get("languages", []),
             "frameworks": skills_data.get("frameworks", []),
             "skills": skills_data.get("skills", []),
+            # Confidence-categorized lists
+            "high_confidence_languages": skills_data.get("high_confidence_languages", []),
+            "medium_confidence_languages": skills_data.get("medium_confidence_languages", []),
+            "low_confidence_languages": skills_data.get("low_confidence_languages", []),
+            "high_confidence_frameworks": skills_data.get("high_confidence_frameworks", []),
+            "medium_confidence_frameworks": skills_data.get("medium_confidence_frameworks", []),
+            "low_confidence_frameworks": skills_data.get("low_confidence_frameworks", []),
+            # Additional metadata
             "contributions": contributions,
             "git_metrics": git_metrics if git_metrics else None,
             "generated_at": datetime.now().isoformat(timespec="seconds")
