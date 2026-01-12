@@ -245,5 +245,21 @@ We are in the final week of the semester so there is a lot of tasks that need to
 ## Reflection
 This week was very stressfull but our team managed to pull through, even with last minute bug issues and I was very pleased how we overcame this week 
 
+# Week 1 (January 5th - 11th)
 
+<img width="1058" height="625" alt="Screenshot 2026-01-11 at 5 32 59 PM" src="https://github.com/user-attachments/assets/a5dbd9f1-2d29-4c65-b247-d94722dba05e" />
 
+## Tasks completed:
+-worked on Recognize duplicate files and maintain only one in the system
+-Designed and implemented a cleanup mechanism to ensure only the most recent scan for a project is kept.
+-Added database maintenance logic to remove outdated scans along with their related files, contributors, and language links.
+-Wrote and ran unit tests to ensure old scans are correctly removed and the latest scan data remains intact.
+- Reviewed PRs
+- Individual logs
+
+## Reflection
+In conclusion,this week went pretty decent since we all came back from a break and feeling rusty. We communicated well and started some new features.I was really happy with how our communication was this week espically coming back from a break.This was a positive week for the group as we try to improve our project.
+
+## Week 2 plans
+- start one of the issues we have in the kanban 
+- Look into APIs and LLMs 
