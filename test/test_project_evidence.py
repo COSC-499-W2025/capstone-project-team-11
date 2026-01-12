@@ -33,10 +33,28 @@ class TestProjectEvidence(unittest.TestCase):
             conn.commit()
 
     def tearDown(self):
+        # Close all database connections before cleanup
+        if hasattr(self, 'db'):
+            # Close any open connections
+            try:
+                conn = self.db.get_connection()
+                conn.close()
+            except Exception:
+                pass
+
+        # Force garbage collection (gc) to close any remaining connections
+        import gc
+        gc.collect()
+
         try:
             del os.environ["FILE_DATA_DB_PATH"]
         except KeyError:
             pass
+
+        # Small delay to let connections close properly
+        import time
+        time.sleep(0.1)
+
         self.tmpdir.cleanup()
 
     def test_add_and_fetch_evidence_orders_by_created_at(self):
