@@ -874,6 +874,33 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 print("Warning: failed to persist scan results to database.")
     return files_found
 
+def run_headless_scan(
+    path: str,
+    *,
+    recursive: bool = True,
+    file_type: str = None,
+    save_to_db: bool = True,
+    zip_extract_dir: str = None,
+):
+    """
+    Headless, programmatic scan entrypoint.
+
+    This function performs the exact same scan as scan.py's
+    interactive/CLI path, but without prompts, menus, or config.
+
+    Intended for internal callers (e.g. resume regeneration).
+    """
+
+    return list_files_in_directory(
+        path,
+        recursive=recursive,
+        file_type=file_type,
+        show_collaboration=False,
+        save_to_db=save_to_db,
+        zip_extract_dir=zip_extract_dir,
+    )
+
+
 
 def run_with_saved_settings(
     directory=None,

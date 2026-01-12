@@ -582,7 +582,20 @@ def handle_view_resumes():
         path = selected['resume_path']
         uname = selected['username'] or selected['contributor_name'] or '<unknown>'
         print(f"\nSelected resume for {uname}: {path}")
-        action = input("Choose action: (v)iew, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        if action == 'a':
+            path = input("\nEnter directory or .zip to add to this resume: ").strip()
+
+            if not path:
+                print("No directory entered. Aborting.")
+                return
+
+            if not os.path.exists(path):
+                print("Path does not exist.")
+                return
+
+            handle_add_to_resume(selected, path)
+            return
         if action == 'c':
             conn.close()
             return
@@ -614,6 +627,26 @@ def handle_view_resumes():
             conn.close()
         except Exception:
             pass
+
+from regenerate_resume import regenerate_resume
+from regenerate_resume_scan import resume_scan
+
+def handle_add_to_resume(resume_row, path):
+    """
+    resume_row is the DB row for the currently selected resume
+    path is directory or zip to scan
+    """
+    print("\n=== Scanning new directory ===")
+    resume_scan(path, save_to_db=True)
+
+    print("\n=== Regenerating resume ===")
+    regenerate_resume(
+        username=resume_row["username"],
+        resume_path=resume_row["resume_path"],
+    )
+
+    print("\nResume successfully updated.")
+
 
 
 def main():
