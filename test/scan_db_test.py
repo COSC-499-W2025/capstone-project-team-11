@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 import db as dbmod
 from db import get_connection, init_db
-from scan import list_files_in_directory
+from scan import list_files_in_directory, _prepare_project_thumbnail
 
 
 class TestScanDbPersistence(unittest.TestCase):
@@ -197,6 +197,57 @@ class TestMetadataJsonValid(unittest.TestCase):
         except Exception:
             pass
         shutil.rmtree(self.tmp_dir)
+
+
+class TestProjectThumbnailPersistence(unittest.TestCase):
+    def setUp(self):
+        self.tmp_db = tempfile.NamedTemporaryFile(delete=False)
+        self.tmp_db.close()
+        dbmod.DB_PATH = self.tmp_db.name
+        init_db()
+
+        self.tmp_dir = tempfile.mkdtemp()
+        p = os.path.join(self.tmp_dir, 'a.txt')
+        with open(p, 'w', encoding='utf-8') as f:
+            f.write('data')
+        self.file_path = p
+
+        self.thumb_dir = tempfile.mkdtemp()
+        self.thumb_path = os.path.join(self.thumb_dir, 'thumb.png')
+        with open(self.thumb_path, 'wb') as f:
+            f.write(b'\x89PNG\r\n\x1a\n')
+
+    def tearDown(self):
+        try:
+            os.unlink(self.tmp_db.name)
+        except Exception:
+            pass
+        shutil.rmtree(self.tmp_dir)
+        shutil.rmtree(self.thumb_dir)
+        out_dir = os.path.join("output", os.path.basename(os.path.abspath(self.tmp_dir)))
+        if os.path.isdir(out_dir):
+            shutil.rmtree(out_dir)
+
+    def test_thumbnail_path_saved_on_project(self):
+        project_name = os.path.basename(os.path.abspath(self.tmp_dir))
+        expected_path = _prepare_project_thumbnail(self.thumb_path, project_name)
+        self.assertIsNotNone(expected_path)
+        list_files_in_directory(
+            self.tmp_dir,
+            recursive=False,
+            file_type=None,
+            save_to_db=True,
+            project_thumbnail_path=expected_path,
+        )
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT thumbnail_path FROM projects WHERE name = ?", (project_name,))
+        row = cur.fetchone()
+        conn.close()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row[0], expected_path)
 
     def test_metadata_json_is_valid_json_string(self):
         list_files_in_directory(self.tmp_dir, recursive=False, file_type=None, save_to_db=True)

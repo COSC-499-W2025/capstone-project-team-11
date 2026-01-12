@@ -43,8 +43,26 @@ CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE,
     repo_url TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    thumbnail_path TEXT
 );
+
+-- Table to store evidence related to projects
+CREATE TABLE IF NOT EXISTS project_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    type TEXT NOT NULL,  -- examples: 'metric', 'feedback', 'award', 'link', 'testimonial'
+    description TEXT,    -- short label or context
+    value TEXT,          -- the actual content, e.g. "10k+ downloads", "Client said: exceeded expectations"
+    source TEXT,         -- e.g. "GitHub", "Google Play", "Email", "Internal"
+    url TEXT,            -- optional hyperlink
+    added_by_user BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+-- Index for faster searching by project_id
+CREATE INDEX IF NOT EXISTS idx_project_evidence_project_id ON project_evidence (project_id);
 
 -- Contributors (commit authors). We intentionally do not store emails to keep privacy.
 CREATE TABLE IF NOT EXISTS contributors (

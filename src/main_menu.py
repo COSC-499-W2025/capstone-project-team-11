@@ -36,6 +36,8 @@ from rank_projects import (
 from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
+from file_utils import is_image_file
+from project_evidence import handle_project_evidence
 
 
 def print_main_menu():
@@ -46,9 +48,11 @@ def print_main_menu():
     print("3. Rank projects")
     print("4. Summarize contributor projects")
     print("5. Generate Project Summary Report")
-    print("6. Generate Resume")
-    print("7. View Resumes")
-    print("8. Exit")
+    print("6. Manage Project Evidence")
+    print("7. Generate Resume (User-centric)")
+    print("8. Generate Portfolio (Project-centric)")
+    print("9. View Resumes")
+    print("10. Exit")
 
 
 def handle_scan_directory():
@@ -86,6 +90,23 @@ def handle_scan_directory():
     
     if use_saved and current.get("directory"):
         save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        thumbnail_source = None
+        if save_db:
+            saved_dir = current.get("directory")
+            if saved_dir and not (os.path.isfile(saved_dir) and saved_dir.lower().endswith('.zip')):
+                if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
+                    while True:
+                        path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
+                        if not path:
+                            break
+                        if not os.path.isfile(path):
+                            print("Thumbnail path does not point to a file.")
+                            continue
+                        if not is_image_file(path):
+                            print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
+                            continue
+                        thumbnail_source = path
+                        break
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=current.get("recursive_choice"),
@@ -95,6 +116,7 @@ def handle_scan_directory():
             show_contribution_summary=current.get("show_contribution_summary"),
             save=False,
             save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
         )
     else:
         directory = input("Enter directory path or zip file path: ").strip()
@@ -110,6 +132,21 @@ def handle_scan_directory():
         show_summary = ask_yes_no("Show contribution summary? (y/n): ")
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
         save_db = ask_yes_no("Save scan results to database? (y/n): ")
+        thumbnail_source = None
+        if save_db and not (os.path.isfile(directory) and directory.lower().endswith('.zip')):
+            if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
+                while True:
+                    path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
+                    if not path:
+                        break
+                    if not os.path.isfile(path):
+                        print("Thumbnail path does not point to a file.")
+                        continue
+                    if not is_image_file(path):
+                        print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
+                        continue
+                    thumbnail_source = path
+                    break
         
         run_with_saved_settings(
             directory=directory,
@@ -120,6 +157,7 @@ def handle_scan_directory():
             show_contribution_summary=show_summary,
             save=remember,
             save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
         )
     
     selected_dir = current.get("directory") if use_saved else directory
@@ -437,6 +475,23 @@ def handle_generate_resume():
         print(f"Failed to run resume generator: {e}")
 
 
+def handle_generate_portfolio():
+    """Run the portfolio generator script."""
+    print("\n=== Generate Portfolio ===")
+    script_path = os.path.join(os.path.dirname(__file__), 'generate_portfolio.py')
+    if not os.path.exists(script_path):
+        print(f"Portfolio generator script not found at: {script_path}")
+        return
+
+    cmd = [sys.executable, script_path]
+    try:
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"Portfolio generator exited with code {result.returncode}")
+    except Exception as e:
+        print(f"Failed to run portfolio generator: {e}")
+
+
 def _pager(text: str):
     """Display text with paging if available, else print."""
     try:
@@ -545,7 +600,20 @@ def handle_view_resumes():
         path = selected['resume_path']
         uname = selected['username'] or selected['contributor_name'] or '<unknown>'
         print(f"\nSelected resume for {uname}: {path}")
-        action = input("Choose action: (v)iew, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        if action == 'a':
+            path = input("\nEnter directory or .zip to add to this resume: ").strip()
+
+            if not path:
+                print("No directory entered. Aborting.")
+                return
+
+            if not os.path.exists(path):
+                print("Path does not exist.")
+                return
+
+            handle_add_to_resume(selected, path)
+            return
         if action == 'c':
             conn.close()
             return
@@ -578,13 +646,33 @@ def handle_view_resumes():
         except Exception:
             pass
 
+from regenerate_resume import regenerate_resume
+from regenerate_resume_scan import resume_scan
+
+def handle_add_to_resume(resume_row, path):
+    """
+    resume_row is the DB row for the currently selected resume
+    path is directory or zip to scan
+    """
+    print("\n=== Scanning new directory ===")
+    resume_scan(path, save_to_db=True)
+
+    print("\n=== Regenerating resume ===")
+    regenerate_resume(
+        username=resume_row["username"],
+        resume_path=resume_row["resume_path"],
+    )
+
+    print("\nResume successfully updated.")
+
+
 
 def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-8): ").strip()
-        
+        choice = input("\nSelect an option (1-10): ").strip()
+
         if choice == "1":
             handle_scan_directory()
         elif choice == "2":
@@ -596,15 +684,19 @@ def main():
         elif choice == "5":
             handle_generate_project_summary()
         elif choice == "6":
-            handle_generate_resume()
+            handle_project_evidence()
         elif choice == "7":
-            handle_view_resumes()
+            handle_generate_resume()
         elif choice == "8":
+            handle_generate_portfolio()
+        elif choice == "9":
+            handle_view_resumes()
+        elif choice == "10":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-7.")
-        
+            print("\nInvalid option. Please select a number between 1-10.")
+
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
 

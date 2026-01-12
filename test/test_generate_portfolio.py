@@ -1,0 +1,219 @@
+import os
+import sys
+import unittest
+import json
+import tempfile
+import subprocess
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+import generate_portfolio as gp
+
+from collections import OrderedDict
+from generate_resume import collect_projects
+
+class TestGeneratePortfolio(unittest.TestCase):
+
+    # Set up output directory path
+    def setUp(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        self.output_dir = os.path.join(repo_root, 'output')
+
+    # Verify PortfolioSection renders markdown when enabled and returns empty string when disabled
+    def test_portfolio_section_render(self):
+        section = gp.PortfolioSection('test', 'Test', 'Content', enabled=True)
+        self.assertIn('## Test', section.render())
+        self.assertIn('Content', section.render())
+
+        section.enabled = False
+        self.assertEqual(section.render(), '')
+
+    # Verify Portfolio class can toggle sections and render complete markdown output
+    def test_portfolio_toggle_and_render(self):
+        sections = OrderedDict()
+        sections['overview'] = gp.PortfolioSection('overview', 'Overview', 'Test overview')
+
+        portfolio = gp.Portfolio('john', sections)
+        self.assertEqual(portfolio.username, 'john')
+
+        portfolio.toggle_section('overview')
+        self.assertFalse(portfolio.sections['overview'].enabled)
+
+        md = portfolio.render_markdown()
+        self.assertIn('# Portfolio — john', md)
+
+    # Verify overview section aggregates technologies and skills across multiple projects
+    def test_build_overview_section(self):
+        projects_data = [
+            {'languages': ['Python', 'JavaScript'], 'frameworks': ['React'], 'skills': ['API Design']},
+            {'languages': ['Python', 'SQL'], 'frameworks': ['Django'], 'skills': ['Database Design']}
+        ]
+        section = gp.build_overview_section(projects_data, 'john')
+
+        self.assertEqual(section.section_id, 'overview')
+        self.assertIn('2 project(s)', section.content)
+        self.assertIn('Python', section.content)
+        self.assertIn('React', section.content)
+
+    # Verify project sections correctly label projects as Individual or Collaborative based on contributor count
+    def test_build_project_section_types(self):
+        collab_project = {
+            'project_name': 'CollabProject',
+            'path': '/path',
+            'languages': ['Python'],
+            'frameworks': [],
+            'skills': [],
+            'user_commits': 10,
+            'user_files': ['file1.py'],
+            'git_metrics': {'commits_per_author': {'john': 5, 'jane': 5}}
+        }
+        section = gp.build_project_section(collab_project, 1)
+        self.assertIn('(Collaborative Project)', section.content)
+
+        solo_project = {
+            'project_name': 'SoloProject',
+            'path': '/path',
+            'languages': ['JavaScript'],
+            'frameworks': [],
+            'skills': [],
+            'user_commits': 0,
+            'user_files': [],
+            'git_metrics': {}
+        }
+        section2 = gp.build_project_section(solo_project, 2)
+        self.assertIn('(Individual Project)', section2.content)
+
+    # Verify technology summary aggregates and ranks tech usage across all projects
+    def test_build_tech_summary(self):
+        projects_data = [
+            {'project_name': 'A', 'languages': ['Python'], 'frameworks': ['React']},
+            {'project_name': 'B', 'languages': ['Python', 'Java'], 'frameworks': []},
+        ]
+        section = gp.build_tech_summary_section(projects_data)
+
+        self.assertEqual(section.section_id, 'tech_summary')
+        self.assertIn('Python', section.content)
+        self.assertIn('2 projects', section.content)
+
+    # Verify aggregation includes non-git projects with metadata even without user contributions
+    def test_aggregate_projects_includes_metadata(self):
+        all_projects = {
+            'UserProject': {
+                'project_path': '/user',
+                'languages': ['Python'],
+                'frameworks': [],
+                'skills': [],
+                'contributions': {'john': {'commits': 5, 'files': ['a.py']}},
+                'git_metrics': {}
+            },
+            'NonGitProject': {
+                'project_path': '/nongit',
+                'languages': ['HTML'],
+                'frameworks': ['Bootstrap'],
+                'skills': ['Frontend'],
+                'contributions': {},
+                'git_metrics': None
+            }
+        }
+
+        portfolio_projects = gp.aggregate_projects_for_portfolio('john', all_projects, {})
+
+        # Should include both: one with user contribution, one with metadata
+        self.assertEqual(len(portfolio_projects), 2)
+        project_names = [p['project_name'] for p in portfolio_projects]
+        self.assertIn('UserProject', project_names)
+        self.assertIn('NonGitProject', project_names)
+
+    # Verify complete portfolio has all required sections and metadata
+    def test_build_portfolio_structure(self):
+        projects_data = [
+            {'project_name': 'A', 'path': '/a', 'languages': ['Python'], 'frameworks': [],
+             'skills': [], 'user_commits': 0, 'user_files': [], 'git_metrics': {}}
+        ]
+
+        portfolio = gp.build_portfolio('john', projects_data, '2026-01-11 12:00:00Z')
+
+        self.assertEqual(portfolio.username, 'john')
+        self.assertIn('overview', portfolio.sections)
+        self.assertIn('project_1', portfolio.sections)
+        self.assertIn('tech_summary', portfolio.sections)
+        self.assertEqual(portfolio.metadata['project_count'], 1)
+
+
+class RobustGeneratePortfolioTests(unittest.TestCase):
+
+    # Set up temporary output and portfolio directories with sample project data
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.output_root = os.path.join(self.tmpdir.name, 'output')
+        os.makedirs(self.output_root, exist_ok=True)
+
+        # Create fake project with contributions
+        proj_dir = os.path.join(self.output_root, 'test-project-john')
+        os.makedirs(proj_dir, exist_ok=True)
+        project_info = {
+            'project_name': 'test-project-john',
+            'project_path': proj_dir,
+            'detected_type': 'coding_project',
+            'languages': ['Python', 'JavaScript'],
+            'frameworks': ['React'],
+            'skills': ['Web Development'],
+            'contributions': {
+                'john': {'commits': 10, 'files': ['app.py', 'index.js']},
+                'jane': {'commits': 5, 'files': ['test.py']}
+            },
+            'git_metrics': {
+                'total_commits': 15,
+                'duration_days': 30,
+                'commits_per_author': {'john': 10, 'jane': 5},
+                'project_start': '2025-01-01 00:00:00'
+            }
+        }
+        info_path = os.path.join(proj_dir, 'test-project-john_info_20260111.json')
+        with open(info_path, 'w', encoding='utf-8') as fh:
+            json.dump(project_info, fh)
+
+        self.portfolio_dir = os.path.join(self.tmpdir.name, 'portfolios')
+        os.makedirs(self.portfolio_dir, exist_ok=True)
+
+    # Clean up temporary directories after tests
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    # Verify project collection, aggregation, and full portfolio building
+    def test_aggregate_and_build_portfolio(self):
+        projects, root = collect_projects(self.output_root)
+
+        portfolio_projects = gp.aggregate_projects_for_portfolio('john', projects, root)
+        self.assertGreaterEqual(len(portfolio_projects), 1)
+
+        portfolio = gp.build_portfolio('john', portfolio_projects)
+        md = portfolio.render_markdown()
+
+        self.assertIn('# Portfolio — john', md)
+        self.assertIn('test-project-john', md.lower())
+
+    # Verify CLI subprocess creates valid portfolio markdown file
+    def test_cli_generates_portfolio_file(self):
+        cmd = [
+            sys.executable, os.path.join('src', 'generate_portfolio.py'),
+            '--output-root', self.output_root,
+            '--portfolio-dir', self.portfolio_dir,
+            '--username', 'john'
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, msg=f"stdout:{proc.stdout}\nstderr:{proc.stderr}")
+
+        # Verify file was created
+        files = os.listdir(self.portfolio_dir)
+        self.assertTrue(any(f.startswith('portfolio_john_') and f.endswith('.md') for f in files))
+
+        # Verify content
+        portfolio_file = [f for f in files if f.startswith('portfolio_john_')][0]
+        with open(os.path.join(self.portfolio_dir, portfolio_file), 'r', encoding='utf-8') as fh:
+            content = fh.read()
+
+        self.assertIn('# Portfolio — john', content)
+        self.assertIn('Python', content)
+        self.assertIn('React', content)
+
+if __name__ == '__main__':
+    unittest.main()

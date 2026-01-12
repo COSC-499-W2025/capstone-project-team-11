@@ -2,6 +2,7 @@ import sqlite3
 import os
 import time
 import json
+from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
 # Allow overriding database path via environment for tests or custom locations
@@ -35,10 +36,20 @@ def _get_or_create(conn, table: str, name: str):
     row = cur.fetchone()
     return row['id'] if row else None
 
+def _ensure_projects_thumbnail_column(conn):
+    """Ensure the projects table has a thumbnail_path column."""
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(projects)")
+    cols = {row['name'] for row in cur.fetchall()}
+    if 'thumbnail_path' not in cols:
+        cur.execute("ALTER TABLE projects ADD COLUMN thumbnail_path TEXT")
+        conn.commit()
+
 
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
               detected_languages: list = None, detected_skills: list = None, contributors: list = None,
-              file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None):
+              file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None,
+              project_thumbnail_path: str = None):
     """Persist a scan and related metadata into the DB in a single transaction.
 
     - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
@@ -48,24 +59,37 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
     Returns scan_id
     """
     conn = get_connection()
-    # Ensure foreign keys and sensible journaling
     conn.execute('PRAGMA foreign_keys = ON')
     cur = conn.cursor()
+
     try:
+        if project_thumbnail_path is not None:
+            _ensure_projects_thumbnail_column(conn)
+
         cur.execute('BEGIN')
+
+        project_name = project or os.path.basename(scan_source)
+
         # create scan
-        cur.execute("INSERT INTO scans (project, notes) VALUES (?, ?)", (project or os.path.basename(scan_source), notes))
+        cur.execute(
+            "INSERT INTO scans (project, notes) VALUES (?, ?)",
+            (project_name, notes)
+        )
         scan_id = cur.lastrowid
+
+        #  keep ONLY the newest scan's data for this project
+        prune_old_project_scans(conn, project_name, keep_scan_id=scan_id)
+
 
         # link or create project row if provided, and persist project-level metadata
         project_id = None
         if project:
             # create row if missing; include repo_url/created_at when present
-            if project_repo_url is not None or project_created_at is not None:
+            if project_repo_url is not None or project_created_at is not None or project_thumbnail_path is not None:
                 # Try to insert with provided metadata; INSERT OR IGNORE will skip if exists
                 cur.execute(
-                    "INSERT OR IGNORE INTO projects (name, repo_url, created_at) VALUES (?, ?, ?)",
-                    (project, project_repo_url, project_created_at),
+                    "INSERT OR IGNORE INTO projects (name, repo_url, created_at, thumbnail_path) VALUES (?, ?, ?, ?)",
+                    (project, project_repo_url, project_created_at, project_thumbnail_path),
                 )
             else:
                 cur.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (project,))
@@ -75,6 +99,11 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                 cur.execute(
                     "UPDATE projects SET repo_url = COALESCE(repo_url, ?), created_at = COALESCE(created_at, ?) WHERE name = ?",
                     (project_repo_url, project_created_at, project),
+                )
+            if project_thumbnail_path is not None:
+                cur.execute(
+                    "UPDATE projects SET thumbnail_path = ? WHERE name = ?",
+                    (project_thumbnail_path, project),
                 )
 
             cur.execute("SELECT id FROM projects WHERE name = ?", (project,))
