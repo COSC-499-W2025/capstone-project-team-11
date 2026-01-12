@@ -37,7 +37,7 @@ from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
-#from project_evidence import handle_project_evidence
+from project_evidence import handle_project_evidence
 
 
 def print_main_menu():
