@@ -43,10 +43,12 @@ class TestGeneratePortfolio(unittest.TestCase):
     # Verify overview section aggregates technologies and skills across multiple projects
     def test_build_overview_section(self):
         projects_data = [
-            {'languages': ['Python', 'JavaScript'], 'frameworks': ['React'], 'skills': ['API Design']},
-            {'languages': ['Python', 'SQL'], 'frameworks': ['Django'], 'skills': ['Database Design']}
+            {'languages': ['Python', 'JavaScript'], 'frameworks': ['React'], 'skills': ['API Design'],
+             'high_confidence_languages': ['Python', 'JavaScript'], 'high_confidence_frameworks': ['React']},
+            {'languages': ['Python', 'SQL'], 'frameworks': ['Django'], 'skills': ['Database Design'],
+             'high_confidence_languages': ['Python', 'SQL'], 'high_confidence_frameworks': ['Django']}
         ]
-        section = gp.build_overview_section(projects_data, 'john')
+        section = gp.build_overview_section(projects_data, 'john', 'high')
 
         self.assertEqual(section.section_id, 'overview')
         self.assertIn('2 project(s)', section.content)
@@ -61,11 +63,13 @@ class TestGeneratePortfolio(unittest.TestCase):
             'languages': ['Python'],
             'frameworks': [],
             'skills': [],
+            'high_confidence_languages': ['Python'],
+            'high_confidence_frameworks': [],
             'user_commits': 10,
             'user_files': ['file1.py'],
             'git_metrics': {'commits_per_author': {'john': 5, 'jane': 5}}
         }
-        section = gp.build_project_section(collab_project, 1)
+        section = gp.build_project_section(collab_project, 1, 'john', 'high')
         self.assertIn('(Collaborative Project)', section.content)
 
         solo_project = {
@@ -74,20 +78,24 @@ class TestGeneratePortfolio(unittest.TestCase):
             'languages': ['JavaScript'],
             'frameworks': [],
             'skills': [],
+            'high_confidence_languages': ['JavaScript'],
+            'high_confidence_frameworks': [],
             'user_commits': 0,
             'user_files': [],
             'git_metrics': {}
         }
-        section2 = gp.build_project_section(solo_project, 2)
+        section2 = gp.build_project_section(solo_project, 2, 'john', 'high')
         self.assertIn('(Individual Project)', section2.content)
 
     # Verify technology summary aggregates and ranks tech usage across all projects
     def test_build_tech_summary(self):
         projects_data = [
-            {'project_name': 'A', 'languages': ['Python'], 'frameworks': ['React']},
-            {'project_name': 'B', 'languages': ['Python', 'Java'], 'frameworks': []},
+            {'project_name': 'A', 'languages': ['Python'], 'frameworks': ['React'],
+             'high_confidence_languages': ['Python'], 'high_confidence_frameworks': ['React']},
+            {'project_name': 'B', 'languages': ['Python', 'Java'], 'frameworks': [],
+             'high_confidence_languages': ['Python', 'Java'], 'high_confidence_frameworks': []},
         ]
-        section = gp.build_tech_summary_section(projects_data)
+        section = gp.build_tech_summary_section(projects_data, 'high')
 
         self.assertEqual(section.section_id, 'tech_summary')
         self.assertIn('Python', section.content)
@@ -126,10 +134,11 @@ class TestGeneratePortfolio(unittest.TestCase):
     def test_build_portfolio_structure(self):
         projects_data = [
             {'project_name': 'A', 'path': '/a', 'languages': ['Python'], 'frameworks': [],
+             'high_confidence_languages': ['Python'], 'high_confidence_frameworks': [],
              'skills': [], 'user_commits': 0, 'user_files': [], 'git_metrics': {}}
         ]
 
-        portfolio = gp.build_portfolio('john', projects_data, '2026-01-11 12:00:00Z')
+        portfolio = gp.build_portfolio('john', projects_data, '2026-01-11 12:00:00Z', 'high')
 
         self.assertEqual(portfolio.username, 'john')
         self.assertIn('overview', portfolio.sections)
@@ -137,6 +146,123 @@ class TestGeneratePortfolio(unittest.TestCase):
         self.assertIn('tech_summary', portfolio.sections)
         self.assertEqual(portfolio.metadata['project_count'], 1)
 
+    # Verify confidence filtering correctly filters languages/frameworks by level
+    def test_confidence_filtering(self):
+        project_data = {
+            'project_name': 'TestProject',
+            'path': '/test',
+            'languages': ['Python', 'JavaScript', 'Swift', 'Ruby'],
+            'frameworks': ['React', 'Django', 'Bootstrap'],
+            'high_confidence_languages': ['Python', 'JavaScript'],
+            'medium_confidence_languages': ['Swift'],
+            'low_confidence_languages': ['Ruby'],
+            'high_confidence_frameworks': ['React'],
+            'medium_confidence_frameworks': ['Django'],
+            'low_confidence_frameworks': ['Bootstrap'],
+            'skills': []
+        }
+
+        # Test high confidence only
+        langs_high, fws_high = gp.get_filtered_technologies(project_data, 'high')
+        self.assertEqual(set(langs_high), {'Python', 'JavaScript'})
+        self.assertEqual(set(fws_high), {'React'})
+
+        # Test high + medium confidence
+        langs_med, fws_med = gp.get_filtered_technologies(project_data, 'medium')
+        self.assertEqual(set(langs_med), {'Python', 'JavaScript', 'Swift'})
+        self.assertEqual(set(fws_med), {'React', 'Django'})
+
+        # Test all confidence levels (high + medium + low)
+        langs_low, fws_low = gp.get_filtered_technologies(project_data, 'low')
+        self.assertEqual(set(langs_low), {'Python', 'JavaScript', 'Swift', 'Ruby'})
+        self.assertEqual(set(fws_low), {'React', 'Django', 'Bootstrap'})
+
+    # Verify backward compatibility when confidence data is missing
+    def test_confidence_filtering_fallback(self):
+        project_data = {
+            'project_name': 'OldProject',
+            'path': '/old',
+            'languages': ['Python', 'Java'],
+            'frameworks': ['Flask'],
+            'skills': []
+        }
+
+        # Should fallback to flat lists when confidence data is missing
+        langs, fws = gp.get_filtered_technologies(project_data, 'high')
+        self.assertEqual(set(langs), {'Python', 'Java'})
+        self.assertEqual(set(fws), {'Flask'})
+
+    # Verify performance metrics are included in project sections
+    def test_performance_metrics_in_project_section(self):
+        project_data = {
+            'project_name': 'MetricsProject',
+            'path': '/metrics',
+            'languages': ['Python'],
+            'frameworks': [],
+            'high_confidence_languages': ['Python'],
+            'high_confidence_frameworks': [],
+            'skills': [],
+            'user_commits': 45,
+            'user_files': ['app.py', 'test.py', 'utils.py'],
+            'git_metrics': {
+                'total_commits': 100,
+                'duration_days': 90,
+                'commits_per_author': {'john': 45, 'jane': 35, 'bob': 20},
+                'lines_added_per_author': {'john': 2500, 'jane': 1800, 'bob': 500},
+                'lines_removed_per_author': {'john': 800, 'jane': 400, 'bob': 100},
+                'files_changed_per_author': {
+                    'john': ['app.py', 'test.py', 'utils.py'],
+                    'jane': ['app.py', 'docs.md'],
+                    'bob': ['config.py']
+                },
+                'project_start': '2025-01-01',
+                'project_end': '2025-03-31'
+            }
+        }
+
+        section = gp.build_project_section(project_data, 1, 'john', 'high')
+        content = section.content
+
+        # Check for commit metrics
+        self.assertIn('45 commit(s)', content)
+        self.assertIn('45.0% of total commits', content)  # 45/100
+        self.assertIn('commit(s)/week', content)
+
+        # Check for file metrics
+        self.assertIn('3 file(s) modified', content)
+        self.assertIn('file ownership', content)
+
+        # Check for code contribution metrics
+        self.assertIn('Lines: +2500 / -800', content)
+        self.assertIn('Ranked #1 of 3 contributor(s)', content)  # john has most commits
+        self.assertIn('My first/last commit', content)
+
+    # Verify contributor ranking is accurate
+    def test_contributor_ranking(self):
+        project_data = {
+            'project_name': 'RankingProject',
+            'path': '/rank',
+            'languages': ['JavaScript'],
+            'frameworks': [],
+            'high_confidence_languages': ['JavaScript'],
+            'high_confidence_frameworks': [],
+            'skills': [],
+            'user_commits': 20,
+            'user_files': ['c.js'],
+            'git_metrics': {
+                'total_commits': 100,
+                'commits_per_author': {'john': 50, 'jane': 30, 'bob': 20},
+                'lines_added_per_author': {'john': 3000, 'jane': 1500, 'bob': 800},
+                'lines_removed_per_author': {'john': 500, 'jane': 300, 'bob': 200},
+                'files_changed_per_author': {'john': ['a.js'], 'jane': ['b.js'], 'bob': ['c.js']}
+            }
+        }
+
+        section = gp.build_project_section(project_data, 1, 'bob', 'high')
+        content = section.content
+
+        # bob should be ranked #3 (john=50, jane=30, bob=20)
+        self.assertIn('Ranked #3 of 3 contributor(s)', content)
 
 class RobustGeneratePortfolioTests(unittest.TestCase):
 
@@ -185,7 +311,7 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
         portfolio_projects = gp.aggregate_projects_for_portfolio('john', projects, root)
         self.assertGreaterEqual(len(portfolio_projects), 1)
 
-        portfolio = gp.build_portfolio('john', portfolio_projects)
+        portfolio = gp.build_portfolio('john', portfolio_projects, confidence_level='high')
         md = portfolio.render_markdown()
 
         self.assertIn('# Portfolio — john', md)
