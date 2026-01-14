@@ -52,7 +52,8 @@ def print_main_menu():
     print("7. Generate Resume (User-centric)")
     print("8. Generate Portfolio (Project-centric)")
     print("9. View Resumes")
-    print("10. Exit")
+    print("10. View Portfolios")
+    print("11. Exit")
 
 
 def handle_scan_directory():
@@ -333,6 +334,25 @@ def handle_inspect_database():
                 print(f"[{r['id']}] user={uname} | generated={human_ts(r['generated_at'])}")
                 print(f"    path: {r['resume_path']}")
 
+        # Portfolios summary
+        print('\n' + '=' * 80)
+        print('Portfolios (recent)')
+        print('=' * 80)
+        portfolios = safe_query(cur, """
+            SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name
+            FROM portfolios p
+            LEFT JOIN contributors c ON c.id = p.contributor_id
+            ORDER BY p.generated_at DESC
+            LIMIT 10
+        """)
+        if not portfolios:
+            print(' No portfolios saved')
+        else:
+            for p in portfolios:
+                uname = p['username'] or p['contributor_name'] or '<unknown>'
+                print(f"[{p['id']}] user={uname} | generated={human_ts(p['generated_at'])}")
+                print(f"    path: {p['portfolio_path']}")
+
         # Skills timeline
         print('\n' + '=' * 80)
         print('Skills Exercised (Chronologically — Grouped by Skill)')
@@ -483,7 +503,7 @@ def handle_generate_portfolio():
         print(f"Portfolio generator script not found at: {script_path}")
         return
 
-    cmd = [sys.executable, script_path]
+    cmd = [sys.executable, script_path, '--save-to-db']
     try:
         result = subprocess.run(cmd)
         if result.returncode != 0:
@@ -636,6 +656,8 @@ def handle_view_resumes():
         truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
         print("\n--- Preview ---\n")
         print(preview)
+        if truncated:
+            print(f"\n... [Preview truncated - full file at: {path}]")
     except sqlite3.OperationalError as e:
         print(f"Resumes table not available: {e}")
     except Exception as e:
@@ -645,6 +667,104 @@ def handle_view_resumes():
             conn.close()
         except Exception:
             pass
+
+def _list_portfolios(cur):
+    """Return list of portfolios rows ordered by recent generated_at."""
+    return safe_query(cur, """
+        SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name, p.metadata_json
+        FROM portfolios p
+        LEFT JOIN contributors c ON c.id = p.contributor_id
+        ORDER BY p.generated_at DESC
+        LIMIT 50
+    """)
+
+
+def _print_portfolio_list(portfolios):
+    """Print numbered portfolio list."""
+    if not portfolios:
+        print(" No portfolios saved")
+        return
+    print("\nAvailable portfolios (most recent first):")
+    for idx, p in enumerate(portfolios, start=1):
+        uname = p['username'] or p['contributor_name'] or '<unknown>'
+        print(f"  {idx}. user={uname} | generated={human_ts(p['generated_at'])}")
+        print(f"     path: {p['portfolio_path']}")
+
+
+def _delete_portfolio_with_file(conn, portfolio_row):
+    """Delete portfolio row and corresponding file (best-effort for file)."""
+    from db import delete_portfolio
+    portfolio_id = portfolio_row["id"]
+    delete_portfolio(portfolio_id)
+    path = portfolio_row["portfolio_path"] if "portfolio_path" in portfolio_row.keys() else None
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+            return True, "Deleted from database and removed file."
+        except Exception as e:
+            return True, f"Deleted from database but failed to remove file: {e}"
+    return True, "Deleted from database; file not found or already removed."
+
+
+def handle_view_portfolios():
+    """List portfolios from the DB and allow viewing content."""
+    print("\n=== View Portfolios ===")
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        portfolios = _list_portfolios(cur)
+        _print_portfolio_list(portfolios)
+        if not portfolios:
+            conn.close()
+            return
+
+        choice = input("\nEnter number to view/delete (blank to cancel): ").strip()
+        if not choice:
+            conn.close()
+            return
+        if not choice.isdigit() or not (1 <= int(choice) <= len(portfolios)):
+            print("Invalid selection.")
+            conn.close()
+            return
+        selected = portfolios[int(choice) - 1]
+        path = selected['portfolio_path']
+        uname = selected['username'] or selected['contributor_name'] or '<unknown>'
+        print(f"\nSelected portfolio for {uname}: {path}")
+        action = input("Choose action: (v)iew, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+        if action == 'c':
+            conn.close()
+            return
+        if action == 'd':
+            confirm = input("Are you sure you want to delete this portfolio? (y/n): ").strip().lower()
+            if confirm != 'y':
+                conn.close()
+                return
+            ok, msg = _delete_portfolio_with_file(conn, selected)
+            print(msg)
+            conn.close()
+            return
+
+        print(f"\nOpening portfolio for {uname}: {path}")
+        preview, truncated_or_error = _preview_resume(path, lines=500)
+        if preview is None:
+            print(truncated_or_error)
+            conn.close()
+            return
+        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
+        print("\n--- Preview ---\n")
+        print(preview)
+        if truncated:
+            print(f"\n... [Preview truncated - full file at: {path}]")
+    except sqlite3.OperationalError as e:
+        print(f"Portfolios table not available: {e}")
+    except Exception as e:
+        print(f"Error viewing portfolios: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
 
 from regenerate_resume import regenerate_resume
 from regenerate_resume_scan import resume_scan
@@ -692,10 +812,12 @@ def main():
         elif choice == "9":
             handle_view_resumes()
         elif choice == "10":
+            handle_view_portfolios()
+        elif choice == "11":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-10.")
+            print("\nInvalid option. Please select a number between 1-11.")
 
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")

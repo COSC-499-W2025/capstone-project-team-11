@@ -15,6 +15,8 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
+# Import database functions
+from db import save_portfolio
 
 # ============================================================================
 # Portfolio Structure & Helper Functions
@@ -467,8 +469,13 @@ def main():
         '--confidence', '-c',
         default='high',
         choices=['high', 'medium', 'low'],
-        help='Confidence filter for languages/frameworks (default: medium). '
+        help='Confidence filter for languages/frameworks (default: high). '
              'high=only high confidence, medium=high+medium, low=all levels'
+    )
+    parser.add_argument(
+        '--save-to-db',
+        action='store_true',
+        help='Save portfolio metadata to the local database'
     )
     args = parser.parse_args()
 
@@ -555,6 +562,28 @@ def main():
     print(f"  {len(portfolio_projects)} project(s) included")
     print(f"  {len(portfolio.sections)} section(s) generated")
     print(f"  Confidence filter: {args.confidence}")
+
+    # Save to database if requested
+    if args.save_to_db:
+        try:
+            portfolio_metadata = {
+                'username': username,
+                'project_count': len(portfolio_projects),
+                'sections': list(portfolio.sections.keys()),
+                'confidence_level': args.confidence,
+                'projects': [
+                    {
+                        'name': p.get('project_name'),
+                        'path': p.get('path'),
+                        'user_commits': p.get('user_commits', 0)
+                    }
+                    for p in portfolio_projects
+                ]
+            }
+            portfolio_id = save_portfolio(username, out_path, portfolio_metadata, ts_iso)
+            print(f"  Saved to database with ID: {portfolio_id}")
+        except Exception as e:
+            print(f"  Warning: Failed to save to database: {e}")
 
     return 0
 

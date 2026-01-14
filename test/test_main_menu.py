@@ -91,7 +91,8 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "7. Generate Resume (User-centric)" in output
     assert "8. Generate Portfolio (Project-centric)" in output
     assert "9. View Resumes" in output
-    assert "10. Exit" in output
+    assert "10. View Portfolios" in output
+    assert "11. Exit" in output
 
 
 # Test safe_query()
