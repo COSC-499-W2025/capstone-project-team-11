@@ -66,6 +66,7 @@ class PortfolioEditRequest(BaseModel):
 
 
 def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
+    # Keep metadata parsing resilient to malformed JSON stored in DB.
     if not metadata_json:
         return {}
     try:
@@ -75,6 +76,7 @@ def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
 
 
 def _resume_payload(row: Any) -> Dict[str, Any]:
+    # Hydrate response with file contents stored on disk.
     resume_path = row["resume_path"]
     if not os.path.isfile(resume_path):
         raise HTTPException(status_code=404, detail="Resume file not found")
@@ -91,6 +93,7 @@ def _resume_payload(row: Any) -> Dict[str, Any]:
 
 
 def _portfolio_payload(row: Any) -> Dict[str, Any]:
+    # Hydrate response with file contents stored on disk.
     portfolio_path = row["portfolio_path"]
     if not os.path.isfile(portfolio_path):
         raise HTTPException(status_code=404, detail="Portfolio file not found")
@@ -108,6 +111,7 @@ def _portfolio_payload(row: Any) -> Dict[str, Any]:
 
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
+    # Persist consent in the user's config to mirror CLI behavior.
     save_config({"data_consent": payload.data_consent}, path=default_config_path())
     return {
         "data_consent": payload.data_consent,
@@ -117,6 +121,7 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
 
 @app.post("/projects/upload", status_code=201)
 def upload_project(payload: ProjectUploadRequest):
+    # Enforce the same consent gate used by the CLI scanner.
     config = load_config(default_config_path())
     if not config.get("data_consent"):
         raise HTTPException(status_code=403, detail="Data consent not granted")
@@ -124,6 +129,7 @@ def upload_project(payload: ProjectUploadRequest):
     if not os.path.exists(payload.project_path):
         raise HTTPException(status_code=400, detail="project_path not found")
 
+    # Trigger the existing scan pipeline and optionally persist results.
     run_with_saved_settings(
         directory=payload.project_path,
         recursive_choice=payload.recursive_choice,
@@ -146,6 +152,7 @@ def upload_project(payload: ProjectUploadRequest):
             ).fetchone()
             scan_id = row["id"] if row else None
 
+    # Attempt to generate a structured project summary alongside the scan.
     output_summary_path = None
     try:
         info = gather_project_info(payload.project_path)
@@ -180,6 +187,7 @@ def list_projects():
 
 @app.get("/projects/{project_id}")
 def get_project(project_id: int):
+    # Aggregate enriched project data from related tables.
     with get_connection() as conn:
         project = conn.execute(
             "SELECT id, name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
@@ -198,6 +206,7 @@ def get_project(project_id: int):
         languages: List[str] = []
         contributors: List[str] = []
         if scan_ids:
+            # Build dynamic IN clauses only when scans exist.
             placeholders = ",".join("?" for _ in scan_ids)
             files_summary["total_files"] = conn.execute(
                 f"SELECT COUNT(*) AS total FROM files WHERE scan_id IN ({placeholders})",
@@ -293,6 +302,7 @@ def get_resume(resume_id: int):
 
 @app.post("/resume/generate", status_code=201)
 def generate_resume(payload: ResumeGenerateRequest):
+    # Reuse the resume generator logic used by the CLI.
     if not os.path.isdir(payload.output_root):
         raise HTTPException(status_code=400, detail="output_root not found")
 
@@ -332,6 +342,7 @@ def generate_resume(payload: ResumeGenerateRequest):
 
 @app.post("/resume/{resume_id}/edit")
 def edit_resume(resume_id: int, payload: ResumeEditRequest):
+    # Overwrite the file on disk and update stored metadata.
     with get_connection() as conn:
         row = conn.execute(
             "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
@@ -374,6 +385,7 @@ def get_portfolio(portfolio_id: int):
 
 @app.post("/portfolio/generate", status_code=201)
 def generate_portfolio(payload: PortfolioGenerateRequest):
+    # Reuse the portfolio generator logic used by the CLI.
     if not os.path.isdir(payload.output_root):
         raise HTTPException(status_code=400, detail="output_root not found")
 
@@ -423,6 +435,7 @@ def generate_portfolio(payload: PortfolioGenerateRequest):
 
 @app.post("/portfolio/{portfolio_id}/edit")
 def edit_portfolio(portfolio_id: int, payload: PortfolioEditRequest):
+    # Overwrite the file on disk and update stored metadata.
     with get_connection() as conn:
         row = conn.execute(
             "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
