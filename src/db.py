@@ -271,3 +271,73 @@ def save_resume(username: str, resume_path: str, metadata: dict = None, generate
         raise
     finally:
         conn.close()
+
+
+def save_portfolio(username: str, portfolio_path: str, metadata: dict = None, generated_at: str = None):
+    """Persist a generated portfolio into the DB.
+
+    - username: GitHub username the portfolio was generated for
+    - portfolio_path: filesystem path to the written portfolio markdown
+    - metadata: aggregated data used to render the portfolio (stored as JSON)
+    - generated_at: optional timestamp; defaults to current UTC if not provided
+
+    Returns portfolio_id on success.
+    """
+    if not username or not portfolio_path:
+        raise ValueError("username and portfolio_path are required")
+
+    conn = get_connection()
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        # Ensure contributor exists for this username
+        cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (username,))
+        cur.execute("SELECT id FROM contributors WHERE name = ?", (username,))
+        contrib_row = cur.fetchone()
+        contrib_id = contrib_row['id'] if contrib_row else None
+
+        metadata_json = json.dumps(metadata or {}, default=str)
+        ts = generated_at or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+
+        cur.execute(
+            """
+            INSERT INTO portfolios (contributor_id, username, portfolio_path, metadata_json, generated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (contrib_id, username, portfolio_path, metadata_json, ts)
+        )
+        portfolio_id = cur.lastrowid
+        conn.commit()
+        return portfolio_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def delete_portfolio(portfolio_id: int):
+    """Delete a portfolio from the DB by its ID.
+
+    - portfolio_id: ID of the portfolio to delete
+
+    Returns True if deleted successfully, False if not found.
+    """
+    if not portfolio_id:
+        raise ValueError("portfolio_id is required")
+
+    conn = get_connection()
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        cur.execute("DELETE FROM portfolios WHERE id = ?", (portfolio_id,))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

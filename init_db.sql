@@ -120,6 +120,20 @@ CREATE TABLE IF NOT EXISTS resumes (
 CREATE INDEX IF NOT EXISTS idx_resumes_username ON resumes (username);
 CREATE INDEX IF NOT EXISTS idx_resumes_generated_at ON resumes (generated_at);
 
+-- Generated portfolios linked to contributors
+CREATE TABLE IF NOT EXISTS portfolios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contributor_id INTEGER,
+    username TEXT NOT NULL,
+    portfolio_path TEXT NOT NULL,
+    metadata_json TEXT,
+    generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolios_username ON portfolios (username);
+CREATE INDEX IF NOT EXISTS idx_portfolios_generated_at ON portfolios (generated_at);
+
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name);
 CREATE INDEX IF NOT EXISTS idx_contributors_name ON contributors (name);
