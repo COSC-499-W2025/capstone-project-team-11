@@ -10,6 +10,8 @@ import sqlite3
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import generate_resume as gr
+import db as db_mod
+import project_evidence as pe_mod
 
 
 class TestGenerateResume(unittest.TestCase):
@@ -110,6 +112,41 @@ class RobustGenerateResumeTests(unittest.TestCase):
         self.assertIn('_Generated (UTC): 2025-11-27 01:02:03Z_', md)
         # Check normalized project heading is present
         self.assertRegex(md, r'\*\*Assignment.*TCP.*UDP.*\*\*', msg=md)
+
+    def test_render_includes_evidence_impact_when_present(self):
+        db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        prev_db = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = db_path
+        try:
+            # Reload modules to pick up the temp DB path
+            db_local = importlib.reload(db_mod)
+            db_local.init_db()
+            pe_local = importlib.reload(pe_mod)
+            gr_local = importlib.reload(gr)
+
+            project_name = 'assignment-5-tcp-and-udp-programming-with-java-alice'
+            with db_local.get_connection() as conn:
+                conn.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    (project_name,),
+                ).fetchone()["id"]
+                conn.commit()
+
+            pe_local.add_evidence(
+                project_id,
+                {"type": "metric", "value": "500 users", "source": "Analytics"},
+            )
+
+            projects, root = gr_local.collect_projects(self.output_root)
+            agg = gr_local.aggregate_for_user('alice', projects, root)
+            md = gr_local.render_markdown(agg, generated_ts='2025-11-27 01:02:03Z')
+            self.assertIn("Impact: 500 users (Analytics)", md)
+        finally:
+            if prev_db is None:
+                os.environ.pop("FILE_DATA_DB_PATH", None)
+            else:
+                os.environ["FILE_DATA_DB_PATH"] = prev_db
 
     def test_cli_generates_file_and_respects_blacklist(self):
         # Run CLI to generate for alice

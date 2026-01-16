@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from generate_resume import collect_projects, normalize_project_name
 # Import database functions
 from db import save_portfolio
+# Evidence integration: import helpers for user-provided project evidence
+from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_portfolio
 
 # ============================================================================
 # Portfolio Structure & Helper Functions
@@ -305,6 +307,22 @@ def build_project_section(project_data, index, username, confidence_level='high'
         content_lines.append(f"- {user_commits} commit(s)")
         content_lines.append(f"- {len(user_files)} file(s) modified")
         content_lines.append("")
+
+    # Evidence integration: Add optional "Evidence of Success" section if user-provided evidence exists
+    # This follows the same optional-section pattern used for Languages, Frameworks, and Skills.
+    # Evidence is treated as user-provided input and is NOT inferred, scored, or ranked.
+    try:
+        project_id = get_project_id_by_name(name)
+        if project_id:
+            evidence = get_evidence_for_project(project_id)
+            evidence_content = format_evidence_for_portfolio(evidence)
+            if evidence_content:
+                content_lines.append("**Evidence of Success:**")
+                content_lines.append(evidence_content)
+                content_lines.append("")
+    except Exception:
+        # Gracefully skip evidence if DB not available or any error occurs
+        pass
 
     return PortfolioSection(
         section_id=f'project_{index}',
