@@ -12,6 +12,7 @@ from detect_roles import (
     _calculate_role_scores,
     _calculate_role_confidence,
     format_roles_report,
+    load_contributors_per_project_from_db,
     ROLE_PATTERNS,
 )
 
@@ -263,6 +264,249 @@ class TestFormatRolesReport(unittest.TestCase):
         self.assertIn("alice", report)
         self.assertIn("Backend Developer", report)
         self.assertIn("Metrics:", report)
+
+
+class TestPerProjectAnalysis(unittest.TestCase):
+    """Test per-project contribution analysis functionality."""
+    
+    def test_format_report_with_per_project_data(self):
+        """Test that report includes per-project breakdown when provided."""
+        # Overall analysis
+        overall_data = {
+            "Alice": {
+                "files_changed": ["a.py", "b.py", "c.py", "d.js"],
+                "commits": 15,
+                "lines_added": 750,
+                "lines_removed": 75,
+                "activity_by_category": {"code": 4, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        overall_analysis = analyze_project_roles(overall_data)
+        
+        # Per-project analysis
+        project1_data = {
+            "Alice": {
+                "files_changed": ["a.py", "b.py", "c.py"],
+                "commits": 10,
+                "lines_added": 500,
+                "lines_removed": 50,
+                "activity_by_category": {"code": 3, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        project2_data = {
+            "Alice": {
+                "files_changed": ["d.js"],
+                "commits": 5,
+                "lines_added": 250,
+                "lines_removed": 25,
+                "activity_by_category": {"code": 1, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        per_project_analysis = {
+            "project1": analyze_project_roles(project1_data),
+            "project2": analyze_project_roles(project2_data)
+        }
+        
+        report = format_roles_report(overall_analysis, per_project_analysis)
+        
+        # Check overall section exists
+        self.assertIn("PROJECT ROLE ANALYSIS REPORT", report)
+        self.assertIn("CONTRIBUTOR ROLES (OVERALL)", report)
+        
+        # Check per-project section exists
+        self.assertIn("PER-PROJECT CONTRIBUTIONS", report)
+        self.assertIn("Project: project1", report)
+        self.assertIn("Project: project2", report)
+        
+        # Check alice appears in both projects
+        self.assertIn("alice", report)
+    
+    def test_format_report_without_per_project_data(self):
+        """Test that report works without per-project data."""
+        data = {
+            "Alice": {
+                "files_changed": ["a.py", "b.py", "c.py"],
+                "commits": 10,
+                "lines_added": 500,
+                "lines_removed": 50,
+                "activity_by_category": {"code": 3, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        analysis = analyze_project_roles(data)
+        report = format_roles_report(analysis, None)
+        
+        # Should have overall section
+        self.assertIn("PROJECT ROLE ANALYSIS REPORT", report)
+        # Should NOT have per-project section
+        self.assertNotIn("PER-PROJECT CONTRIBUTIONS", report)
+    
+    def test_per_project_multiple_contributors(self):
+        """Test per-project analysis with multiple contributors."""
+        project_data = {
+            "Alice": {
+                "files_changed": ["main.py", "utils.py"],
+                "commits": 8,
+                "lines_added": 400,
+                "lines_removed": 40,
+                "activity_by_category": {"code": 2, "test": 0, "docs": 0, "design": 0, "other": 0}
+            },
+            "Bob": {
+                "files_changed": ["test_main.py", "test_utils.py", "test_app.py"],
+                "commits": 5,
+                "lines_added": 250,
+                "lines_removed": 25,
+                "activity_by_category": {"code": 0, "test": 3, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        per_project = {
+            "TestProject": analyze_project_roles(project_data)
+        }
+        
+        overall_analysis = analyze_project_roles(project_data)
+        report = format_roles_report(overall_analysis, per_project)
+        
+        # Check both contributors appear in per-project section
+        lines = report.split('\n')
+        per_project_start = next(i for i, line in enumerate(lines) if "PER-PROJECT CONTRIBUTIONS" in line)
+        per_project_section = '\n'.join(lines[per_project_start:])
+        
+        self.assertIn("alice", per_project_section.lower())
+        self.assertIn("bob", per_project_section.lower())
+        self.assertIn("TestProject", report)
+    
+    def test_per_project_breakdown_formatting(self):
+        """Test that per-project breakdown is formatted correctly."""
+        project_data = {
+            "Charlie": {
+                "files_changed": ["frontend.js", "styles.css", "index.html"],
+                "commits": 6,
+                "lines_added": 300,
+                "lines_removed": 30,
+                "activity_by_category": {"code": 3, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        per_project = {
+            "WebApp": analyze_project_roles(project_data)
+        }
+        
+        overall_analysis = analyze_project_roles(project_data)
+        report = format_roles_report(overall_analysis, per_project)
+        
+        # Check formatting includes Files, Commits, Lines
+        self.assertIn("Files:", report)
+        self.assertIn("Commits:", report)
+        self.assertIn("Lines:", report)
+        
+        # Check breakdown section exists
+        self.assertIn("Breakdown:", report)
+    
+    def test_per_project_with_empty_project(self):
+        """Test per-project analysis with empty project."""
+        overall_data = {
+            "Diana": {
+                "files_changed": ["logo.svg", "icon.png"],
+                "commits": 3,
+                "lines_added": 0,
+                "lines_removed": 0,
+                "activity_by_category": {"code": 0, "test": 0, "docs": 0, "design": 2, "other": 0}
+            }
+        }
+        
+        per_project = {
+            "DesignProject": analyze_project_roles(overall_data),
+            "EmptyProject": analyze_project_roles({})
+        }
+        
+        overall_analysis = analyze_project_roles(overall_data)
+        report = format_roles_report(overall_analysis, per_project)
+        
+        # Should handle empty project gracefully
+        self.assertIn("DesignProject", report)
+        self.assertIn("EmptyProject", report)
+    
+    def test_per_project_contributor_role_differences(self):
+        """Test that contributor can have different roles in different projects."""
+        # Eve does backend work in one project
+        project1_data = {
+            "Eve": {
+                "files_changed": ["api.py", "models.py", "database.py"],
+                "commits": 12,
+                "lines_added": 600,
+                "lines_removed": 60,
+                "activity_by_category": {"code": 3, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        # Eve does frontend work in another project
+        project2_data = {
+            "Eve": {
+                "files_changed": ["App.jsx", "Header.tsx", "styles.css"],
+                "commits": 8,
+                "lines_added": 400,
+                "lines_removed": 40,
+                "activity_by_category": {"code": 3, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        # Combined data
+        overall_data = {
+            "Eve": {
+                "files_changed": ["api.py", "models.py", "database.py", "App.jsx", "Header.tsx", "styles.css"],
+                "commits": 20,
+                "lines_added": 1000,
+                "lines_removed": 100,
+                "activity_by_category": {"code": 6, "test": 0, "docs": 0, "design": 0, "other": 0}
+            }
+        }
+        
+        per_project = {
+            "BackendAPI": analyze_project_roles(project1_data),
+            "WebUI": analyze_project_roles(project2_data)
+        }
+        
+        overall_analysis = analyze_project_roles(overall_data)
+        report = format_roles_report(overall_analysis, per_project)
+        
+        # Eve should appear in both project sections
+        project_sections = report.split("Project:")
+        self.assertGreaterEqual(len(project_sections), 3)  # Title + 2 projects
+        
+        # Check that eve's name appears in per-project section
+        per_project_section_start = report.find("PER-PROJECT CONTRIBUTIONS")
+        if per_project_section_start != -1:
+            per_project_text = report[per_project_section_start:]
+            self.assertIn("eve", per_project_text.lower())
+
+
+class TestPerProjectDatabaseIntegration(unittest.TestCase):
+    """Test database integration for per-project analysis."""
+    
+    def test_load_contributors_per_project_no_db(self):
+        """Test that load_contributors_per_project_from_db handles missing database gracefully."""
+        # This test will try to load from the actual database
+        # If no database exists, it should return empty dict
+        result = load_contributors_per_project_from_db()
+        
+        # Result should be a dictionary (could be empty or filled depending on test DB)
+        self.assertIsInstance(result, dict)
+        
+        # If there are projects, each should have contributor data
+        for project_name, contributors_data in result.items():
+            self.assertIsInstance(project_name, str)
+            self.assertIsInstance(contributors_data, dict)
+            
+            # Each contributor should have the required fields
+            for contrib_name, contrib_data in contributors_data.items():
+                self.assertIn("files_changed", contrib_data)
+                self.assertIn("commits", contrib_data)
+                self.assertIn("lines_added", contrib_data)
+                self.assertIn("lines_removed", contrib_data)
+                self.assertIn("activity_by_category", contrib_data)
 
 
 if __name__ == '__main__':

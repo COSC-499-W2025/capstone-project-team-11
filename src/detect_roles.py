@@ -346,9 +346,13 @@ def _describe_team_composition(contributor_roles: List[Dict]) -> str:
     return ", ".join(descriptions)
 
 
-def format_roles_report(analysis_result: Dict) -> str:
+def format_roles_report(analysis_result: Dict, per_project_data: Dict[str, Dict] = None) -> str:
     """
     Format the role analysis results as a human-readable report.
+    
+    Args:
+        analysis_result: Overall role analysis (across all projects)
+        per_project_data: Optional dict of per-project contributor analyses
     """
     report = []
     report.append("\n" + "=" * 70)
@@ -367,7 +371,7 @@ def format_roles_report(analysis_result: Dict) -> str:
             report.append(f"  - {role}: {count}")
     
     report.append("\n" + "-" * 70)
-    report.append("CONTRIBUTOR ROLES")
+    report.append("CONTRIBUTOR ROLES (OVERALL)")
     report.append("-" * 70)
     
     for contributor in analysis_result.get("contributors", []):
@@ -394,9 +398,157 @@ def format_roles_report(analysis_result: Dict) -> str:
                 if pct > 0:
                     report.append(f"    - {cat.capitalize()}: {pct:.1f}%")
     
+    # Add per-project breakdown if available
+    if per_project_data:
+        report.append("\n" + "=" * 70)
+        report.append("PER-PROJECT CONTRIBUTIONS")
+        report.append("=" * 70)
+        
+        for project_name, project_analysis in sorted(per_project_data.items()):
+            report.append(f"\n{'-' * 70}")
+            report.append(f"Project: {project_name}")
+            report.append(f"{'-' * 70}")
+            
+            for contributor in project_analysis.get("contributors", []):
+                report.append(f"\n  {contributor['name']}:")
+                report.append(f"    Primary Role: {contributor['primary_role']}")
+                
+                if contributor['secondary_roles']:
+                    report.append(f"    Secondary Roles: {', '.join(contributor['secondary_roles'])}")
+                
+                metrics = contributor.get('metrics', {})
+                report.append(f"    Files: {metrics.get('total_files', 0)} | "
+                            f"Commits: {metrics.get('commits', 0)} | "
+                            f"Lines: +{metrics.get('lines_added', 0)}/-{metrics.get('lines_removed', 0)}")
+                
+                breakdown = contributor.get('contribution_breakdown', {})
+                if breakdown:
+                    breakdown_str = ", ".join(
+                        f"{cat.capitalize()}: {pct:.0f}%" 
+                        for cat, pct in sorted(breakdown.items(), key=lambda x: -x[1]) 
+                        if pct > 0
+                    )
+                    report.append(f"    Breakdown: {breakdown_str}")
+    
     report.append("\n" + "=" * 70)
     
     return "\n".join(report)
+
+
+def load_contributors_per_project_from_db() -> Dict[str, Dict]:
+    """Load contributors and their metrics per project from the database.
+    
+    Returns a nested dictionary:
+        {
+            'project_name': {
+                'contributor_name': {
+                    'files_changed': [...],
+                    'commits': int,
+                    'lines_added': int,
+                    'lines_removed': int,
+                    'activity_by_category': {...}
+                }
+            }
+        }
+    """
+    try:
+        from db import get_connection
+    except ImportError:
+        print("Error: Could not import db module")
+        return {}
+    
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get all projects from scans
+        cur.execute("""
+            SELECT DISTINCT s.project
+            FROM scans s
+            WHERE s.project IS NOT NULL
+            ORDER BY s.project
+        """)
+        
+        projects = [row['project'] for row in cur.fetchall()]
+        print(f"Found {len(projects)} projects in database")
+        
+        if not projects:
+            print("No projects found in database.")
+            return {}
+        
+        projects_data = {}
+        
+        for project_name in projects:
+            # Get all contributors for this project
+            cur.execute("""
+                SELECT DISTINCT c.name, c.id
+                FROM contributors c
+                JOIN file_contributors fc ON c.id = fc.contributor_id
+                JOIN files f ON fc.file_id = f.id
+                JOIN scans s ON f.scan_id = s.id
+                WHERE s.project = ?
+                ORDER BY c.name
+            """, (project_name,))
+            
+            contributors = cur.fetchall()
+            print(f"  {project_name}: {len(contributors)} contributors")
+            
+            if not contributors:
+                continue
+            
+            contributors_data = {}
+            
+            for contrib_row in contributors:
+                contrib_name = contrib_row['name']
+                contrib_id = contrib_row['id']
+                
+                # Get all files for this contributor in this project
+                cur.execute("""
+                    SELECT DISTINCT f.file_path, f.file_name
+                    FROM files f
+                    JOIN file_contributors fc ON f.id = fc.file_id
+                    JOIN scans s ON f.scan_id = s.id
+                    WHERE fc.contributor_id = ? AND s.project = ?
+                """, (contrib_id, project_name))
+                
+                files = cur.fetchall()
+                files_changed = [f['file_path'] for f in files]
+                
+                # Classify files by category
+                activity_by_category = {"code": 0, "test": 0, "docs": 0, "design": 0, "other": 0}
+                for file_path in files_changed:
+                    category = classify_file(file_path)
+                    activity_by_category[category] = activity_by_category.get(category, 0) + 1
+                
+                # Count total file contributions
+                file_count = len(files_changed)
+                estimated_commits = max(1, file_count)
+                estimated_lines_added = file_count * 50
+                estimated_lines_removed = file_count * 10
+                
+                # Normalize the contributor name
+                canonical_name = canonical_username(contrib_name)
+                contributors_data[canonical_name] = {
+                    "files_changed": files_changed,
+                    "commits": estimated_commits,
+                    "lines_added": estimated_lines_added,
+                    "lines_removed": estimated_lines_removed,
+                    "activity_by_category": activity_by_category
+                }
+            
+            projects_data[project_name] = contributors_data
+        
+        print(f"Loaded data for {len(projects_data)} projects")
+        return projects_data
+    
+    except Exception as e:
+        print(f"Error querying database: {e}")
+        import traceback
+        traceback.print_exc()
+        return {}
+    
+    finally:
+        conn.close()
 
 
 def load_contributors_from_db() -> Dict:
@@ -520,5 +672,19 @@ if __name__ == "__main__":
             }
         }
     
+    # Analyze overall roles
     result = analyze_project_roles(contributors_data)
-    print(format_roles_report(result))
+    
+    # Load and analyze per-project contributions
+    print("\nLoading per-project contributor data...")
+    per_project_raw = load_contributors_per_project_from_db()
+    
+    # Analyze roles for each project
+    per_project_analysis = {}
+    if per_project_raw:
+        for project_name, project_contributors in per_project_raw.items():
+            per_project_analysis[project_name] = analyze_project_roles(project_contributors)
+    
+    # Generate and print the complete report
+    print(format_roles_report(result, per_project_analysis))
+
