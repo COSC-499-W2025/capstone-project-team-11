@@ -38,6 +38,12 @@ from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
+from detect_roles import (
+    load_contributors_from_db,
+    load_contributors_per_project_from_db,
+    analyze_project_roles,
+    format_roles_report
+)
 
 
 def print_main_menu():
@@ -53,7 +59,8 @@ def print_main_menu():
     print("8. Generate Portfolio (Project-centric)")
     print("9. View Resumes")
     print("10. View Portfolios")
-    print("11. Exit")
+    print("11. Analyze Contributor Roles")
+    print("12. Exit")
 
 
 def handle_scan_directory():
@@ -786,12 +793,53 @@ def handle_add_to_resume(resume_row, path):
     print("\nResume successfully updated.")
 
 
+def handle_analyze_roles():
+    """Handle contributor role analysis."""
+    print("\n=== Analyze Contributor Roles ===")
+    
+    # Load overall contributor data
+    print("Loading contributors from database...")
+    contributors_data = load_contributors_from_db()
+    
+    if not contributors_data:
+        print("\nNo contributor data found in database.")
+        print("Please run a directory scan first (Option 1) to populate the database.")
+        return
+    
+    print(f"Found {len(contributors_data)} contributors")
+    
+    # Analyze overall roles
+    print("Analyzing overall contributor roles...")
+    overall_analysis = analyze_project_roles(contributors_data)
+    
+    # Ask if user wants per-project breakdown
+    show_per_project = ask_yes_no("\nInclude per-project breakdown? (y/n): ", True)
+    
+    per_project_analysis = None
+    if show_per_project:
+        print("\nLoading per-project contributor data...")
+        per_project_raw = load_contributors_per_project_from_db()
+        
+        if per_project_raw:
+            print(f"Found {len(per_project_raw)} projects")
+            print("Analyzing roles for each project...")
+            per_project_analysis = {}
+            for project_name, project_contributors in per_project_raw.items():
+                per_project_analysis[project_name] = analyze_project_roles(project_contributors)
+        else:
+            print("No per-project data found.")
+    
+    # Generate and display report
+    print("\n" + "="*70)
+    report = format_roles_report(overall_analysis, per_project_analysis)
+    print(report)
+
 
 def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-10): ").strip()
+        choice = input("\nSelect an option (1-12): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -814,10 +862,12 @@ def main():
         elif choice == "10":
             handle_view_portfolios()
         elif choice == "11":
+            handle_analyze_roles()
+        elif choice == "12":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-11.")
+            print("\nInvalid option. Please select a number between 1-12.")
 
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
