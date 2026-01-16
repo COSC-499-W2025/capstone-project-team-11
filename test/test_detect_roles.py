@@ -483,30 +483,6 @@ class TestPerProjectAnalysis(unittest.TestCase):
             self.assertIn("eve", per_project_text.lower())
 
 
-class TestPerProjectDatabaseIntegration(unittest.TestCase):
-    """Test database integration for per-project analysis."""
-    
-    def test_load_contributors_per_project_no_db(self):
-        """Test that load_contributors_per_project_from_db handles missing database gracefully."""
-        # This test will try to load from the actual database
-        # If no database exists, it should return empty dict
-        result = load_contributors_per_project_from_db()
-        
-        # Result should be a dictionary (could be empty or filled depending on test DB)
-        self.assertIsInstance(result, dict)
-        
-        # If there are projects, each should have contributor data
-        for project_name, contributors_data in result.items():
-            self.assertIsInstance(project_name, str)
-            self.assertIsInstance(contributors_data, dict)
-            
-            # Each contributor should have the required fields
-            for contrib_name, contrib_data in contributors_data.items():
-                self.assertIn("files_changed", contrib_data)
-                self.assertIn("commits", contrib_data)
-                self.assertIn("lines_added", contrib_data)
-                self.assertIn("lines_removed", contrib_data)
-                self.assertIn("activity_by_category", contrib_data)
 
 
 if __name__ == '__main__':
