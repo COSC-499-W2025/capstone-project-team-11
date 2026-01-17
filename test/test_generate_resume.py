@@ -92,6 +92,9 @@ class RobustGenerateResumeTests(unittest.TestCase):
         os.makedirs(self.resume_dir, exist_ok=True)
 
     def tearDown(self):
+        # Close any lingering SQLite connections before cleanup (Windows)
+        import gc
+        gc.collect()
         self.tmpdir.cleanup()
 
     def test_normalize_project_name(self):
@@ -125,13 +128,16 @@ class RobustGenerateResumeTests(unittest.TestCase):
             gr_local = importlib.reload(gr)
 
             project_name = 'assignment-5-tcp-and-udp-programming-with-java-alice'
-            with db_local.get_connection() as conn:
+            conn = db_local.get_connection()
+            try:
                 conn.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
                 project_id = conn.execute(
                     "SELECT id FROM projects WHERE name = ?",
                     (project_name,),
                 ).fetchone()["id"]
                 conn.commit()
+            finally:
+                conn.close()
 
             pe_local.add_evidence(
                 project_id,
@@ -143,6 +149,9 @@ class RobustGenerateResumeTests(unittest.TestCase):
             md = gr_local.render_markdown(agg, generated_ts='2025-11-27 01:02:03Z')
             self.assertIn("Impact: 500 users (Analytics)", md)
         finally:
+            # Force close any remaining connections and collect garbage (Windows)
+            import gc
+            gc.collect()
             if prev_db is None:
                 os.environ.pop("FILE_DATA_DB_PATH", None)
             else:
