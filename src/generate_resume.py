@@ -16,6 +16,7 @@ from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
 from db import save_resume
+from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_resume
 
 
 def find_json_and_txt(root):
@@ -263,6 +264,20 @@ def render_markdown(agg, generated_ts=None):
             bullets.append(f"Technologies: {techs}.")
         if skills:
             bullets.append(f"Skills demonstrated: {', '.join(skills)}.")
+        
+        # Evidence integration: Add optional impact bullet if user-provided evidence exists
+        # This does NOT modify aggregation or ranking logic; it only appends to output.
+        try:
+            project_id = get_project_id_by_name(name)
+            if project_id:
+                evidence = get_evidence_for_project(project_id)
+                impact_clause = format_evidence_for_resume(evidence, max_items=2)
+                if impact_clause:
+                    bullets.append(impact_clause)
+        except Exception:
+            # Gracefully skip evidence if DB not available or any error occurs
+            pass
+        
         for b in bullets:
             md.append(f"- {b}")
         md.append('')
