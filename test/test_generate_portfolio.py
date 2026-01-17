@@ -304,6 +304,9 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
 
     # Clean up temporary directories after tests
     def tearDown(self):
+        # Close any lingering SQLite connections before cleanup (Windows)
+        import gc
+        gc.collect()
         self.tmpdir.cleanup()
 
     # Verify project collection, aggregation, and full portfolio building
@@ -355,13 +358,16 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
             gp_local = importlib.reload(gp)
 
             project_name = 'test-project-john'
-            with db_local.get_connection() as conn:
+            conn = db_local.get_connection()
+            try:
                 conn.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
                 project_id = conn.execute(
                     "SELECT id FROM projects WHERE name = ?",
                     (project_name,),
                 ).fetchone()["id"]
                 conn.commit()
+            finally:
+                conn.close()
 
             pe_local.add_evidence(
                 project_id,
@@ -385,6 +391,9 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
             self.assertIn("**Evidence of Success:**", section.content)
             self.assertIn("- **Metric** (Analytics): 500 users", section.content)
         finally:
+            # Force close any remaining connections and collect garbage (Windows)
+            import gc
+            gc.collect()
             if prev_db is None:
                 os.environ.pop("FILE_DATA_DB_PATH", None)
             else:
