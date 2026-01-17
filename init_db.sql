@@ -42,10 +42,12 @@ CREATE INDEX idx_files_scan_id ON files (scan_id);
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE,
+    custom_name TEXT,              -- resume display name override
     repo_url TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     thumbnail_path TEXT
 );
+
 
 -- Table to store evidence related to projects
 CREATE TABLE IF NOT EXISTS project_evidence (

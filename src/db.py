@@ -44,6 +44,16 @@ def _ensure_projects_thumbnail_column(conn):
     if 'thumbnail_path' not in cols:
         cur.execute("ALTER TABLE projects ADD COLUMN thumbnail_path TEXT")
         conn.commit()
+def _ensure_projects_custom_name_column(conn):
+    """Ensure the projects table has a custom_name column."""
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(projects)")
+    cols = {row['name'] for row in cur.fetchall()}
+    if 'custom_name' not in cols:
+        cur.execute("ALTER TABLE projects ADD COLUMN custom_name TEXT")
+        conn.commit()
+
+        
 
 
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
@@ -65,7 +75,9 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
     try:
         if project_thumbnail_path is not None:
             _ensure_projects_thumbnail_column(conn)
-
+           
+        _ensure_projects_custom_name_column(conn)
+           
         cur.execute('BEGIN')
 
         project_name = project or os.path.basename(scan_source)
