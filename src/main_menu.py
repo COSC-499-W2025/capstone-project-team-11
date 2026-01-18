@@ -15,6 +15,7 @@ import sys
 import sqlite3
 import subprocess
 from datetime import datetime
+from db import list_projects_for_display, set_project_display_name
 import re
 
 # Add src directory to path for imports
@@ -477,29 +478,94 @@ def handle_generate_project_summary():
     except Exception as e:
         print(f"Error generating project summary: {e}")
 
-
 def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
-    If the user provides a username here, pass it to the generator to avoid
-    a second interactive prompt. If left blank, the generator will prompt.
+    Delegates username prompting and candidate listing entirely to the
+    generate_resume script. After generation, optionally allows editing
+    project display names and re-generating the resume.
     """
     print("\n=== Generate Resume ===")
-    # Delegate username prompting and candidate listing entirely to the
-    # generate_resume script. Do not prompt for username here.
+
     script_path = os.path.join(os.path.dirname(__file__), 'generate_resume.py')
     if not os.path.exists(script_path):
         print(f"Resume generator script not found at: {script_path}")
         return
 
     cmd = [sys.executable, script_path, '--save-to-db']
+
     try:
-        # Run the script and inherit stdio so the generator can prompt the user
+        # Run the resume generator and inherit stdio so it can prompt the user
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
             print(f"Resume generator exited with code {result.returncode}")
+            return
+
+        # Ask if the user wants to edit project display names
+        edit_choice = input(
+            "\nWould you like to edit project names used on the resume? (y/n): "
+        ).strip().lower()
+
+        if edit_choice == "y":
+            handle_edit_project_display_name()
+
+            regen_choice = input(
+                "\nRe-generate resume now to apply changes? (y/n): "
+            ).strip().lower()
+
+            if regen_choice == "y":
+                subprocess.run(cmd)
+
     except Exception as e:
         print(f"Failed to run resume generator: {e}")
+
+        
+def handle_edit_project_display_name():
+    """Allow user to edit custom resume display names for projects."""
+    print("\n=== Edit Project Resume Display Names ===")
+
+    projects = list_projects_for_display()
+    if not projects:
+        print("No projects found in database.")
+        input("Press Enter to continue...")
+        return
+
+    print("\nProjects:")
+    for idx, p in enumerate(projects, start=1):
+        current = p["custom_name"] or "(default)"
+        print(f"  {idx}. {p['name']}  ->  {current}")
+
+    choice = input(
+        "\nSelect a project number to edit (blank to cancel): "
+    ).strip()
+
+    if not choice:
+        return
+
+    if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
+        print("Invalid selection.")
+        input("Press Enter to continue...")
+        return
+
+    project = projects[int(choice) - 1]
+    project_name = project["name"]
+
+    print(f"\nSelected project: {project_name}")
+    print("Enter a new display name for resumes.")
+    print("Leave blank to clear the custom name and use the default.")
+
+    new_name = input("New display name: ").strip()
+
+    set_project_display_name(project_name, new_name or None)
+
+    if new_name:
+        print(f"✔ Resume display name updated to: {new_name}")
+    else:
+        print("✔ Custom resume name cleared (using default).")
+
+    input("\nPress Enter to continue...")
+
 
 
 def handle_generate_portfolio():
