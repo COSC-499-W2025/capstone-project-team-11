@@ -62,7 +62,6 @@ class TestProjectEvidence(unittest.TestCase):
             self.project_id,
             {
                 "type": "metric",
-                "description": "Initial release traction",
                 "value": "500 users",
                 "source": "Analytics",
                 "url": "https://example.com/report1",
@@ -72,7 +71,6 @@ class TestProjectEvidence(unittest.TestCase):
             self.project_id,
             {
                 "type": "feedback",
-                "description": "Stakeholder review",
                 "value": "Great polish",
                 "source": "Email",
                 "url": "https://example.com/review",
@@ -101,7 +99,6 @@ class TestProjectEvidence(unittest.TestCase):
             self.project_id,
             {
                 "type": "metric",
-                "description": "v1 launch",
                 "value": "100 downloads",
                 "source": "Store",
                 "url": None,
@@ -112,7 +109,6 @@ class TestProjectEvidence(unittest.TestCase):
             ev_id,
             {
                 "value": "1,000 downloads",
-                "description": "v1 launch – updated numbers",
             },
         )
         self.assertTrue(updated)
@@ -123,7 +119,7 @@ class TestProjectEvidence(unittest.TestCase):
                 (ev_id,),
             ).fetchone()
         self.assertEqual(row["value"], "1,000 downloads")
-        self.assertEqual(row["description"], "v1 launch – updated numbers")
+        self.assertEqual(row["description"], "")
         self.assertEqual(row["source"], "Store")
 
         # Empty updates should return False and not alter the row
@@ -141,7 +137,6 @@ class TestProjectEvidence(unittest.TestCase):
             self.project_id,
             {
                 "type": "award",
-                "description": "Hackathon winner",
                 "value": "1st place",
                 "source": "City Hackathon",
                 "url": "",
@@ -161,13 +156,12 @@ class TestProjectEvidence(unittest.TestCase):
         # Non-existent id returns False
         self.assertFalse(self.pe.delete_evidence(9999))
 
-    def test_format_evidence_list_includes_source_description_and_timestamp(self):
+    def test_format_evidence_list_includes_source_and_timestamp(self):
         evidence_list = [
             {
                 "id": 1,
                 "project_id": self.project_id,
                 "type": "metric",
-                "description": "Reached 10k users",
                 "value": "10,000 MAU",
                 "source": "Analytics",
                 "url": "https://example.com/metrics",
@@ -178,7 +172,6 @@ class TestProjectEvidence(unittest.TestCase):
                 "id": 2,
                 "project_id": self.project_id,
                 "type": "link",
-                "description": "",
                 "value": "",
                 "source": "",
                 "url": "",
@@ -189,15 +182,71 @@ class TestProjectEvidence(unittest.TestCase):
 
         formatted = self.pe.format_evidence_list(evidence_list)
         self.assertIn("- **Metric** (Analytics): 10,000 MAU", formatted)
-        self.assertIn("Reached 10k users", formatted)
         self.assertIn("[View →](https://example.com/metrics)", formatted)
         self.assertIn("Added: 2025-01-01 12:30:45", formatted)  # microseconds trimmed
-        self.assertIn("- **Link** : (no value provided)", formatted)
+        self.assertIn("- **Link** : (no statement)", formatted)
 
         self.assertEqual(
             self.pe.format_evidence_list([]),
             "No evidence of success added yet.",
         )
+
+    def test_validate_evidence_type(self):
+        self.assertEqual(self.pe.validate_evidence_type("metric"), "metric")
+        self.assertEqual(self.pe.validate_evidence_type("FEEDBACK"), "feedback")
+        with self.assertRaises(ValueError):
+            self.pe.validate_evidence_type("invalid")
+
+    def test_add_evidence_requires_valid_type_and_statement(self):
+        with self.assertRaises(ValueError):
+            self.pe.add_evidence(self.project_id, {"value": "Missing type"})
+        with self.assertRaises(ValueError):
+            self.pe.add_evidence(self.project_id, {"type": "invalid", "value": "Bad type"})
+        with self.assertRaises(ValueError):
+            self.pe.add_evidence(self.project_id, {"type": "metric"})
+
+    def test_get_project_id_by_name(self):
+        self.assertEqual(self.pe.get_project_id_by_name("demo-project"), self.project_id)
+        self.assertIsNone(self.pe.get_project_id_by_name("missing-project"))
+        self.assertIsNone(self.pe.get_project_id_by_name(""))
+
+    def test_format_evidence_for_resume_limits_items_and_uses_source(self):
+        ev_list = [
+            {"value": "A", "source": "Email"},
+            {"value": "B", "source": ""},
+            {"value": "C", "source": "Slack"},
+        ]
+        formatted = self.pe.format_evidence_for_resume(ev_list, max_items=2)
+        self.assertIn("Impact:", formatted)
+        self.assertIn("A (Email)", formatted)
+        self.assertIn("B", formatted)
+        self.assertNotIn("C", formatted)
+
+    def test_format_evidence_for_resume_uses_legacy_description(self):
+        ev_list = [
+            {"value": "", "description": "Legacy statement", "source": "Email"},
+        ]
+        formatted = self.pe.format_evidence_for_resume(ev_list, max_items=2)
+        self.assertIn("Legacy statement (Email)", formatted)
+
+    def test_format_evidence_for_portfolio_basic(self):
+        ev_list = [
+            {"type": "metric", "value": "500 users", "source": "Analytics"},
+            {"type": "feedback", "value": "Great polish", "source": ""},
+        ]
+        formatted = self.pe.format_evidence_for_portfolio(ev_list)
+        self.assertIn("- **Metric** (Analytics): 500 users", formatted)
+        self.assertIn("- **Feedback**: Great polish", formatted)
+
+    def test_format_evidence_for_portfolio_uses_legacy_description(self):
+        ev_list = [
+            {"type": "feedback", "value": "", "description": "Legacy note", "source": "Email"},
+        ]
+        formatted = self.pe.format_evidence_for_portfolio(ev_list)
+        self.assertIn("- **Feedback** (Email): Legacy note", formatted)
+
+    def test_format_evidence_for_portfolio_empty_returns_none(self):
+        self.assertIsNone(self.pe.format_evidence_for_portfolio([]))
 
 
 if __name__ == "__main__":

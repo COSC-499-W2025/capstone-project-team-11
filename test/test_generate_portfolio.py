@@ -4,9 +4,11 @@ import unittest
 import json
 import tempfile
 import subprocess
+import importlib
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import generate_portfolio as gp
-
+import db as db_mod
+import project_evidence as pe_mod
 from collections import OrderedDict
 from generate_resume import collect_projects
 
@@ -302,6 +304,9 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
 
     # Clean up temporary directories after tests
     def tearDown(self):
+        # Close any lingering SQLite connections before cleanup (Windows)
+        import gc
+        gc.collect()
         self.tmpdir.cleanup()
 
     # Verify project collection, aggregation, and full portfolio building
@@ -340,6 +345,59 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
         self.assertIn('# Portfolio — john', content)
         self.assertIn('Python', content)
         self.assertIn('React', content)
+
+    def test_project_section_includes_evidence_when_present(self):
+        db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        prev_db = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = db_path
+        try:
+            # Reload modules to pick up the temp DB path
+            db_local = importlib.reload(db_mod)
+            db_local.init_db()
+            pe_local = importlib.reload(pe_mod)
+            gp_local = importlib.reload(gp)
+
+            project_name = 'test-project-john'
+            conn = db_local.get_connection()
+            try:
+                conn.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    (project_name,),
+                ).fetchone()["id"]
+                conn.commit()
+            finally:
+                conn.close()
+
+            pe_local.add_evidence(
+                project_id,
+                {"type": "metric", "value": "500 users", "source": "Analytics"},
+            )
+
+            project_data = {
+                'project_name': project_name,
+                'path': '/path',
+                'languages': ['Python'],
+                'frameworks': [],
+                'skills': [],
+                'high_confidence_languages': ['Python'],
+                'high_confidence_frameworks': [],
+                'user_commits': 0,
+                'user_files': [],
+                'git_metrics': {}
+            }
+
+            section = gp_local.build_project_section(project_data, 1, 'john', 'high')
+            self.assertIn("**Evidence of Success:**", section.content)
+            self.assertIn("- **Metric** (Analytics): 500 users", section.content)
+        finally:
+            # Force close any remaining connections and collect garbage (Windows)
+            import gc
+            gc.collect()
+            if prev_db is None:
+                os.environ.pop("FILE_DATA_DB_PATH", None)
+            else:
+                os.environ["FILE_DATA_DB_PATH"] = prev_db
 
 if __name__ == '__main__':
     unittest.main()
