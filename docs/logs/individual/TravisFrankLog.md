@@ -270,3 +270,28 @@ Overall, this was a highly productive first week back. Establishing a clean, tes
 - Continue reviewing teammate PRs as Milestone 2 development ramps up  
 - Help refine documentation for the evidence management workflow  
 - Participate in team planning sessions to align on LLM integration possibilities and remaining Milestone 2 deliverables  
+
+---
+
+# Semester 2 – Week 2 Personal Log (January 12th – 18th, 2026)
+
+During Week 2 of Semester 2, my focus shifted toward completing the full integration of the Project Evidence feature across downstream outputs and reviewing ongoing team contributions as Milestone 2 development continued. Building on the backend and CLI groundwork established last week, I finalized the flow for surfacing evidence data within résumé and portfolio generation pipelines, ensuring the feature was end-to-end complete and aligned with Milestone 2 objectives. In parallel, I spent time reviewing teammate pull requests and researching potential LLM options to inform future integration decisions.
+
+This week felt like a strong follow-through on earlier design decisions. Completing the evidence integration into résumé and portfolio outputs closes a major Milestone 2 feature and significantly improves the system’s ability to generate meaningful, evidence-backed artifacts.
+
+<img width="981" height="629" alt="Screenshot 2026-01-18 at 3 29 09 PM" src="https://github.com/user-attachments/assets/2c48a6f0-6430-4a27-9400-9f65cafce1c5" />
+
+## Tasks Completed
+- Finished integrating the **Project Evidence** feature into résumé and portfolio generation outputs (PR #265)
+- Closed Issue #234 by completing full end-to-end evidence support across backend, CLI, and export layers
+- Reviewed and provided feedback on multiple teammate pull requests throughout the week
+- Researched potential LLM options and integration approaches for upcoming Milestone 2 features
+- Continued coordinating with the team to align technical direction and priorities
+
+<img width="1069" height="125" alt="Screenshot 2026-01-18 at 3 30 55 PM" src="https://github.com/user-attachments/assets/a84a56cb-914e-403c-9bc8-1091a0f2d21b" />
+
+### Plans for Week 3
+- Begin active work toward **LLM integration**, informed by research completed this week
+- Continue strengthening and expanding API endpoints to support richer downstream features
+- Start work on Issue #239: *Display textual information about a project as a résumé item*
+- Ongoing PR reviews and collaboration as Milestone 2 development progresses
