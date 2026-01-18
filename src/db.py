@@ -6,10 +6,18 @@ from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
 # Allow overriding database path via environment for tests or custom locations
-DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+)
+
 
 def get_connection():
     """Return a connection to the SQLite database."""
+    # Ensure parent folder exists (needed for tests / custom env paths)
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -52,6 +60,73 @@ def _ensure_projects_custom_name_column(conn):
     if 'custom_name' not in cols:
         cur.execute("ALTER TABLE projects ADD COLUMN custom_name TEXT")
         conn.commit()
+def get_project_display_name(project_name: str):
+    """
+    Return custom resume display name for a project if it exists.
+    Falls back to None if not found / not set / DB not available.
+    """
+    if not project_name:
+        return None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT custom_name FROM projects WHERE name = ?", (project_name,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        custom = row["custom_name"]
+        return custom.strip() if custom and custom.strip() else None
+
+    except sqlite3.OperationalError:
+        # DB missing, path invalid, or table not created in unit tests
+        return None
+
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def list_projects_for_display():
+    """Return projects as rows: id, name, custom_name."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, custom_name FROM projects ORDER BY name COLLATE NOCASE")
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def set_project_display_name(project_name: str, custom_name: str | None):
+    """
+    Set (or clear) the resume display name override for a project.
+    If custom_name is None or empty -> clears the override.
+    """
+    if not project_name:
+        raise ValueError("project_name is required")
+
+    custom = (custom_name or "").strip()
+    if custom == "":
+        custom = None
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE projects SET custom_name = ? WHERE name = ?",
+            (custom, project_name),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+
+
+
 
         
 
