@@ -262,4 +262,57 @@ In conclusion,this week went pretty decent since we all came back from a break a
 
 ## Week 2 plans
 - start one of the issues we have in the kanban 
-- Look into APIs and LLMs 
+- Look into APIs and LLMs
+
+
+# T2 Week #2 Personal Logs (Jan 12th - 18th)
+
+<img width="1060" height="624" alt="Screenshot 2026-01-18 at 3 20 38 PM" src="https://github.com/user-attachments/assets/99f1d413-a488-47bb-9279-5894503a9e33" />
+
+## Tasks Completed:
+- Implemented support for custom project display names in résumé generation, allowing users to override default folder-based project names with résumé-friendly titles.
+- Extended the database schema and access layer to persist and retrieve custom résumé display names without affecting existing project identifiers or file paths.
+- Updated the résumé generation logic to dynamically apply the saved display name when rendering project sections.
+- Added a CLI workflow that allows users to edit and manage project display names after generating a résumé.
+- Wrote and executed unit tests to verify that custom project names are correctly saved, retrieved, and reflected in the résumé output.
+- Verified that all existing tests pass and that the new feature does not introduce regressions.
+- Closed issue #271.
+- Contributed updates reflected in the team log.
+
+
+### Reflection of the past week:
+This week, we worked away on  Milestone 2 deliverables. Our communication was great and no problems there and we also had minimimal problems acomplishing our tasks and most of our code was done before late sunday night. Next week we will probably  plan to start on our LLM integration. 
+
+### Additions and Features:
+db.py: Added support for storing and retrieving custom resume display names for projects, including safeguards to ensure database paths are created correctly in test and local environments.
+
+generate_resume.py: Updated resume rendering logic to apply user-defined project display names when generating the Projects section, while preserving existing normalization and fallback behavior.
+
+main_menu.py: Introduced a CLI workflow that allows users to edit and manage project display names after generating a resume, with an option to re-generate the resume to apply changes.
+
+### Testing:
+
+test_generate_resume: Verified that resume aggregation and rendering correctly apply custom project display names, including fallback behavior when no override is set.
+
+test_project_display_names: Added unit tests to ensure project display names can be saved, cleared, and retrieved from the database without affecting other resume or project data.
+
+Regression testing: Ran the full test suite (pytest) to confirm existing resume, portfolio, and database functionality remained unaffected by the changes.
+
+### Reviews: 
+-  Jaxson's FastAPI Integration (PR #264)
+- Travis's Integrate project evidence into resume/portfolio and update tests (PR #265)
+- Daniel's Updated key roles to be project centric (Pr #267)
+
+## In progress tasks
+- Researching local LLMs for our project
+- Planning on how to add more functionality to allow users to customize additional resume content beyond just project titles (for example, editing bullet points, summaries, or highlighted skills directly from the CLI)
+
+## Planned tasks for next sprint
+- add more functionality to allow users to customize additional resume content beyond just project titles (for example, editing bullet points, summaries, or highlighted skills directly from the CLI)
+
+ <img width="1372" height="622" alt="Screenshot 2026-01-18 at 3 45 43 PM" src="https://github.com/user-attachments/assets/8c35c55c-4b72-4f2f-8945-66b0a4103211" />
+
+
+
+
+
