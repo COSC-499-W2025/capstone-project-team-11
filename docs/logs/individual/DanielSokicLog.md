@@ -240,4 +240,47 @@ Overall, this week went pretty well considering we are all coming back from a lo
 - Look into APIs and LLMs to improve insights. 
 
 
+# T2 Week 2 Logs (January 12th - 18th)
+<img width="798" height="458" alt="image" src="https://github.com/user-attachments/assets/0920c733-8ab2-4cbb-bf7a-a2dd8f19ce9d" />
 
+## Task Completed
+This week I continued to work on the key roles feature by adding a feature to make it more project centric. Previously it would give a user a role for a combination of all their projects in the database but now there is a feature that shows the role of each user in each project specifically. Additionally, this feature was seperated from the main menu so I added it there with the sufficient menu testing and testing for updates to the key roles feature.
+
+- Closed issue #266
+
+## Refelection
+Overall the team was pretty organized and were able to communicate with each other productively. Team members delivered on new features or improved on existing ones and reviews were conducted quickly and professionally. For the most part, all code was pushed and reviewed before late Sunday. 
+
+## Additions
+`detect_roles.py`: 
+- Added load_contributors_per_project_from_db() function to query and analyze contributor roles on a per-project basis
+- Updated [format_roles_report() to accept optional per-project data and display a "PER-PROJECT CONTRIBUTIONS" section
+- Report now shows both overall contributor roles and individual project breakdowns with condensed metrics
+
+`main_menu.py`:
+- Added new menu option "11. Analyze Contributor Roles"
+- Updated exit option from 11 to 12
+
+## Testing
+`test_detect_roles`: Added TestPerProjectAnalysis test class with test cases covering:
+- Report formatting with/without per-project data
+-  Multiple contributors across projects
+-  Empty project handling
+-   Role differences across projects
+
+`test_main_menu`: Added new test cases for handle_analyze_roles():
+-  Overall analysis without per-project
+-  Per-project breakdown display
+-  Multiple contributors
+-  Metrics display validation
+
+## Reviews
+- Jaxson's FastAPI Integration #264
+- Pri's Feature/custom project wording clean #271
+
+## In Progress Tasks
+Researching and integrating LLMs
+
+## Planned Tasks for next Sprint
+- Fix zip file github project bugs.
+- LLM integration
