@@ -1,3 +1,5 @@
+
+
 # Week 3 Personal Log (15th-21st of September)
 
 This weeks focus consisted of created the project requirements and creating a form of communication that works for all group members.  
@@ -362,32 +364,48 @@ This week, we mainly focused on understanding the Milestone 2 deliverables and d
 <img width="834" height="469" alt="Screenshot 2026-01-11 at 4 06 43 PM" src="https://github.com/user-attachments/assets/9ca555e2-3317-4788-9062-2345cc35fc5d" />
 
 # T2 Week #2 Personal Logs (Jan 12th - 18th)
-
 <img width="925" height="535" alt="Screenshot 2026-01-18 at 2 39 04 PM" src="https://github.com/user-attachments/assets/de8ca9e2-6f0e-4950-9e5f-7ce7db8b164f" />
 
-## Tasks Completed:
-This week, my focus was on implementing the FastAPI application with all required endpoints to bridge frontend and backend, including project upload, privacy consent, projects listing/detail, skills listing, resume/portfolio generate, and resume/portfolio edit/get.
-- Closed issue #262
+## Overview
+This week built directly on T2 Week 1, where database-backed features and project thumbnails were added. The focus shifted to bridging frontend and backend by implementing a complete FastAPI layer to expose scanning, consent, project data, skills, and resume/portfolio functionality through documented API endpoints.
 
-### Reflection of the past week:
-This week, we worked on many of the Milestone 2 deliverables. We have had good communication among our team members and have accomplished our tasks with minimal problems so far. Most of our code was delivered before late Sunday night. Next week we are planning to start on our LLM integration. 
+## Coding Tasks
+- Implemented FastAPI application with all required backend endpoints: (PR #264)
+  - Project upload and scanning
+  - Privacy consent handling
+  - Projects listing and project detail retrieval
+  - Skills listing
+  - Resume and portfolio generation
+  - Resume and portfolio edit and retrieval
+- Created `api.py` to serve as the main backend interface between the frontend and database.
+- Wrote full API documentation in `api.md`, including setup instructions, endpoint descriptions, and example requests/responses.
+- Updated `requirements.txt` to include required dependencies (`fastapi`, `httpx`).
+(Closed issue #262)
 
-### Additions and Features:
-- **`api.py`**: Added a FastAPI app with all requested endpoints, request models, and DB-backed handlers. Includes consent handling, project scanning/upload flow, enriched project detail aggregation, skills list, resume/portfolio generate, and resume/portfolio edit/get.
-- **`api.md`**: Added full API documentation at api.md, covering setup, consent, all endpoints, example requests/responses, and notes for Windows paths.
-- **`requirements.txt`**: Added `fastapi` and `httpx` dependencies required for the API and TestClient.
+## Testing and Debugging
+- Added HTTP-style tests using FastAPI TestClient.
+- Tests validate:
+  - Privacy consent flow
+  - Project upload, listing, and detail endpoints
+  - Skills listing endpoint
+  - Resume and portfolio generate, get, and edit endpoints
+- All tests run using isolated temporary databases, config files, and output directories to avoid shared-state issues.
+- Added a small fix to Pri's "Feature/custom project wording clean" PR to fix database initialization problem
 
-### Testing: 
-- **`test_api`**: Added HTTP-style tests using FastAPI TestClient. Tests cover consent, project upload/list/detail, skills listing, resume generate/get/edit, and portfolio generate/get/edit using isolated temp DB/config/output directories.
 
-### Reviews: 
-- Tanner's Broadened portfolio generation functionality (PR #260)
-- Tanner's Database integration for portfolios (PR #261)
-  
-## In progress tasks
-- Researching local LLMs for our project
+## Reviewing and Collaboration
+- Reviewed and provided feedback on:
+  - Tanner’s broadened portfolio generation functionality (PR #260)
+  - Tanner’s database integration for portfolios (PR #261)
+  - Pri's Feature/custom project wording clean (PR #271)
+  - Tanner's Individual Logs
 
-## Planned tasks for next sprint
-- Pick which LLM to use and start integration
+## Issues / Blockers
+- No major blockers this week.
+- Some care was required to keep API tests isolated from the local environment, which was resolved by using temporary directories and test-specific configuration.
 
+## Plan for Next Week
+- Research and evaluate local LLM options suitable for the project.
+- Select an LLM and begin initial integration planning for Milestone 2.
 <img width="834" height="526" alt="Screenshot 2026-01-18 at 2 49 42 PM" src="https://github.com/user-attachments/assets/52d0f62a-a14e-4b4f-8450-667d889c3353" />
+
