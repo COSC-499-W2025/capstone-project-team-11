@@ -240,6 +240,52 @@ Week 15 Plans:
 
 <img width="2692" height="1210" alt="image" src="https://github.com/user-attachments/assets/60a00e82-6fae-4145-9ba9-cb01be0bc6f5" />
 
+# Tyler's T2 Week 2 Personal Log (12-18 Jan.)
+[Back to Term 2 Navigation](#)
+
+Focus of the week was extending the incremental portfolio/resume workflow and integrating headless portfolio regeneration. This builds upon last week's work on resume incremental updates. I completed the portfolio portion of the incremental addition, ensuring that new project folders or zip files could be added to existing portfolios, with overwrite functionality and full tests.
+
+<img width="997" height="577" alt="image" src="https://github.com/user-attachments/assets/63f64917-2406-4d2d-9a4e-abe2fc2c5bf9" />
+
+---
+
+## Coding Tasks
+- Implemented the **“add new project to existing portfolio”** feature in [main_menu.py](#) for interactive and headless workflows.
+- Developed **portfolio_scan** in [regenerate_portfolio_scan.py](#) to handle directory or zip scans for portfolio regeneration.
+- Implemented [regenerate_portfolio.py](#) logic to **overwrite existing portfolio Markdown files**, including `--overwrite` flag functionality.
+- Updated [generate_portfolio.py](#) to integrate **overwrite functionality** and **confidence-level filtering** for languages/frameworks.
+
+---
+
+## Testing / Debugging Tasks
+- Wrote full unit tests for the new portfolio addition and regeneration features (`test_regenerate_portfolio.py`).
+- Verified that previously implemented resume incremental updates still work correctly after portfolio changes.
+- Confirmed overwrite functionality correctly replaces old portfolio files without creating duplicates.
+
+---
+
+## Reviewing / Collaboration Tasks
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #264](#), [PR #265](#), [PR #267](#)).
+- Documented PR contributions with filled-out PR template reflecting portfolio changes, overwrite functionality, and testing procedures.
+- Maintained communication with the team on any issues encountered with output folder structures and database metadata handling.
+
+---
+
+## Blockers / Issues
+- Minor conflicts when integrating portfolio regeneration with existing resume workflows. Resolved by ensuring `output/` directory structure is consistent and both resume and portfolio generation append to the same root.
+
+---
+
+## T2 Week 3 Plans
+- Work on polishing any features that have bugs or need improvements.
+- Look for new features to add and coordinate with teammates for splitting tasks if needed.
+- Reorganize and streamline file layouts and integration workflows ([Issue #246](#)).
+- Complete interactive + headless portfolio generation workflow for all contributors.
+- Continue peer review for T2 week 2 submissions.
+
+<img width="1507" height="722" alt="image" src="https://github.com/user-attachments/assets/5488036b-cc22-475f-ae3d-6f6f2a4adc9b" />
+
+
 
 
 
