@@ -794,7 +794,6 @@ def handle_view_portfolios():
 
 from regenerate_portfolio_scan import portfolio_scan
 from regenerate_portfolio import regenerate_portfolio
-from project_info_output import gather_project_info, output_project_info
 
 def handle_add_to_portfolio(portfolio_row, path):
     """
