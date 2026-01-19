@@ -45,7 +45,6 @@ from detect_roles import (
     format_roles_report
 )
 
-
 def print_main_menu():
     """Display the main menu options."""
     print("\n=== MDA OPERATIONS MENU ===")
@@ -714,63 +713,120 @@ def _delete_portfolio_with_file(conn, portfolio_row):
 
 
 def handle_view_portfolios():
-    """List portfolios from the DB and allow viewing content."""
+    """List portfolios from the DB and allow viewing or updating content."""
     print("\n=== View Portfolios ===")
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
         portfolios = _list_portfolios(cur)
         _print_portfolio_list(portfolios)
         if not portfolios:
-            conn.close()
             return
 
         choice = input("\nEnter number to view/delete (blank to cancel): ").strip()
         if not choice:
-            conn.close()
             return
         if not choice.isdigit() or not (1 <= int(choice) <= len(portfolios)):
             print("Invalid selection.")
-            conn.close()
             return
-        selected = portfolios[int(choice) - 1]
-        path = selected['portfolio_path']
-        uname = selected['username'] or selected['contributor_name'] or '<unknown>'
-        print(f"\nSelected portfolio for {uname}: {path}")
-        action = input("Choose action: (v)iew, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
-        if action == 'c':
-            conn.close()
+
+        selected = dict(portfolios[int(choice) - 1])  # Ensure dict
+        portfolio_file_path = selected.get("portfolio_path")
+        if isinstance(portfolio_file_path, dict):
+            portfolio_file_path = portfolio_file_path.get("portfolio_path") or portfolio_file_path.get("path")
+        if not isinstance(portfolio_file_path, str):
+            raise TypeError(f"Expected portfolio path as string, got {type(portfolio_file_path)}")
+
+        uname = selected.get('username') or selected.get('contributor_name') or '<unknown>'
+        print(f"\nSelected portfolio for {uname}: {portfolio_file_path}")
+
+        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+
+        if action == "a":
+            add_path = input("Enter directory or zip to add to this portfolio: ").strip()
+            if not add_path:
+                print("No path entered. Aborting.")
+                return
+            if not os.path.exists(add_path):
+                print("Path does not exist.")
+                return
+            try:
+                handle_add_to_portfolio(selected, add_path)
+            except Exception as e:
+                print(f"Failed to update portfolio: {e}")
             return
-        if action == 'd':
+
+        if action == "d":
             confirm = input("Are you sure you want to delete this portfolio? (y/n): ").strip().lower()
             if confirm != 'y':
-                conn.close()
                 return
             ok, msg = _delete_portfolio_with_file(conn, selected)
             print(msg)
-            conn.close()
             return
 
-        print(f"\nOpening portfolio for {uname}: {path}")
-        preview, truncated_or_error = _preview_resume(path, lines=500)
+        if action == "c":
+            return
+
+        # Default: view
+        print(f"\nOpening portfolio for {uname}: {portfolio_file_path}")
+        preview, truncated_or_error = _preview_resume(portfolio_file_path, lines=500)
         if preview is None:
             print(truncated_or_error)
-            conn.close()
             return
+
         truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
         print("\n--- Preview ---\n")
         print(preview)
         if truncated:
-            print(f"\n... [Preview truncated - full file at: {path}]")
+            print(f"\n... [Preview truncated - full file at: {portfolio_file_path}]")
+
     except sqlite3.OperationalError as e:
         print(f"Portfolios table not available: {e}")
     except Exception as e:
         print(f"Error viewing portfolios: {e}")
     finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+from regenerate_portfolio_scan import portfolio_scan
+from regenerate_portfolio import regenerate_portfolio
+from project_info_output import gather_project_info, output_project_info
+
+def handle_add_to_portfolio(portfolio_row, path):
+    """
+    portfolio_row is the DB row for the currently selected portfolio
+    path is directory or zip to scan
+    """
+    print("\n=== Scanning new directory ===")
+    # Scan project and optionally save to DB
+    portfolio_scan(path, save_to_db=True)
+
+    # --- Add project summary output to output/<project_name>/ ---
+    try:
+        info = gather_project_info(path)
+        project_name = info.get("project_name") or os.path.basename(os.path.abspath(path))
+        out_dir = os.path.join("output", project_name)
+        os.makedirs(out_dir, exist_ok=True)
+        json_path, txt_path = output_project_info(info, output_dir=out_dir)
+        print(f"Summary reports saved to: {out_dir}")
+        print(f"  JSON: {json_path}")
+        print(f"  TXT:  {txt_path}")
+    except Exception as e:
+        print(f"Failed to generate project summary output: {e}")
+
+    print("\n=== Regenerating portfolio ===")
+    regenerate_portfolio(
+        username=portfolio_row["username"],
+        portfolio_path=portfolio_row["portfolio_path"],  # overwrite existing
+        output_root="output",  # now includes the new project JSON
+        confidence_level="high"
+    )
+
+    print("\nPortfolio successfully updated.")
 
 
 from regenerate_resume import regenerate_resume

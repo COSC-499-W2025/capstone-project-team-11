@@ -491,6 +491,11 @@ def main():
              'high=only high confidence, medium=high+medium, low=all levels'
     )
     parser.add_argument(
+        '--overwrite',
+        default=None,
+        help='If provided, overwrite the portfolio file at this path instead of creating a new timestamped file'
+    )
+    parser.add_argument(
         '--save-to-db',
         action='store_true',
         help='Save portfolio metadata to the local database'
@@ -571,7 +576,10 @@ def main():
 
     # Render and save to file
     md = portfolio.render_markdown()
-    out_path = os.path.join(args.portfolio_dir, f"portfolio_{username}_{ts_fname}.md")
+    if args.overwrite:
+        out_path = args.overwrite  # <-- overwrite the given file
+    else:
+        out_path = os.path.join(args.portfolio_dir, f"portfolio_{username}_{ts_fname}.md")
 
     with open(out_path, 'w', encoding='utf-8') as fh:
         fh.write(md)
