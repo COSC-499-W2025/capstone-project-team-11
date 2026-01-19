@@ -15,6 +15,7 @@ import sys
 import sqlite3
 import subprocess
 from datetime import datetime
+from db import list_projects_for_display, set_project_display_name
 import re
 
 # Add src directory to path for imports
@@ -38,7 +39,12 @@ from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
-
+from detect_roles import (
+    load_contributors_from_db,
+    load_contributors_per_project_from_db,
+    analyze_project_roles,
+    format_roles_report
+)
 
 def print_main_menu():
     """Display the main menu options."""
@@ -52,7 +58,9 @@ def print_main_menu():
     print("7. Generate Resume (User-centric)")
     print("8. Generate Portfolio (Project-centric)")
     print("9. View Resumes")
-    print("10. Exit")
+    print("10. View Portfolios")
+    print("11. Analyze Contributor Roles")
+    print("12. Exit")
 
 
 def handle_scan_directory():
@@ -333,6 +341,25 @@ def handle_inspect_database():
                 print(f"[{r['id']}] user={uname} | generated={human_ts(r['generated_at'])}")
                 print(f"    path: {r['resume_path']}")
 
+        # Portfolios summary
+        print('\n' + '=' * 80)
+        print('Portfolios (recent)')
+        print('=' * 80)
+        portfolios = safe_query(cur, """
+            SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name
+            FROM portfolios p
+            LEFT JOIN contributors c ON c.id = p.contributor_id
+            ORDER BY p.generated_at DESC
+            LIMIT 10
+        """)
+        if not portfolios:
+            print(' No portfolios saved')
+        else:
+            for p in portfolios:
+                uname = p['username'] or p['contributor_name'] or '<unknown>'
+                print(f"[{p['id']}] user={uname} | generated={human_ts(p['generated_at'])}")
+                print(f"    path: {p['portfolio_path']}")
+
         # Skills timeline
         print('\n' + '=' * 80)
         print('Skills Exercised (Chronologically — Grouped by Skill)')
@@ -450,29 +477,94 @@ def handle_generate_project_summary():
     except Exception as e:
         print(f"Error generating project summary: {e}")
 
-
 def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
-    If the user provides a username here, pass it to the generator to avoid
-    a second interactive prompt. If left blank, the generator will prompt.
+    Delegates username prompting and candidate listing entirely to the
+    generate_resume script. After generation, optionally allows editing
+    project display names and re-generating the resume.
     """
     print("\n=== Generate Resume ===")
-    # Delegate username prompting and candidate listing entirely to the
-    # generate_resume script. Do not prompt for username here.
+
     script_path = os.path.join(os.path.dirname(__file__), 'generate_resume.py')
     if not os.path.exists(script_path):
         print(f"Resume generator script not found at: {script_path}")
         return
 
     cmd = [sys.executable, script_path, '--save-to-db']
+
     try:
-        # Run the script and inherit stdio so the generator can prompt the user
+        # Run the resume generator and inherit stdio so it can prompt the user
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
             print(f"Resume generator exited with code {result.returncode}")
+            return
+
+        # Ask if the user wants to edit project display names
+        edit_choice = input(
+            "\nWould you like to edit project names used on the resume? (y/n): "
+        ).strip().lower()
+
+        if edit_choice == "y":
+            handle_edit_project_display_name()
+
+            regen_choice = input(
+                "\nRe-generate resume now to apply changes? (y/n): "
+            ).strip().lower()
+
+            if regen_choice == "y":
+                subprocess.run(cmd)
+
     except Exception as e:
         print(f"Failed to run resume generator: {e}")
+
+        
+def handle_edit_project_display_name():
+    """Allow user to edit custom resume display names for projects."""
+    print("\n=== Edit Project Resume Display Names ===")
+
+    projects = list_projects_for_display()
+    if not projects:
+        print("No projects found in database.")
+        input("Press Enter to continue...")
+        return
+
+    print("\nProjects:")
+    for idx, p in enumerate(projects, start=1):
+        current = p["custom_name"] or "(default)"
+        print(f"  {idx}. {p['name']}  ->  {current}")
+
+    choice = input(
+        "\nSelect a project number to edit (blank to cancel): "
+    ).strip()
+
+    if not choice:
+        return
+
+    if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
+        print("Invalid selection.")
+        input("Press Enter to continue...")
+        return
+
+    project = projects[int(choice) - 1]
+    project_name = project["name"]
+
+    print(f"\nSelected project: {project_name}")
+    print("Enter a new display name for resumes.")
+    print("Leave blank to clear the custom name and use the default.")
+
+    new_name = input("New display name: ").strip()
+
+    set_project_display_name(project_name, new_name or None)
+
+    if new_name:
+        print(f"✔ Resume display name updated to: {new_name}")
+    else:
+        print("✔ Custom resume name cleared (using default).")
+
+    input("\nPress Enter to continue...")
+
 
 
 def handle_generate_portfolio():
@@ -483,7 +575,7 @@ def handle_generate_portfolio():
         print(f"Portfolio generator script not found at: {script_path}")
         return
 
-    cmd = [sys.executable, script_path]
+    cmd = [sys.executable, script_path, '--save-to-db']
     try:
         result = subprocess.run(cmd)
         if result.returncode != 0:
@@ -636,6 +728,8 @@ def handle_view_resumes():
         truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
         print("\n--- Preview ---\n")
         print(preview)
+        if truncated:
+            print(f"\n... [Preview truncated - full file at: {path}]")
     except sqlite3.OperationalError as e:
         print(f"Resumes table not available: {e}")
     except Exception as e:
@@ -645,6 +739,160 @@ def handle_view_resumes():
             conn.close()
         except Exception:
             pass
+
+def _list_portfolios(cur):
+    """Return list of portfolios rows ordered by recent generated_at."""
+    return safe_query(cur, """
+        SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name, p.metadata_json
+        FROM portfolios p
+        LEFT JOIN contributors c ON c.id = p.contributor_id
+        ORDER BY p.generated_at DESC
+        LIMIT 50
+    """)
+
+
+def _print_portfolio_list(portfolios):
+    """Print numbered portfolio list."""
+    if not portfolios:
+        print(" No portfolios saved")
+        return
+    print("\nAvailable portfolios (most recent first):")
+    for idx, p in enumerate(portfolios, start=1):
+        uname = p['username'] or p['contributor_name'] or '<unknown>'
+        print(f"  {idx}. user={uname} | generated={human_ts(p['generated_at'])}")
+        print(f"     path: {p['portfolio_path']}")
+
+
+def _delete_portfolio_with_file(conn, portfolio_row):
+    """Delete portfolio row and corresponding file (best-effort for file)."""
+    from db import delete_portfolio
+    portfolio_id = portfolio_row["id"]
+    delete_portfolio(portfolio_id)
+    path = portfolio_row["portfolio_path"] if "portfolio_path" in portfolio_row.keys() else None
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+            return True, "Deleted from database and removed file."
+        except Exception as e:
+            return True, f"Deleted from database but failed to remove file: {e}"
+    return True, "Deleted from database; file not found or already removed."
+
+
+def handle_view_portfolios():
+    """List portfolios from the DB and allow viewing or updating content."""
+    print("\n=== View Portfolios ===")
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        portfolios = _list_portfolios(cur)
+        _print_portfolio_list(portfolios)
+        if not portfolios:
+            return
+
+        choice = input("\nEnter number to view/delete (blank to cancel): ").strip()
+        if not choice:
+            return
+        if not choice.isdigit() or not (1 <= int(choice) <= len(portfolios)):
+            print("Invalid selection.")
+            return
+
+        selected = dict(portfolios[int(choice) - 1])  # Ensure dict
+        portfolio_file_path = selected.get("portfolio_path")
+        if isinstance(portfolio_file_path, dict):
+            portfolio_file_path = portfolio_file_path.get("portfolio_path") or portfolio_file_path.get("path")
+        if not isinstance(portfolio_file_path, str):
+            raise TypeError(f"Expected portfolio path as string, got {type(portfolio_file_path)}")
+
+        uname = selected.get('username') or selected.get('contributor_name') or '<unknown>'
+        print(f"\nSelected portfolio for {uname}: {portfolio_file_path}")
+
+        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+
+        if action == "a":
+            add_path = input("Enter directory or zip to add to this portfolio: ").strip()
+            if not add_path:
+                print("No path entered. Aborting.")
+                return
+            if not os.path.exists(add_path):
+                print("Path does not exist.")
+                return
+            try:
+                handle_add_to_portfolio(selected, add_path)
+            except Exception as e:
+                print(f"Failed to update portfolio: {e}")
+            return
+
+        if action == "d":
+            confirm = input("Are you sure you want to delete this portfolio? (y/n): ").strip().lower()
+            if confirm != 'y':
+                return
+            ok, msg = _delete_portfolio_with_file(conn, selected)
+            print(msg)
+            return
+
+        if action == "c":
+            return
+
+        # Default: view
+        print(f"\nOpening portfolio for {uname}: {portfolio_file_path}")
+        preview, truncated_or_error = _preview_resume(portfolio_file_path, lines=500)
+        if preview is None:
+            print(truncated_or_error)
+            return
+
+        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
+        print("\n--- Preview ---\n")
+        print(preview)
+        if truncated:
+            print(f"\n... [Preview truncated - full file at: {portfolio_file_path}]")
+
+    except sqlite3.OperationalError as e:
+        print(f"Portfolios table not available: {e}")
+    except Exception as e:
+        print(f"Error viewing portfolios: {e}")
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+from regenerate_portfolio_scan import portfolio_scan
+from regenerate_portfolio import regenerate_portfolio
+
+def handle_add_to_portfolio(portfolio_row, path):
+    """
+    portfolio_row is the DB row for the currently selected portfolio
+    path is directory or zip to scan
+    """
+    print("\n=== Scanning new directory ===")
+    # Scan project and optionally save to DB
+    portfolio_scan(path, save_to_db=True)
+
+    # --- Add project summary output to output/<project_name>/ ---
+    try:
+        info = gather_project_info(path)
+        project_name = info.get("project_name") or os.path.basename(os.path.abspath(path))
+        out_dir = os.path.join("output", project_name)
+        os.makedirs(out_dir, exist_ok=True)
+        json_path, txt_path = output_project_info(info, output_dir=out_dir)
+        print(f"Summary reports saved to: {out_dir}")
+        print(f"  JSON: {json_path}")
+        print(f"  TXT:  {txt_path}")
+    except Exception as e:
+        print(f"Failed to generate project summary output: {e}")
+
+    print("\n=== Regenerating portfolio ===")
+    regenerate_portfolio(
+        username=portfolio_row["username"],
+        portfolio_path=portfolio_row["portfolio_path"],  # overwrite existing
+        output_root="output",  # now includes the new project JSON
+        confidence_level="high"
+    )
+
+    print("\nPortfolio successfully updated.")
+
 
 from regenerate_resume import regenerate_resume
 from regenerate_resume_scan import resume_scan
@@ -666,12 +914,53 @@ def handle_add_to_resume(resume_row, path):
     print("\nResume successfully updated.")
 
 
+def handle_analyze_roles():
+    """Handle contributor role analysis."""
+    print("\n=== Analyze Contributor Roles ===")
+    
+    # Load overall contributor data
+    print("Loading contributors from database...")
+    contributors_data = load_contributors_from_db()
+    
+    if not contributors_data:
+        print("\nNo contributor data found in database.")
+        print("Please run a directory scan first (Option 1) to populate the database.")
+        return
+    
+    print(f"Found {len(contributors_data)} contributors")
+    
+    # Analyze overall roles
+    print("Analyzing overall contributor roles...")
+    overall_analysis = analyze_project_roles(contributors_data)
+    
+    # Ask if user wants per-project breakdown
+    show_per_project = ask_yes_no("\nInclude per-project breakdown? (y/n): ", True)
+    
+    per_project_analysis = None
+    if show_per_project:
+        print("\nLoading per-project contributor data...")
+        per_project_raw = load_contributors_per_project_from_db()
+        
+        if per_project_raw:
+            print(f"Found {len(per_project_raw)} projects")
+            print("Analyzing roles for each project...")
+            per_project_analysis = {}
+            for project_name, project_contributors in per_project_raw.items():
+                per_project_analysis[project_name] = analyze_project_roles(project_contributors)
+        else:
+            print("No per-project data found.")
+    
+    # Generate and display report
+    print("\n" + "="*70)
+    report = format_roles_report(overall_analysis, per_project_analysis)
+    print(report)
+
 
 def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-10): ").strip()
+        choice = input("\nSelect an option (1-12): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -692,10 +981,14 @@ def main():
         elif choice == "9":
             handle_view_resumes()
         elif choice == "10":
+            handle_view_portfolios()
+        elif choice == "11":
+            handle_analyze_roles()
+        elif choice == "12":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-10.")
+            print("\nInvalid option. Please select a number between 1-12.")
 
         # Pause before returning to menu
         input("\nPress Enter to return to main menu...")

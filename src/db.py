@@ -2,14 +2,23 @@ import sqlite3
 import os
 import time
 import json
+from typing import Optional
 from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
 # Allow overriding database path via environment for tests or custom locations
-DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+)
+
 
 def get_connection():
     """Return a connection to the SQLite database."""
+    # Ensure parent folder exists (needed for tests / custom env paths)
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -44,6 +53,83 @@ def _ensure_projects_thumbnail_column(conn):
     if 'thumbnail_path' not in cols:
         cur.execute("ALTER TABLE projects ADD COLUMN thumbnail_path TEXT")
         conn.commit()
+def _ensure_projects_custom_name_column(conn):
+    """Ensure the projects table has a custom_name column."""
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(projects)")
+    cols = {row['name'] for row in cur.fetchall()}
+    if 'custom_name' not in cols:
+        cur.execute("ALTER TABLE projects ADD COLUMN custom_name TEXT")
+        conn.commit()
+def get_project_display_name(project_name: str):
+    """
+    Return custom resume display name for a project if it exists.
+    Falls back to None if not found / not set / DB not available.
+    """
+    if not project_name:
+        return None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT custom_name FROM projects WHERE name = ?", (project_name,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        custom = row["custom_name"]
+        return custom.strip() if custom and custom.strip() else None
+
+    except sqlite3.OperationalError:
+        # DB missing, path invalid, or table not created in unit tests
+        return None
+
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def list_projects_for_display():
+    """Return projects as rows: id, name, custom_name."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, custom_name FROM projects ORDER BY name COLLATE NOCASE")
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def set_project_display_name(project_name: str, custom_name: Optional[str]):
+    """
+    Set (or clear) the resume display name override for a project.
+    If custom_name is None or empty -> clears the override.
+    """
+    if not project_name:
+        raise ValueError("project_name is required")
+
+    custom = (custom_name or "").strip()
+    if custom == "":
+        custom = None
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE projects SET custom_name = ? WHERE name = ?",
+            (custom, project_name),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+
+
+
+
+        
 
 
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
@@ -65,7 +151,9 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
     try:
         if project_thumbnail_path is not None:
             _ensure_projects_thumbnail_column(conn)
-
+           
+        _ensure_projects_custom_name_column(conn)
+           
         cur.execute('BEGIN')
 
         project_name = project or os.path.basename(scan_source)
@@ -266,6 +354,76 @@ def save_resume(username: str, resume_path: str, metadata: dict = None, generate
         resume_id = cur.lastrowid
         conn.commit()
         return resume_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def save_portfolio(username: str, portfolio_path: str, metadata: dict = None, generated_at: str = None):
+    """Persist a generated portfolio into the DB.
+
+    - username: GitHub username the portfolio was generated for
+    - portfolio_path: filesystem path to the written portfolio markdown
+    - metadata: aggregated data used to render the portfolio (stored as JSON)
+    - generated_at: optional timestamp; defaults to current UTC if not provided
+
+    Returns portfolio_id on success.
+    """
+    if not username or not portfolio_path:
+        raise ValueError("username and portfolio_path are required")
+
+    conn = get_connection()
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        # Ensure contributor exists for this username
+        cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (username,))
+        cur.execute("SELECT id FROM contributors WHERE name = ?", (username,))
+        contrib_row = cur.fetchone()
+        contrib_id = contrib_row['id'] if contrib_row else None
+
+        metadata_json = json.dumps(metadata or {}, default=str)
+        ts = generated_at or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+
+        cur.execute(
+            """
+            INSERT INTO portfolios (contributor_id, username, portfolio_path, metadata_json, generated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (contrib_id, username, portfolio_path, metadata_json, ts)
+        )
+        portfolio_id = cur.lastrowid
+        conn.commit()
+        return portfolio_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def delete_portfolio(portfolio_id: int):
+    """Delete a portfolio from the DB by its ID.
+
+    - portfolio_id: ID of the portfolio to delete
+
+    Returns True if deleted successfully, False if not found.
+    """
+    if not portfolio_id:
+        raise ValueError("portfolio_id is required")
+
+    conn = get_connection()
+    conn.execute('PRAGMA foreign_keys = ON')
+    cur = conn.cursor()
+    try:
+        cur.execute('BEGIN')
+        cur.execute("DELETE FROM portfolios WHERE id = ?", (portfolio_id,))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
     except Exception:
         conn.rollback()
         raise

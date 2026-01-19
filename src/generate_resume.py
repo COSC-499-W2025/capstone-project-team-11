@@ -12,10 +12,12 @@ import json
 import os
 import re
 import sqlite3
+from db import get_project_display_name
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
 from db import save_resume
+from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_resume
 
 
 def find_json_and_txt(root):
@@ -244,13 +246,22 @@ def render_markdown(agg, generated_ts=None):
         md.append('- No project-specific contributions found for this user in `output/`.')
     for p in agg['projects']:
         name = p.get('project_name')
-        normalized_name = normalize_project_name(name, p.get('path')) or name
+
+        # 1) Grab custom display name from DB (if any)
+        custom_name = get_project_display_name(name)
+
+        # 2) Decide what to show on the resume
+        base_name = custom_name or name
+        normalized_name = normalize_project_name(base_name, p.get('path')) or base_name
+
+        line = f"**{normalized_name}**"
+
         languages = p.get('languages') or []
         frameworks = p.get('frameworks') or []
         skills = p.get('skills') or []
         commits = p.get('user_commits') or 0
         files = p.get('user_files') or []
-        line = f"**{normalized_name}**"
+
         md.append(line)
         if p.get('path'):
             md.append(f"- Path: `{p.get('path')}`")
@@ -263,6 +274,20 @@ def render_markdown(agg, generated_ts=None):
             bullets.append(f"Technologies: {techs}.")
         if skills:
             bullets.append(f"Skills demonstrated: {', '.join(skills)}.")
+        
+        # Evidence integration: Add optional impact bullet if user-provided evidence exists
+        # This does NOT modify aggregation or ranking logic; it only appends to output.
+        try:
+            project_id = get_project_id_by_name(name)
+            if project_id:
+                evidence = get_evidence_for_project(project_id)
+                impact_clause = format_evidence_for_resume(evidence, max_items=2)
+                if impact_clause:
+                    bullets.append(impact_clause)
+        except Exception:
+            # Gracefully skip evidence if DB not available or any error occurs
+            pass
+        
         for b in bullets:
             md.append(f"- {b}")
         md.append('')

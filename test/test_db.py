@@ -1,10 +1,12 @@
 import sys
 import os
 import json
+import tempfile
+import unittest
 
 # Add the 'src' folder to import db.py
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from db import get_connection
+from db import get_connection, save_portfolio, delete_portfolio, init_db
 
 def print_table_data(table_name):
     with get_connection() as conn:
@@ -78,6 +80,46 @@ def main():
         # Print both tables neatly
         for table_name in ["scans", "files"]:
             print_table_data(table_name)
+
+# Test suite for portfolio database functions
+class TestPortfolioDB(unittest.TestCase):
+    
+    # Set up a temporary database for testing
+    def setUp(self):
+        self.db_fd, self.db_path = tempfile.mkstemp(suffix='.db')
+        os.environ['FILE_DATA_DB_PATH'] = self.db_path
+        init_db()
+
+    # Clean up the temporary database after tests
+    def tearDown(self):
+        os.close(self.db_fd)
+        os.unlink(self.db_path)
+        if 'FILE_DATA_DB_PATH' in os.environ:
+            del os.environ['FILE_DATA_DB_PATH']
+
+    # Tests that saving and deleting of a portfolio works correctly
+    def test_save_and_delete_portfolio(self):
+        metadata = {'project_count': 3, 'confidence_level': 'high'}
+        portfolio_id = save_portfolio('testuser', '/path/to/portfolio.md', metadata, '2026-01-12 10:00:00Z')
+
+        with get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM portfolios WHERE id = ?", (portfolio_id,))
+            row = cur.fetchone()
+            self.assertEqual(row['username'], 'testuser')
+            self.assertEqual(json.loads(row['metadata_json'])['project_count'], 3)
+
+        self.assertTrue(delete_portfolio(portfolio_id))
+        self.assertFalse(delete_portfolio(99999))
+
+    # Tests that save_portfolio() validates required fields before saving
+    def test_save_portfolio_validation(self):
+        with self.assertRaises(ValueError):
+            save_portfolio('', '/path/to/portfolio.md')
+        with self.assertRaises(ValueError):
+            save_portfolio('testuser', '')
+        with self.assertRaises(ValueError):
+            delete_portfolio(None)
 
 if __name__ == "__main__":
     main()
