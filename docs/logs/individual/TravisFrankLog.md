@@ -1,3 +1,23 @@
+## Weekly Navigation
+
+### Semester 2
+- [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
+- [Week 1 (Jan 5 – Jan 11, 2026)](#semester-2--week-1-personal-log-january-5th---11th-2026)
+
+### Semester 1
+- [Week 14 (Dec 1 – Dec 7, 2025)](#week-14-personal-log-dec-1st--dec-7th)
+- [Week 13 (Nov 24 – Nov 30, 2025)](#week-13-personal-log-nov-24th--nov-30th)
+- [Week 12 (Nov 10 – Nov 23, 2025)](#week-12-personal-log-nov-10th--nov-23rd)
+- [Week 10 (Nov 3 – Nov 9, 2025)](#week-10-personal-log-nov-3rd--nov-9th)
+- [Week 9 (Oct 27 – Nov 2, 2025)](#week-9-personal-log-oct-27th--nov-2nd)
+- [Week 8 (Oct 20 – Oct 26, 2025)](#week-8-personal-log-oct-20th--oct-26th)
+- [Week 7 (Oct 13 – Oct 19, 2025)](#week-7-personal-log-oct-13th---oct-19th)
+- [Week 6 (Oct 6 – Oct 12, 2025)](#week-6-personal-log-oct-6th---oct-12th)
+- [Week 5 (Sep 29 – Oct 5, 2025)](#week-5-personal-log-sep-29th---oct-5th)
+- [Week 4 (Sep 22 – Sep 28, 2025)](#week-4-personal-log-september-22nd---28th)
+- [Week 3 (Sep 15 – Sep 21, 2025)](#week-3-personal-log-september-15th---21st)
+
+
 # Week 3 Personal Log (September 15th - 21st)
 ---
 Throughout this week we collaborated on project requirments and the set up of our repo/communication. We'll now look towards system design and acrhitecture. 
