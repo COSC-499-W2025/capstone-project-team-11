@@ -792,7 +792,7 @@ Overview
 
 Building on the foundation established in Milestone 2 – Week 1, the team continued expanding the system’s flexibility, depth, and user control. This week focused heavily on customization, output quality, backend extensibility, and deeper analytical insight.
 
-Priyanshu implemented support for custom project wording in résumé output, allowing users to replace folder-based project names with resume friendly titles while preserving internal project identifiers. Jaxson delivered a full FastAPI integration, exposing core functionality (scanning, project details, skills, resume/portfolio generation, and editing) through a robust backend API with comprehensive HTTP tests and documentation. Daniel extended the Key Roles feature to be project centric, enabling contributors to view role breakdowns per project in addition to overall roles. Travis integrated evidence of success into resume and portfolio outputs, allowing optional, user-supplied metrics and feedback to enhance impact without affecting ranking or extraction logic. Tanner continued advancing portfolio generation with richer contribution metrics, confidence based technology filtering, and full database integration for saving, viewing, and deleting portfolios via the CLI.
+Priyanshu implemented support for custom project wording in résumé output, allowing users to replace folder-based project names with resume friendly titles while preserving internal project identifiers. Jaxson delivered a full FastAPI integration, exposing core functionality (scanning, project details, skills, resume/portfolio generation, and editing) through a robust backend API with comprehensive HTTP tests and documentation. Daniel extended the Key Roles feature to be project centric, enabling contributors to view role breakdowns per project in addition to overall roles. Travis integrated evidence of success into resume and portfolio outputs, allowing optional, user-supplied metrics and feedback to enhance impact without affecting ranking or extraction logic. Tanner continued advancing portfolio generation with richer contribution metrics, confidence based technology filtering, and full database integration for saving, viewing, and deleting portfolios via the CLI.Tyler added a headless portfolio regeneration workflow, making it possible to rescan projects (directories or zip files) and regenerate an existing portfolio Markdown file programmatically, with support for overwriting previous outputs and saving updated metadata back into the database.
 
 Overall, the team made strong progress toward making the system more user driven, explainable, and extensible, while maintaining test coverage and backward compatibility.
 
@@ -881,8 +881,20 @@ Updated CLI menus and downstream tests to reflect new functionality
 
 ### Tyler
 
+- PR [#278 – Incrementing portfolio information](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/278)
 
-All Members
+Added headless portfolio regeneration workflow (scan → rebuild markdown → optionally save metadata to DB)
+
+Added overwrite flag to allow regenerating and replacing existing portfolio files
+
+Integrated portfolio regeneration flow into `main_menu.py`
+
+Added new regeneration modules: `regenerate_portfolio.py` and `regenerate_portfolio_scan.py`
+
+Added unit tests validating scan/regeneration behavior, overwrite handling, and error cases
+
+
+### All Members
 
 Reviewed pull requests and provided feedback
 
@@ -958,6 +970,27 @@ Confidence filtering tests: Ensures only high-confidence languages and framework
 Portfolio structure tests: Validates complete portfolio markdown structure and metadata accuracy.
 
 CLI invocation tests: Confirms portfolio generation via the CLI produces correct markdown output.
+
+
+
+**test_regenerate_portfolio.py**
+
+test_portfolio_scan_calls_headless_scan: Verifies that a headless scan is triggered with the correct arguments during portfolio regeneration.
+
+test_portfolio_scan_with_zip_file_creates_temp_dir: Ensures that zip inputs create a temporary extraction directory and still trigger a headless scan.
+
+test_portfolio_scan_nonexistent_path_raises: Confirms that an error is raised when attempting to regenerate a portfolio from an invalid path.
+
+test_regenerate_portfolio_writes_file_and_saves_metadata: Verifies that portfolio regeneration writes the Markdown file and saves metadata to the database when save_to_db is enabled.
+
+test_regenerate_portfolio_missing_username_raises: Ensures an error is raised when the username is missing during portfolio regeneration.
+
+test_regenerate_portfolio_missing_path_raises: Ensures an error is raised when the portfolio path is missing.
+
+test_regenerate_portfolio_missing_output_root_raises: Confirms an error is raised when the specified output directory does not exist.
+
+test_generate_portfolio_overwrite_flag_overwrites_existing_file: Verifies that the --overwrite flag correctly replaces an existing portfolio file.
+
 
 
 ## Reflection:
