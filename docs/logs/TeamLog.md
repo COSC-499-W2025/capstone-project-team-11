@@ -1,3 +1,18 @@
+
+
+
+## Weekly Navigation
+## Weekly Navigation
+- [Milestone 2 – Week 1 (January 5 – January 11)](#milestone-2--week-1-january-5--january-11)
+- [Milestone 2 – Week 2 (January 12 – January 18)](#milestone-2--week-2-january-12--january-18)
+
+
+
+
+
+
+
+
 # Team #11 - Week 3 Team Log (September 15th through September 21st)
 
 Team Members    --> GitHub Username
@@ -754,5 +769,207 @@ This week was productive, professional, and effective. Oftentimes it can be chal
 - Distribute work and plan tasks for the week.
 - Prepare for weekly checkin.
 - Address missing marks from Milestone 1 with TA.
-- Prove PR quiz answers to TA. 
-  
+- Prove PR quiz answers to TA.
+
+
+
+## Milestone 2 – Week 2 (January 12 – January 18)
+
+
+## Team 11 – Week 2 Team Log (January 12th – January 18th)
+
+
+
+Team Members      --> GitHub Username  
+- Priyanshu Chugh --> priyanshupc04  
+- Tyler Cummings  --> TylerC-3042  
+- Tanner Dyck     --> TannerDyck  
+- Travis Frank    --> travis-frank  
+- Jaxson Kahl     --> jaxsonkahl  
+- Daniel Sokic    --> danielsokic  
+
+Overview
+
+Building on the foundation established in Milestone 2 – Week 1, the team continued expanding the system’s flexibility, depth, and user control. This week focused heavily on customization, output quality, backend extensibility, and deeper analytical insight.
+
+Priyanshu implemented support for custom project wording in résumé output, allowing users to replace folder-based project names with resume friendly titles while preserving internal project identifiers. Jaxson delivered a full FastAPI integration, exposing core functionality (scanning, project details, skills, resume/portfolio generation, and editing) through a robust backend API with comprehensive HTTP tests and documentation. Daniel extended the Key Roles feature to be project centric, enabling contributors to view role breakdowns per project in addition to overall roles. Travis integrated evidence of success into resume and portfolio outputs, allowing optional, user-supplied metrics and feedback to enhance impact without affecting ranking or extraction logic. Tanner continued advancing portfolio generation with richer contribution metrics, confidence based technology filtering, and full database integration for saving, viewing, and deleting portfolios via the CLI.
+
+Overall, the team made strong progress toward making the system more user driven, explainable, and extensible, while maintaining test coverage and backward compatibility.
+
+## Burnup Chart
+
+<img width="1026" height="495" alt="Screenshot 2026-01-18 at 4 22 03 PM" src="https://github.com/user-attachments/assets/4c814db8-4940-4b9f-b918-f8463721a25b" />
+
+## Team Members Completed Tasks
+
+### Priyanshu
+
+PR #271 – Customize project wording for résumé items
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/271
+
+Added support for custom resume display names for projects
+
+Persisted custom names in the database without affecting project paths or identifiers
+
+Integrated a CLI workflow to edit project display names after resume generation
+
+Updated resume rendering logic to apply custom names when available
+
+Added unit tests validating storage, retrieval, and rendering behavior
+
+
+
+### Jaxson
+
+PR #264 – FastAPI Integration
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/264
+
+Implemented a full FastAPI backend exposing project, skill, resume, and portfolio endpoints
+
+Wired API endpoints to existing CLI and database logic
+
+Added extensive HTTP style tests using FastAPI TestClient
+
+Provided detailed API documentation and setup instructions
+
+
+### Daniel
+
+PR #267 – Project-centric contributor role analysis
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/267
+
+Extended role detection to support per project analysis
+
+Updated formatted role reports to include per-project breakdowns
+
+Integrated new functionality into the main menu
+
+Added targeted unit tests covering formatting, edge cases, and multi project scenarios
+
+
+
+### Travis
+
+PR #265 – Integrate project evidence into résumé and portfolio outputs
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/265
+
+Integrated optional evidence of success (metrics, feedback, evaluations) into downstream outputs
+
+Added conditional rendering to avoid clutter when evidence is absent
+
+Extended both resume and portfolio generators
+
+Added and updated tests covering validation, formatting, and integration
+
+
+### Tanner
+
+PR #260 – Broadened portfolio generation functionality
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/260
+
+PR #261 – Database integration for portfolios
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/261
+
+Expanded portfolio metrics using detailed contribution data
+
+Added confidence-based filtering for detected languages and frameworks
+
+Integrated portfolios into the database with save, view, and delete support
+
+Updated CLI menus and downstream tests to reflect new functionality
+
+
+### Tyler
+
+
+All Members
+
+Reviewed pull requests and provided feedback
+
+Coordinated on feature integration and test stability
+
+Completed individual logs and peer reviews
+
+
+## Testing Report
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
+
+### Tests Added:
+
+**test_project_display_names.py**
+
+test_save_and_fetch_custom_project_name: Verifies that a custom resume display name can be saved to and retrieved from the database for a project.
+
+test_resume_uses_custom_project_name_when_present: Ensures that generated resume markdown uses the custom project display name when one is defined.
+
+test_resume_falls_back_to_default_name: Confirms that resume generation correctly falls back to the default project name when no custom name is set.
+
+
+**test_api.py**
+
+Consent flow tests: Verifies privacy consent is required and correctly persisted before scanning.
+
+Project upload tests: Ensures projects can be uploaded, scanned, and optionally saved to the database.
+
+Project list and detail tests: Confirms enriched project responses correctly aggregate scans, skills, languages, contributors, and evidence.
+
+Skills endpoint tests: Verifies all detected skills can be queried via the API.
+
+Resume API tests: Covers resume generation, retrieval, and editing through HTTP endpoints.
+
+Portfolio API tests: Covers portfolio generation, retrieval, and editing through HTTP endpoints using isolated test directories.
+
+
+**test_detect_roles.py**
+
+TestPerProjectAnalysis: Validates contributor role detection on a per-project basis.
+
+Report formatting tests: Ensures formatted output correctly includes both overall roles and per project breakdowns.
+
+Edge case handling: Verifies correct behavior for empty projects, single contributors, and multiple contributors across projects.
+
+
+**test_project_evidence.py**
+
+Evidence validation tests: Ensures only allowed evidence types are accepted and required fields are enforced.
+
+Evidence CRUD tests: Verifies evidence can be added, updated, fetched, and deleted correctly.
+
+Formatting tests: Confirms resume and portfolio evidence sections are formatted correctly and omitted when no evidence exists.
+
+
+**test_generate_resume.py**
+
+Evidence integration tests: Verifies that an Impact bullet is appended to resume output when project evidence exists.
+
+Display name integration tests: Confirms resume output reflects custom project display names when available.
+
+Regression tests: Ensures resume output remains unchanged when optional features (evidence or custom names) are not present.
+
+
+**test_generate_portfolio.py**
+
+Evidence section tests: Confirms portfolios include an “Evidence of Success” section when evidence exists and omit it otherwise.
+
+Contribution metrics tests: Verifies expanded performance metrics (commit counts, ownership, timelines, rankings) are rendered correctly.
+
+Confidence filtering tests: Ensures only high-confidence languages and frameworks are included by default.
+
+Portfolio structure tests: Validates complete portfolio markdown structure and metadata accuracy.
+
+CLI invocation tests: Confirms portfolio generation via the CLI produces correct markdown output.
+
+
+## Reflection:
+
+This week demonstrated strong collaboration and steady progress toward a more polished and flexible system. The team successfully balanced adding significant new functionality with maintaining stability and test coverage. Features introduced this week empower users to better control how their work is presented, while also laying groundwork for future extensions through both the CLI and API. Communication remained strong, and PR reviews were timely and constructive.
+
+
+## Looking ahead to Week 2:
+- Distribute work and plan tasks for the week.
+- Prepare for weekly checkin.
+
+
+
+
+
