@@ -2,6 +2,7 @@ import sqlite3
 import os
 import time
 import json
+from typing import Optional
 from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
@@ -99,7 +100,7 @@ def list_projects_for_display():
         conn.close()
 
 
-def set_project_display_name(project_name: str, custom_name: str | None):
+def set_project_display_name(project_name: str, custom_name: Optional[str]):
     """
     Set (or clear) the resume display name override for a project.
     If custom_name is None or empty -> clears the override.
