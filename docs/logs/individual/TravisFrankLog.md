@@ -301,14 +301,29 @@ This week felt like a strong follow-through on earlier design decisions. Complet
 
 <img width="981" height="629" alt="Screenshot 2026-01-18 at 3 29 09 PM" src="https://github.com/user-attachments/assets/2c48a6f0-6430-4a27-9400-9f65cafce1c5" />
 
-## Tasks Completed
-- Finished integrating the **Project Evidence** feature into résumé and portfolio generation outputs (PR #265)
-- Closed Issue #234 by completing full end-to-end evidence support across backend, CLI, and export layers
-- Reviewed and provided feedback on multiple teammate pull requests throughout the week
-- Researched potential LLM options and integration approaches for upcoming Milestone 2 features
-- Continued coordinating with the team to align technical direction and priorities
+## Coding Tasks 
+- Integrated **Project Evidence** into résumé and portfolio generation pipelines (Issue #234, PR #265)
+- Completed end-to-end evidence flow across backend, CLI, and export layers, finalizing Milestone 2 evidence support (Issue #234, PR #265)
+- Implemented résumé and portfolio evidence formatting logic, including legacy fallback handling and conditional section rendering (Issue #234, PR #265)
+
+## Testing Tasks
+- **`test_project_evidence.py`**: Validates evidence types and required fields, verifies project lookup behavior, and confirms correct résumé/portfolio evidence formatting with legacy and empty-evidence fallbacks
+- **`test_generate_resume.py`**: Ensures résumé generation appends an *Impact* bullet when evidence exists and remains unchanged when no evidence is present
+- **`test_generate_portfolio.py`**: Verifies the *Evidence of Success* section is conditionally rendered and formatted consistently with other optional sections
+- All automated tests passed after integration changes
+
+## Reviewing / Collaboration Tasks
+- Reviewed and provided feedback on the following pull requests:
+  - PR #261: Portfolio database integration
+  - PR #264: FastAPI integration
+  - PR #267: Update key roles to be project centric
+- Coordinated with teammates to align on Milestone 2 priorities and upcoming integration work
+- Researched potential LLM options and integration approaches for future features
 
 <img width="1069" height="125" alt="Screenshot 2026-01-18 at 3 30 55 PM" src="https://github.com/user-attachments/assets/a84a56cb-914e-403c-9bc8-1091a0f2d21b" />
+
+### Issues / Blockers
+- No major blockers this week. Most challenges involved coordinating evidence formatting across résumé and portfolio outputs, which were resolved through testing and iteration.
 
 ### Plans for Week 3
 - Begin active work toward **LLM integration**, informed by research completed this week
