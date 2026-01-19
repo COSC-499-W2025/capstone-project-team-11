@@ -1,5 +1,25 @@
 # Tanner Dyck's Personal Log
 
+### Term 2 (Milestone #2)
+- [Week #2 - January 12th-18th](#week-2---january-12th---18th)
+- [Week #1 - January 5th-11th](#week-1---january-5th---11th)
+
+### Term 1 (Milestone #1)
+- [Week #14 - December 1st-7th](#week-14---december-1st---7th)
+- [Week #13 - November 24th-30th](#week-13---november-24th---30th)
+- [Week #12 - November 17th-23rd](#week-12---november-17th---23rd)
+- [Week #11 - November 10th-16th](#week-11---november-10th---16th)
+- [Week #10 - November 3rd-9th](#week-10---november-3rd---9th)
+- [Week #9 - October 27th-November 2nd](#week-9---october-27th---november-2nd)
+- [Week #8 - October 20th-26th](#week-8---october-20th---october-26th)
+- [Week #7 - October 13th-19th](#week-7---october-13th---october-19th)
+- [Week #6 - October 6th-12th](#week-6---october-6th---october-12th)
+- [Week #5 - September 29th-October 5th](#week-5---september-29th---october-5th)
+- [Week #4 - September 22nd-28th](#week-4---september-22nd-28th)
+- [Week #3 - September 15th-21st](#week-3---september-15th-21st)
+
+---
+
 # ===== MILESTONE #1 =====
 
 # Week #3 - September 15th-21st
@@ -18,7 +38,7 @@ As this was the first week of getting our repository initialized and organzied, 
 - Helped complete our team log for Week #3
 - Merged all changes made on "logs" branch into "main" branch
 
-***
+---
 
 # Week #4 - September 22nd-28th
 
@@ -35,7 +55,7 @@ I have completed the following tasks either alone or in collaboration with my te
 - Individual Logs Week 4 (issue #10)
 - Team Logs Week 4 (issue #11) 
 
-***
+---
 
 # Week #5 - September 29th - October 5th
 
@@ -53,7 +73,7 @@ As our team continues to work through the documentation phase of our project pla
 - Completed our individual logs and peer reviews for the week
 - Completed our comprehensive team log for the week
 
-***
+---
 
 # Week #6 - October 6th - October 12th
 
@@ -68,6 +88,8 @@ This marked our first week of largely individual work. We chose to divide and co
 - Reviewed code contributions and various other PR requests
 - Completed my peer reviews for week 6
 - Completed my individual logs for week 6
+
+---
 
 # Week #7 - October 13th - October 19th
 
@@ -97,6 +119,8 @@ In week 8, I hope to:
 - Reuse code from deliverable #1 to create an early revision/framework for deliverable #4 (Request user permission before using external services (e.g., LLM) and provide implications on data privacy about the user's data)
 
 <img width="1247" height="576" alt="week7kanban" src="https://github.com/user-attachments/assets/c8b89e5c-ee60-4dc3-8950-fe9e16f74855" />
+
+---
 
 # Week #8 - October 20th - October 26th
 
@@ -130,6 +154,8 @@ I believe another teammate is planning on getting our database operational next 
 ## Kanban Board at End of Week #8
 
 <img width="2529" height="1193" alt="week8-kanban" src="https://github.com/user-attachments/assets/7a0da033-c9ab-493f-9490-51ad6e736ecf" />
+
+---
 
 # Week #9 - October 27th - November 2nd
 
@@ -165,6 +191,8 @@ We are quickly running out of deliverables to work on for milestone 1. So I thin
 ## Kanban Board at End of Week #9
 
 <img width="1301" height="1220" alt="week9-kanban" src="https://github.com/user-attachments/assets/d92de0e2-69d1-44bf-bf7c-56d73f8cc2e8" />
+
+---
 
 # Week #10 - November 3rd - 9th
 
@@ -213,8 +241,12 @@ Next week is Reading Break, and I have yet to discuss with the team what our pla
 
 <img width="1211" height="886" alt="week10-kanban" src="https://github.com/user-attachments/assets/0b11cf1b-42ad-43b0-97c9-dbb154e63c95" />
 
+---
+
 # Week #11 - November 10th - 16th
 During the reading break week, no work was done on our capstone project
+
+---
 
 # Week #12 - November 17th - 23rd
 
@@ -257,6 +289,8 @@ I believe that next week is our final week to commit changes to the repo before 
 ## Kanban Board at End of Week #12
 
 <img width="1877" height="897" alt="week12-kanban" src="https://github.com/user-attachments/assets/ae65ae28-3af8-4137-9ff6-9ad8562b3625" />
+
+---
 
 # Week #13 - November 24th - 30th
 
@@ -329,6 +363,8 @@ Next week is our final opportunity to work on the project before milestone 1's d
 I was finally able to mark "Revise Coding Project Language/Framework Detection" (Issue #129) as "Done"
 <img width="1874" height="894" alt="week13-kanban" src="https://github.com/user-attachments/assets/f6860480-09fc-4f02-bf95-91e1090f04e4" />
 
+---
+
 # Week #14 - December 1st - 7th
 
 <img width="708" height="539" alt="week14-tasks" src="https://github.com/user-attachments/assets/1788150e-bb17-4d75-82a4-7ad70a01c94f" />
@@ -362,6 +398,8 @@ I was able to complete, and mark the following issues as "Done" this week:
 - Workaround Analysis if User Denies External Service Permissions (Issue #25)
 <img width="1874" height="893" alt="week14-kanban" src="https://github.com/user-attachments/assets/bc6922b4-360c-40da-9114-3505db336c17" />
 
+---
+
 # ===== MILESTONE #2 =====
 
 # Week #1 - January 5th - 11th
@@ -391,6 +429,76 @@ Next week I hope to continue polishing my "Portfolio generation feature":
 - Add useful performance metrics for collaborative projects (user's commits vs total commits percentage, ranked collaborators per project, etc.)
 Assuming I have extra time to work on other things, I could take a look at slightly revamping resume generation, so that both file types have a high level of parity between them and are prepared for the deliverables that rely on them. 
 
-## Kanban Board at End of Week #13
-I was unable to complete or mark any issues as "Done" this week, as I mainly worked on implementing a feature we should have implemented in milestone 1. However, I picked up a few larger-scale issues that I will have as "In-progress" for a portion of this milestone. 
+## Kanban Board at End of T2 Week #1
+I was unable to complete or mark any issues as "Done" this week, as I mainly worked on implementing a feature we should have implemented in milestone 1. However, I picked up a few larger-scale issues that I will have as "In-progress" for a portion of this milestone.
 <img width="1875" height="929" alt="t2week1-kanban" src="https://github.com/user-attachments/assets/0d19b401-0ba4-4924-957a-6f9904426e3a" />
+
+---
+
+# Week #2 - January 12th - 18th
+
+<img width="705" height="538" alt="t2week2-tasks" src="https://github.com/user-attachments/assets/9c3fa0b1-8171-40d5-8c10-239d90b671e2" />
+
+## Connection to Last Week
+Last week I implemented the core portfolio generation feature (`generate_portfolio.py`) which creates sectional markdown portfolios by aggregating data from scanned projects. I also created `test_generate_portfolio.py` with 9 unit tests covering the core functionality, and converted milestone 2's deliverables into GitHub issues. This week builds on that foundation by adding performance metrics, database integration, and the "View Portfolios" main menu option, which completes the three TODOs I outlined last week.
+
+## Coding Tasks
+
+### Broadened Portfolio Generation Functionality [PR #260](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/260)
+- Added additional performance metrics using contribution data from git projects:
+    - Commit counts, number of files modified, percentage of total commits made by user
+    - Contributor ranking, lines added/removed, file ownership percentage
+    - Project timeline, commits per week
+- Reworked `detect_skills.py` and `project_info_output.py` to ensure languages/frameworks confidence scoring is included in the locally-saved JSON summaries (we use these JSON files during data aggregation for portfolio generation, and now we can filter out low-confidence languages)
+- Updated `generate_portfolio.py` to use the now-supported language/framework confidence filtering (default = show only high-confidence languages/frameworks)
+
+### Database Integration for Portfolios [PR #261](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/261)
+- Updated `init_db.sql` to include a table for portfolios (almost identical to the resumes table schema)
+- Updated `db.py` to host helper functions `save_portfolio()` and `delete_portfolio()` which help manage both the locally-created portfolio files and their corresponding database entries
+- Updated `generate_portfolio.py` to include a `--save-to-db` flag that allows for future functionality for users to choose whether or not they want to save their portfolios to the database
+
+### "View Portfolios" Main Menu Option [PR #261](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/261)
+- Updated `main_menu.py` by adding formatting for displaying entries from the database's "portfolios" table within the terminal when using the menu option "2. Inspect Database" (essentially identical to formatting for "resumes" table)
+- Updated `main_menu.py` to host functionality for a new menu option "10. View Portfolios" in which generated portfolios can be viewed, deleted, (and in the future, edited or added to) all from within the terminal interface (code largely borrowed from our "9. View Resumes" feature)
+
+## Testing & Debugging Tasks
+[PR #260](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/260)
+- Updated `test_generate_portfolio.py` to account for the above improvements (a few functions now require additional arguments for the new performance metrics/confidence filtering)
+- Renamed `test/detect_skills.py` to `test/test_detect_skills.py` to avoid any potential import conflicts with `src/detect_skills.py`
+- Pushed a small fix for `test_project_evidence.py` fixing 4 tests that were failing on Windows due to open SQLite connections preventing temporary file deletion
+
+[PR #261](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/261)
+- Updated `test_db.py` to include two new tests: one checks that portfolios can be saved to, and deleted from our database; the second tests that all required fields (arguments for `save_portfolio()`) are verified properly before saving portfolios to the database
+- Updated a test within `test_main_menu.py` that was failing due to being out of sync with our updated main menu options
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the week in our Discord server
+- Reviewed and approved:
+    - Code PRs: [#264](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/264), and [#265](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/265)
+    - Log PRs: [#272](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/272), and [#273](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/273)
+- Completed individual log and peer review for T2 Week 2
+- Caught and proposed fixes for failing tests (on Windows OS machines) introduced in [PR #265](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/265)
+
+## Issues & Blockers
+All implementations went smoothly for the most part. The biggest concerns I have mostly revolve around the accuracy and consistency of previously-implemented features from milestone 1. Our language, framework, and skill detection features still leave a bit to be desired in my opinion, and after adding their outputs to the portfolio, I am reminded that we still have fairly limited analyses in these departments. I believe I have hit the ceiling of my programming ability, and worry that LLM-integration may be the only way to deepen our analyses and improve accuracy across a wide array of projects. However, our non-LLM analyses should maintain a level of parity with our LLM analyses which may become an issue. I believe our detections are satisfiable for now, but I will speak with the rest of the team this upcoming week to see what their thoughts are. In summary, I did not run into any major issues this week, just a few minor concerns.
+
+## Reflection Points
+Overall I thought we had a solid week, all code additiuons were pushed by Sunday afternoon, and our Discord server was fairly active all week. I pushed all of my code additions early in the week, and my teammates were able to review and approve all of my changes within a day or two. All six of us were present in our Wednesday lecture this week, and it was a great opportunity for us all to meet up and discuss plans for the week. I have no complaints about how this week was handled by our team, and I look forward to next week!
+
+## Goals for Next Week (T2 Week #3)
+Currently, I am assigned to two remaining Kanban issues:
+- 27. Customize and save information about a portfolio showcase project
+- 23. Allow users to choose which information is represented
+
+I have discussed these issues with my team, and we have a clear vision for how we want to implement them, but to do so without a frontend UI will be very difficult. The restrictions of the terminal interface will make our implementation incredibly cumbersome. So I would like to work on these, however I need to come up with a more concrete plan that all my teammates agree with.
+
+Additionally, if I have the time, or if work on the two deliverables above is not possible, I could:
+- Rework Kanban board to include all updated milestone 2 deliverables
+- Update our README to include recent codebase changes/additions
+- Assist Daniel and Travis with LLM-integration
+- Assist Jaxson with our continued FastAPI support
+
+## Kanban Board at End of T2 Week #2
+This week I was able to tentatively close issue #29. Display textual information about a project as a portfolio showcase (item #238 on GitHub). The wording for the deliverable is fairly vague, and depending on feedback from teaching staff, I may need to re-open it in future weeks to make sure the feature is satisfiably implemented.
+
+<img width="1874" height="895" alt="t2week2-kanban" src="https://github.com/user-attachments/assets/b66b47a7-8b54-4ddf-8646-a204f2d1d4a5" />
