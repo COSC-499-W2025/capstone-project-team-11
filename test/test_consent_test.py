@@ -2,12 +2,15 @@ import os
 import sys
 import tempfile
 import unittest
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from consent import describe_data_access, ask_yes_no, ask_for_data_consent
-from config import load_config, save_config, DEFAULTS
 from io import StringIO
 from contextlib import redirect_stdout
 from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+from consent import describe_data_access, ask_yes_no, ask_for_data_consent
+from config import load_config, save_config, DEFAULTS
 
 class TestConsentHelpers(unittest.TestCase):
     # Helper function to call functions with parameters and store their printed output

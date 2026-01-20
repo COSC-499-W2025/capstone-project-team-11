@@ -1,10 +1,12 @@
 import os
 import sys
-import json
 import tempfile
 import unittest
 from io import StringIO
 from contextlib import redirect_stdout
+
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, DEFAULTS
 from scan import run_with_saved_settings

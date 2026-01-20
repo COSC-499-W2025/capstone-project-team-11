@@ -12,14 +12,16 @@ This module provides a unified CLI interface for:
 
 import os
 import sys
-import sqlite3
-import subprocess
-from datetime import datetime
-from db import list_projects_for_display, set_project_display_name
-import re
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+import sqlite3
+import subprocess
+from datetime import datetime
+import re
+
+from db import list_projects_for_display, set_project_display_name
 
 # Import all feature modules
 from scan import run_with_saved_settings

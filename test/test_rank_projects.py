@@ -1,12 +1,14 @@
-import unittest
 import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-
 import sqlite3
-from io import StringIO
+import sys
+import unittest
 from contextlib import redirect_stdout
+from io import StringIO
 from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import rank_projects
 

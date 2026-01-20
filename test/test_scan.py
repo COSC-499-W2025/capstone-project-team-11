@@ -1,14 +1,16 @@
-import unittest
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-
 import tempfile
 import shutil
 import time
-from io import StringIO
+import unittest
 import zipfile
+from io import StringIO
 from contextlib import redirect_stdout
+
+import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from scan import list_files_in_directory, get_collaboration_info
 

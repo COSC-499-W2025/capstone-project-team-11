@@ -1,7 +1,9 @@
 import os
-import sys
 import sqlite3
+import sys
 import unittest
+
+import pytest
 
 # Allow importing from src/
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))

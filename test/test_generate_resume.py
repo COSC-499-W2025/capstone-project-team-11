@@ -1,11 +1,13 @@
-import os
-import sys
-import unittest
-import json
-import tempfile
-import subprocess
 import importlib
+import json
+import os
 import sqlite3
+import subprocess
+import sys
+import tempfile
+import unittest
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 

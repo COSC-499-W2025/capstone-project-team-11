@@ -1,34 +1,61 @@
-version: "3.9"
+# =============================================================================
+# MODE SWITCHING INSTRUCTIONS
+# =============================================================================
+# This project supports two modes: CLI (interactive menu) and API (REST server)
+#
+# CLI MODE (default):
+#   `docker-compose up app`
+#   - Runs the interactive menu at src/main_menu.py
+#
+# API MODE:
+#   `docker-compose up api`
+#   - Runs FastAPI server on http://localhost:8000
+#
+# TESTS:
+#   `docker-compose up tests`
+#   - Runs pytest on the test/ directory
+# =============================================================================
 
 services:
+  # CLI mode - interactive menu
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: capstone-app:dev
-    container_name: capstone-team11
+    image: capstone-app:latest
+    container_name: capstone-cli
     working_dir: /app
-    stdin_open: true          #needed for input() in scan.py
+    stdin_open: true  # Needed for input() prompts
     tty: true
     volumes:
       - ./:/app:rw
-    command: python -m src.scan   #CLI mode (change when proj root changed)
-
-    #FastAPI
-    # ports:
-    #   - "8000:8000"
-    # command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000
-
+    command: python -m src.main_menu
     restart: "no"
 
+  # API mode - FastAPI REST server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: capstone-app:latest
+    container_name: capstone-api
+    working_dir: /app
+    volumes:
+      - ./:/app:rw
+    ports:
+      - "8000:8000"
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
+    restart: "no"
+
+  # Test runner
   tests:
     build:
       context: .
       dockerfile: Dockerfile
-    image: capstone-app:test
-    container_name: tests
+    image: capstone-app:latest
+    container_name: capstone-tests
     working_dir: /app
     volumes:
       - ./:/app:rw
-    # Do not set SCANNER_NONINTERACTIVE here so unit tests that patch input() still work.
-    command: python -m unittest discover -s test -p "*_test.py"
+    command: python -m pytest test/ -q
+    # Note: Do not set SCANNER_NONINTERACTIVE so unit tests that patch input() still work.

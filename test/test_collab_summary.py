@@ -1,12 +1,11 @@
 import os
-import unittest
 import sys
-import glob
 import tempfile
 import shutil
 import subprocess
-import json
-from pathlib import Path
+import unittest
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from collab_summary import identify_contributions, summarize_contributions_non_git, is_git_repo
