@@ -135,6 +135,28 @@ class TestGeneratePortfolio(unittest.TestCase):
         self.assertIn('UserProject', project_names)
         self.assertIn('NonGitProject', project_names)
 
+    # Verify aggregation excludes git projects without user contributions
+    def test_aggregate_projects_excludes_non_contributor_git_project(self):
+        all_projects = {
+            'OtherUserProject': {
+                'project_path': '/other',
+                'languages': ['Python'],
+                'frameworks': [],
+                'skills': ['Testing'],
+                'contributions': {
+                    'alice': {'commits': 5, 'files': ['a.py']}
+                },
+                'git_metrics': {
+                    'total_commits': 5
+                }
+            }
+        }
+
+        portfolio_projects = gp.aggregate_projects_for_portfolio('john', all_projects, {})
+
+        # project should be excluded
+        self.assertEqual(portfolio_projects, [])
+
     # Verify complete portfolio has all required sections and metadata
     def test_build_portfolio_structure(self):
         projects_data = [
