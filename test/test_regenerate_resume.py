@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 import regenerate_resume
 import regenerate_resume_scan
 
