@@ -396,7 +396,10 @@ def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=Non
         )
 
         # Aggregates project data for portfolio
-        if user_entry or has_metadata:
+        # Include project if:
+        # - user explicitly contributed (git-tracked project), OR
+        # - project has no git contributors at all but has metadata (assumed solo / non-git project)
+        if user_entry or (not contribs and has_metadata):  # Include only if user contributed OR project has no git data
             project = {
                 'project_name': name,
                 'path': info.get('project_path'),
