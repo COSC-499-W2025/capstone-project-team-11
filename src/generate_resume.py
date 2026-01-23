@@ -315,20 +315,21 @@ def main():
         return 1
 
     # Blacklist of usernames to avoid suggesting or generating resumes for
-    BLACKLIST = {'githubclassroombot'}
+    BLACKLIST = {'githubclassroombot', 'Unknown'}
 
     # If username not provided, attempt to list detected usernames and prompt the user
     username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
+    
     if not username:
+        # Discover possible usernames from project contributions
         candidates = set()
         for info in projects.values():
             contribs = info.get('contributions') or {}
+            # Handle nested contributions structure
+            if isinstance(contribs.get('contributions'), dict):
+                contribs = contribs['contributions']
             candidates.update(contribs.keys())
-        for fname, j in root_repo_jsons.items():
-            if isinstance(j, dict):
-                candidates.update(j.keys())
-        # remove blacklisted names from suggestions
         candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
         if not candidates:
