@@ -184,10 +184,22 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
         # Contributions
         tf.write("\n\n=== Contribution Summary ===\n")
         if info.get("contributions"):
-            for author, stats in info["contributions"].items():
-                commits = stats.get("commits", 0)
-                files = stats.get("files", 0)
-                tf.write(f"- {author}: {commits} commits, {files} files changed\n")
+            contrib_data = info["contributions"]
+            # Handle new nested structure: {type, repo_root, contributions} or {type, contributions}
+            if isinstance(contrib_data, dict) and "contributions" in contrib_data:
+                contribs = contrib_data.get("contributions", {})
+            else:
+                contribs = contrib_data
+            
+            if contribs and isinstance(contribs, dict):
+                for author, stats in contribs.items():
+                    if isinstance(stats, dict):
+                        commits = stats.get("commits", 0)
+                        files = stats.get("files", [])
+                        file_count = len(files) if isinstance(files, list) else 0
+                        tf.write(f"- {author}: {commits} commits, {file_count} files changed\n")
+            else:
+                tf.write("No contribution data available.\n")
         else:
             tf.write("No contribution data available.\n")
 
