@@ -62,15 +62,13 @@ def _ensure_projects_custom_name_column(conn):
         cur.execute("ALTER TABLE projects ADD COLUMN custom_name TEXT")
         conn.commit()
 def get_project_display_name(project_name: str):
-    """
-    Return custom resume display name for a project if it exists.
-    Falls back to None if not found / not set / DB not available.
-    """
     if not project_name:
         return None
 
+    conn = None
     try:
         conn = get_connection()
+        _ensure_projects_custom_name_column(conn)
         cur = conn.cursor()
         cur.execute("SELECT custom_name FROM projects WHERE name = ?", (project_name,))
         row = cur.fetchone()
@@ -80,19 +78,18 @@ def get_project_display_name(project_name: str):
         return custom.strip() if custom and custom.strip() else None
 
     except sqlite3.OperationalError:
-        # DB missing, path invalid, or table not created in unit tests
         return None
 
     finally:
-        try:
+        if conn:
             conn.close()
-        except Exception:
-            pass
+
 
 def list_projects_for_display():
     """Return projects as rows: id, name, custom_name."""
     conn = get_connection()
     try:
+        _ensure_projects_custom_name_column(conn)
         cur = conn.cursor()
         cur.execute("SELECT id, name, custom_name FROM projects ORDER BY name COLLATE NOCASE")
         return cur.fetchall()
@@ -114,6 +111,7 @@ def set_project_display_name(project_name: str, custom_name: Optional[str]):
 
     conn = get_connection()
     try:
+        _ensure_projects_custom_name_column(conn)
         cur = conn.cursor()
         cur.execute(
             "UPDATE projects SET custom_name = ? WHERE name = ?",
@@ -123,6 +121,7 @@ def set_project_display_name(project_name: str, custom_name: Optional[str]):
         return cur.rowcount
     finally:
         conn.close()
+
 
 
 

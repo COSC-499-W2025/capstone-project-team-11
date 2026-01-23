@@ -94,7 +94,9 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "9. View Resumes" in output
     assert "10. View Portfolios" in output
     assert "11. Analyze Contributor Roles" in output
-    assert "12. Exit" in output
+    assert "12. Edit Project Resume Display Names" in output
+    assert "13. Exit" in output
+
 
 
 # Test safe_query()
