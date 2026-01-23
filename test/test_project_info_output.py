@@ -52,11 +52,13 @@ class TestProjectInfoOutput(unittest.TestCase):
             self.assertIn("skills", info)
             self.assertIn("contributions", info)
 
-            json_path, txt_path = output_project_info(info, output_dir=out_dir)
-            self.assertTrue(os.path.exists(json_path))
-            self.assertTrue(os.path.exists(txt_path))
+            json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
+            self.assertTrue(len(json_paths) > 0)
+            self.assertTrue(len(txt_paths) > 0)
+            self.assertTrue(os.path.exists(json_paths[0]))
+            self.assertTrue(os.path.exists(txt_paths[0]))
 
-            with open(json_path, "r", encoding="utf-8") as jf:
+            with open(json_paths[0], "r", encoding="utf-8") as jf:
                 loaded = json.load(jf)
             self.assertEqual(loaded.get("project_path"), info.get("project_path"))
         finally:
@@ -82,10 +84,12 @@ class TestProjectInfoOutput(unittest.TestCase):
             self.assertIsInstance(contributions, dict)
             self.assertTrue(len(contributions) >= 1)
 
-            json_path, txt_path = output_project_info(info, output_dir=out_dir)
-            self.assertTrue(os.path.exists(json_path))
-            self.assertTrue(os.path.exists(txt_path))
-            with open(json_path, "r", encoding="utf-8") as jf:
+            json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
+            self.assertTrue(len(json_paths) > 0)
+            self.assertTrue(len(txt_paths) > 0)
+            self.assertTrue(os.path.exists(json_paths[0]))
+            self.assertTrue(os.path.exists(txt_paths[0]))
+            with open(json_paths[0], "r", encoding="utf-8") as jf:
                 loaded = json.load(jf)
             self.assertIn("git_metrics", loaded)
             self.assertIn("total_commits", loaded["git_metrics"])
