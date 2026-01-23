@@ -176,8 +176,21 @@ def handle_scan_directory():
         project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
         out_dir = os.path.join("output", project_name)
         os.makedirs(out_dir, exist_ok=True)
-        json_path, txt_path = output_project_info(info, output_dir=out_dir)
-        print(f"Summary reports saved to: {out_dir}")
+        json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
+        # Display saved report files
+        try:
+            if isinstance(json_paths, list) and isinstance(txt_paths, list):
+                print(f"Summary reports saved to: {out_dir}")
+                for jp in json_paths:
+                    if jp:
+                        print(f"  JSON: {jp}")
+                for tp in txt_paths:
+                    if tp:
+                        print(f"  TXT : {tp}")
+            else:
+                print(f"Summary reports saved to: {out_dir}")
+        except Exception:
+            print(f"Summary reports saved to: {out_dir}")
     except Exception as e:
         print(f"Failed to generate summary report: {e}")
 

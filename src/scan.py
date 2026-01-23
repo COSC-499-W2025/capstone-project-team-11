@@ -521,8 +521,6 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         zip_path,
                         files_found,
                         repo_roots,
-                        detected_languages=langs,
-                        detected_skills=skills,
                         file_metadata=file_meta,
                         show_progress=True,
                         extracted_locations=extracted_locations
@@ -765,7 +763,10 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
                                detected_languages: list = None, detected_skills: list = None,
                                file_metadata: dict = None, show_progress: bool = True,
                                extracted_locations: dict = None):
-    """Persist scans for multiple git repositories, one scan per repo."""
+    """Persist scans for multiple git repositories, one scan per repo.
+    
+    Detects languages, frameworks, and skills per-project to avoid aggregating them.
+    """
     if not repo_roots or not file_list:
         return
     
@@ -790,15 +791,32 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
             metrics = analyze_repo_path(repo_root) if analyze_repo is not None else None
             contributors = _contributors_from_metrics(metrics)
             
-            # Persist this repo's scan
+            # Detect languages, frameworks, and skills PER PROJECT
+            try:
+                project_langs_res, _, _ = _run_with_progress(
+                    detect_languages_and_frameworks, args=(repo_root,), label=f"Detect languages ({project_name})", total_steps=40
+                )
+                project_langs = project_langs_res.get('languages', []) if project_langs_res else []
+            except Exception:
+                project_langs = []
+            
+            try:
+                project_skills_res, _, _ = _run_with_progress(
+                    detect_skills, args=(repo_root,), label=f"Detect skills ({project_name})", total_steps=40
+                )
+                project_skills = project_skills_res.get('skills', []) if project_skills_res else []
+            except Exception:
+                project_skills = []
+            
+            # Persist this repo's scan with its OWN detected languages and skills
             _persist_scan(
                 scan_source,
                 files_for_repo,
                 project=project_name,
                 notes=None,
                 file_metadata=file_metadata,
-                detected_languages=detected_languages,
-                detected_skills=detected_skills,
+                detected_languages=project_langs,
+                detected_skills=project_skills,
                 contributors=contributors,
                 project_created_at=created_at,
                 project_repo_url=repo_url,
@@ -1076,8 +1094,6 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     path,
                     files_found,
                     repo_roots,
-                    detected_languages=langs,
-                    detected_skills=skills,
                     file_metadata=file_meta,
                     show_progress=True
                 )
@@ -1208,37 +1224,84 @@ def run_with_saved_settings(
 
         scan_target = _resolve_extracted_root(zip_extract_path) if zip_extract_path else scan_path_input
 
-        # After scan, run language detection and then summarize detected skills
-        print("\n=== Detecting Languages ===")
-        langs_res, langs_out, langs_err = _run_with_progress(
-            detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
-        )
-        langs_summary = langs_res or {}
-        if langs_summary.get("languages"):
-            print("\n=== Detected Languages Summary ===")
-            if langs_summary.get("high_confidence"):
-                print("High confidence:", ", ".join(langs_summary.get("high_confidence")))
-            if langs_summary.get("medium_confidence"):
-                print("Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
-            if langs_summary.get("low_confidence"):
-                print("Low confidence:", ", ".join(langs_summary.get("low_confidence")))
-            if langs_summary.get("frameworks"):
-                print("Frameworks:", ", ".join(langs_summary.get("frameworks")))
-        else:
-            print("\nNo languages detected.")
-
-        print("\n=== Detecting Skills ===")
-        skills_res, skills_out, skills_err = _run_with_progress(
-            detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
-        )
-        skills_summary = skills_res or {}
-
+        # Detect multiple projects/repos in the scan target
+        repo_roots = _find_all_git_roots(scan_target)
+        if not repo_roots:
+            candidate_roots = _find_candidate_project_roots(scan_target)
+            if len(candidate_roots) > 1:
+                repo_roots = candidate_roots
         
-        if skills_summary.get("skills"):
-            print("\n=== Detected Skills Summary ===")
-            print(", ".join(skills_summary.get("skills")))
+        # After scan, run language detection and then summarize detected skills
+        if repo_roots and len(repo_roots) > 1:
+            # Multiple projects detected - show detection results per project
+            print("\n=== Detecting Languages and Skills Per Project ===")
+            
+            for i, repo_root in enumerate(repo_roots, 1):
+                project_name = os.path.basename(os.path.abspath(repo_root))
+                
+                print(f"\n--- PROJECT {i}: {project_name} ---")
+                
+                # Detect languages for this project
+                langs_res, langs_out, langs_err = _run_with_progress(
+                    detect_languages_and_frameworks, args=(repo_root,), label=f"Detect languages ({project_name})", total_steps=40
+                )
+                langs_summary = langs_res or {}
+                
+                if langs_summary.get("languages"):
+                    print("Languages Detected:")
+                    if langs_summary.get("high_confidence"):
+                        print("  High confidence:", ", ".join(langs_summary.get("high_confidence")))
+                    if langs_summary.get("medium_confidence"):
+                        print("  Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
+                    if langs_summary.get("low_confidence"):
+                        print("  Low confidence:", ", ".join(langs_summary.get("low_confidence")))
+                    if langs_summary.get("frameworks"):
+                        print("  Frameworks:", ", ".join(langs_summary.get("frameworks")))
+                else:
+                    print("No languages detected.")
+
+                # Detect skills for this project
+                skills_res, skills_out, skills_err = _run_with_progress(
+                    detect_skills, args=(repo_root,), label=f"Detect skills ({project_name})", total_steps=40
+                )
+                skills_summary = skills_res or {}
+                
+                if skills_summary.get("skills"):
+                    print("Skills Detected:", ", ".join(skills_summary.get("skills")))
+                else:
+                    print("No significant skills detected.")
         else:
-            print("\nNo significant skills detected.")
+            # Single project - detect as before
+            print("\n=== Detecting Languages ===")
+            langs_res, langs_out, langs_err = _run_with_progress(
+                detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
+            )
+            langs_summary = langs_res or {}
+            if langs_summary.get("languages"):
+                print("\n=== Detected Languages Summary ===")
+                if langs_summary.get("high_confidence"):
+                    print("High confidence:", ", ".join(langs_summary.get("high_confidence")))
+                if langs_summary.get("medium_confidence"):
+                    print("Medium confidence:", ", ".join(langs_summary.get("medium_confidence")))
+                if langs_summary.get("low_confidence"):
+                    print("Low confidence:", ", ".join(langs_summary.get("low_confidence")))
+                if langs_summary.get("frameworks"):
+                    print("Frameworks:", ", ".join(langs_summary.get("frameworks")))
+            else:
+                print("\nNo languages detected.")
+
+            print("\n=== Detecting Skills ===")
+            skills_res, skills_out, skills_err = _run_with_progress(
+                detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
+            )
+            skills_summary = skills_res or {}
+
+            
+            if skills_summary.get("skills"):
+                print("\n=== Detected Skills Summary ===")
+                print(", ".join(skills_summary.get("skills")))
+            else:
+                print("\nNo significant skills detected.")
 
         # Then show contribution metrics if requested
         if final.get("show_contribution_metrics"):
