@@ -1,5 +1,5 @@
 # Generates a project-centric portfolio Markdown file using scanned project summaries
-# The script reads project JSON files in output/, and aggregates relevant project-level details
+# The script reads project data from the local database and aggregates project-level details
 # It then writes the generated portfolio to: portfolios/portfolio_<username>_<timestamp>.md
 """
 TODO: Once we have a frontend UI, I expect this to be a two column window: 
@@ -469,7 +469,7 @@ def build_portfolio(username, projects_data, generated_ts=None, confidence_level
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate portfolio Markdown from output/ for a given username'
+        description='Generate portfolio Markdown from the database for a given username'
     )
     parser.add_argument(
         '--username', '-u',
@@ -479,7 +479,7 @@ def main():
     parser.add_argument(
         '--output-root', '-r',
         default='output',
-        help='Path to the output folder (default: output)'
+        help='Deprecated: output folder path is ignored (DB is used)'
     )
     parser.add_argument(
         '--portfolio-dir', '-d',
@@ -505,9 +505,7 @@ def main():
     )
     args = parser.parse_args()
 
-    if not os.path.isdir(args.output_root):
-        print(f"Output folder not found: {args.output_root}")
-        return 1
+    # output_root retained for CLI compatibility but ignored
 
     # Blacklist of usernames to exclude
     BLACKLIST = {'githubclassroombot', 'Unknown'}
@@ -528,7 +526,7 @@ def main():
         candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
         if not candidates:
-            print('No candidate usernames detected in `output/`.')
+            print('No candidate usernames detected in the database.')
             try:
                 username = input('Enter username to generate portfolio for: ').strip()
             except EOFError:
@@ -571,7 +569,7 @@ def main():
     portfolio_projects = aggregate_projects_for_portfolio(username, projects, root_repo_jsons)
 
     if not portfolio_projects:
-        print(f"No projects found for user '{username}' in {args.output_root}")
+        print(f"No projects found for user '{username}' in the database")
         return 1
 
     # Build portfolio with timestamps and confidence filter
