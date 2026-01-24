@@ -65,10 +65,12 @@ class TestCollaborationSummary(unittest.TestCase):
         # Use strict_git=True so we don't walk up into the real repo
         result = identify_contributions(self.test_dir, strict_git=True)
 
-        keys = list(result.keys())
+        # New structure: result has 'type', 'repo_root', and 'contributions'
+        contributions = result.get("contributions", {})
+        keys = list(contributions.keys())
         # identify_contributions uses canonicalized author keys (e.g. 'johndoe')
         self.assertTrue(any('john' in k.lower() for k in keys), msg=f"Expected an author containing 'john' in {keys}")
-        self.assertTrue(any(v.get('commits', 0) >= 1 for v in result.values()))
+        self.assertTrue(any(v.get('commits', 0) >= 1 for v in contributions.values()))
 
     def test_invalid_path_raises_error(self):
         """Invalid path raises FileNotFoundError."""
@@ -91,10 +93,11 @@ class TestCollaborationSummary(unittest.TestCase):
 
         result = identify_contributions(self.test_dir, strict_git=True)
 
-        # Ensure some author was detected and that at least one author's file list contains scan.py
-        keys = list(result.keys())
+        # New structure: result has 'type', 'repo_root', and 'contributions'
+        contributions = result.get("contributions", {})
+        keys = list(contributions.keys())
         self.assertTrue(any('john' in k.lower() for k in keys), msg=f"Expected an author containing 'john' in {keys}")
-        self.assertTrue(any('scan.py' in f for v in result.values() for f in v.get('files', [])), msg="Changed file scan.py should appear in some author's file list")
+        self.assertTrue(any('scan.py' in f for v in contributions.values() for f in v.get('files', [])), msg="Changed file scan.py should appear in some author's file list")
 
 
 

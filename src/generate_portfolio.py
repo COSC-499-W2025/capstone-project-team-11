@@ -510,9 +510,9 @@ def main():
         return 1
 
     # Blacklist of usernames to exclude
-    BLACKLIST = {'githubclassroombot'}
+    BLACKLIST = {'githubclassroombot', 'Unknown'}
 
-    # Username selection (interactive if not provided)
+    # If username not provided, attempt to list detected usernames and prompt the user
     username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
 
@@ -521,6 +521,9 @@ def main():
         candidates = set()
         for info in projects.values():
             contribs = info.get('contributions') or {}
+            # Handle nested contributions structure
+            if isinstance(contribs.get('contributions'), dict):
+                contribs = contribs['contributions']
             candidates.update(contribs.keys())
         candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
