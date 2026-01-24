@@ -77,8 +77,18 @@ def test_regenerate_portfolio_missing_portfolio_path(tmp_path):
 def test_regenerate_portfolio_missing_output_root(tmp_path):
     # Non-existent output_root
     missing_root = tmp_path / "nope"
-    with pytest.raises(ValueError):
+    with mock.patch("regenerate_portfolio.collect_projects") as mock_collect, \
+         mock.patch("regenerate_portfolio.aggregate_projects_for_portfolio") as mock_agg, \
+         mock.patch("regenerate_portfolio.build_portfolio") as mock_build:
+        mock_collect.return_value = ({}, {})
+        mock_agg.return_value = [{"project_name": "proj1"}]
+        mock_portfolio = mock.Mock()
+        mock_portfolio.render_markdown.return_value = "# Portfolio"
+        mock_portfolio.sections = {"overview": mock.Mock()}
+        mock_build.return_value = mock_portfolio
+
         rp.regenerate_portfolio("user", tmp_path / "file.md", output_root=missing_root)
+        assert (tmp_path / "file.md").exists()
 
 # ---------------------------
 # Tests for generate_portfolio.py modifications

@@ -1,4 +1,5 @@
 import json
+import importlib
 import os
 import sys
 import tempfile
@@ -9,9 +10,9 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from api import app
+import api as api_mod
 from config import config_path
-from db import get_connection, init_db
+import db as db_mod
 
 
 class TestAPI(unittest.TestCase):
@@ -25,8 +26,11 @@ class TestAPI(unittest.TestCase):
         os.environ["FILE_DATA_DB_PATH"] = self.db_path
         os.environ["HOME"] = self.home_dir
 
-        init_db()
-        self.client = TestClient(app)
+        global db_mod, api_mod
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+        api_mod = importlib.reload(api_mod)
+        self.client = TestClient(api_mod.app)
 
         self.output_root = os.path.join(self.tmpdir.name, "output")
         os.makedirs(self.output_root, exist_ok=True)
@@ -39,29 +43,44 @@ class TestAPI(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def _write_project_info(self, username="alice"):
-        proj_dir = os.path.join(self.output_root, "demo_project")
+        proj_dir = os.path.join(self.tmpdir.name, "demo_project")
         os.makedirs(proj_dir, exist_ok=True)
-        payload = {
-            "project_name": "demo_project",
-            "project_path": proj_dir,
-            "detected_type": "coding_project",
+        git_metrics = {
+            "project_start": "2025-01-01 00:00:00",
+            "commits_per_author": {username: 2},
+            "lines_added_per_author": {username: 10},
+            "files_changed_per_author": {username: ["main.py"]},
+            "total_commits": 2,
+        }
+        tech_summary = {
             "languages": ["Python"],
             "frameworks": ["FastAPI"],
-            "skills": ["APIs"],
             "high_confidence_languages": ["Python"],
             "medium_confidence_languages": [],
             "low_confidence_languages": [],
             "high_confidence_frameworks": ["FastAPI"],
             "medium_confidence_frameworks": [],
             "low_confidence_frameworks": [],
-            "contributions": {
-                username: {"commits": 2, "files": ["main.py"]},
-            },
-            "git_metrics": {"project_start": "2025-01-01 00:00:00"},
         }
-        info_path = os.path.join(proj_dir, "demo_project_info_20250101.json")
-        with open(info_path, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh)
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                ("demo_project", proj_dir, json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", ("APIs",))
+            skill_id = conn.execute(
+                "SELECT id FROM skills WHERE name = ?",
+                ("APIs",),
+            ).fetchone()["id"]
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.execute(
+                "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                (project_id, skill_id),
+            )
+            conn.commit()
 
     def test_privacy_consent(self):
         resp = self.client.post("/privacy-consent", json={"data_consent": True})
@@ -97,7 +116,7 @@ class TestAPI(unittest.TestCase):
         self.assertTrue(isinstance(resp_list.json(), list))
 
     def test_project_detail_and_skills(self):
-        with get_connection() as conn:
+        with db_mod.get_connection() as conn:
             conn.execute(
                 "INSERT INTO projects (name, repo_url, created_at, thumbnail_path) VALUES (?, ?, ?, ?)",
                 ("demo_project", "https://example.com", "2025-01-01", None),
