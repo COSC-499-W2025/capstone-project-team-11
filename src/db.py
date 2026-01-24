@@ -3,6 +3,7 @@ import os
 import time
 import json
 from typing import Optional
+from collections import Counter
 from db_maintenance import prune_old_project_scans
 from datetime import datetime
 
@@ -60,6 +61,14 @@ def _ensure_projects_custom_name_column(conn):
     cols = {row['name'] for row in cur.fetchall()}
     if 'custom_name' not in cols:
         cur.execute("ALTER TABLE projects ADD COLUMN custom_name TEXT")
+        conn.commit()
+def _ensure_projects_column(conn, column_name: str, column_type: str):
+    """Ensure the projects table has a specific column."""
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(projects)")
+    cols = {row['name'] for row in cur.fetchall()}
+    if column_name not in cols:
+        cur.execute(f"ALTER TABLE projects ADD COLUMN {column_name} {column_type}")
         conn.commit()
 def get_project_display_name(project_name: str):
     """
@@ -135,13 +144,15 @@ def set_project_display_name(project_name: str, custom_name: Optional[str]):
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
               detected_languages: list = None, detected_skills: list = None, contributors: list = None,
               file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None,
-              project_thumbnail_path: str = None):
+              project_thumbnail_path: str = None, git_metrics: dict = None, tech_summary: dict = None):
     """Persist a scan and related metadata into the DB in a single transaction.
 
     - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
     - detected_languages: list of language strings
     - detected_skills: list of skill strings
     - contributors: list of contributor names (strings)
+    - git_metrics: repo contribution metrics dict (stored as JSON)
+    - tech_summary: dict of languages/frameworks with confidence tiers (stored as JSON)
     Returns scan_id
     """
     conn = get_connection()
@@ -153,6 +164,9 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
             _ensure_projects_thumbnail_column(conn)
            
         _ensure_projects_custom_name_column(conn)
+        _ensure_projects_column(conn, "project_path", "TEXT")
+        _ensure_projects_column(conn, "git_metrics_json", "TEXT")
+        _ensure_projects_column(conn, "tech_json", "TEXT")
            
         cur.execute('BEGIN')
 
@@ -169,32 +183,49 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
         prune_old_project_scans(conn, project_name, keep_scan_id=scan_id)
 
 
-        # link or create project row if provided, and persist project-level metadata
+        # link or create project row, and persist project-level metadata
         project_id = None
-        if project:
+        project_key = project_name
+        if project_key:
             # create row if missing; include repo_url/created_at when present
             if project_repo_url is not None or project_created_at is not None or project_thumbnail_path is not None:
                 # Try to insert with provided metadata; INSERT OR IGNORE will skip if exists
                 cur.execute(
-                    "INSERT OR IGNORE INTO projects (name, repo_url, created_at, thumbnail_path) VALUES (?, ?, ?, ?)",
-                    (project, project_repo_url, project_created_at, project_thumbnail_path),
+                    "INSERT OR IGNORE INTO projects (name, repo_url, created_at, thumbnail_path, project_path) VALUES (?, ?, ?, ?, ?)",
+                    (project_key, project_repo_url, project_created_at, project_thumbnail_path, scan_source),
                 )
             else:
-                cur.execute("INSERT OR IGNORE INTO projects (name) VALUES (?)", (project,))
+                cur.execute("INSERT OR IGNORE INTO projects (name, project_path) VALUES (?, ?)", (project_key, scan_source))
 
             # If the row existed but metadata fields are empty, update them non-destructively
             if project_repo_url is not None or project_created_at is not None:
                 cur.execute(
                     "UPDATE projects SET repo_url = COALESCE(repo_url, ?), created_at = COALESCE(created_at, ?) WHERE name = ?",
-                    (project_repo_url, project_created_at, project),
+                    (project_repo_url, project_created_at, project_key),
                 )
             if project_thumbnail_path is not None:
                 cur.execute(
                     "UPDATE projects SET thumbnail_path = ? WHERE name = ?",
-                    (project_thumbnail_path, project),
+                    (project_thumbnail_path, project_key),
+                )
+            if scan_source:
+                cur.execute(
+                    "UPDATE projects SET project_path = ? WHERE name = ?",
+                    (scan_source, project_key),
                 )
 
-            cur.execute("SELECT id FROM projects WHERE name = ?", (project,))
+            if git_metrics is not None:
+                cur.execute(
+                    "UPDATE projects SET git_metrics_json = ? WHERE name = ?",
+                    (json.dumps(git_metrics, default=str), project_key),
+                )
+            if tech_summary is not None:
+                cur.execute(
+                    "UPDATE projects SET tech_json = ? WHERE name = ?",
+                    (json.dumps(tech_summary, default=str), project_key),
+                )
+
+            cur.execute("SELECT id FROM projects WHERE name = ?", (project_key,))
             r = cur.fetchone()
             project_id = r['id'] if r else None
 
@@ -313,6 +344,147 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
     except Exception:
         conn.rollback()
         raise
+    finally:
+        conn.close()
+
+
+def load_projects_for_generation():
+    """Load project data from the DB in the same structure used by resume/portfolio generators."""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    try:
+        cur.execute("PRAGMA table_info(projects)")
+        project_cols = {row['name'] for row in cur.fetchall()}
+
+        select_cols = ["id", "name"]
+        if "project_path" in project_cols:
+            select_cols.append("project_path")
+        if "git_metrics_json" in project_cols:
+            select_cols.append("git_metrics_json")
+        if "tech_json" in project_cols:
+            select_cols.append("tech_json")
+
+        cur.execute(f"SELECT {', '.join(select_cols)} FROM projects ORDER BY name COLLATE NOCASE")
+        project_rows = cur.fetchall()
+
+        projects = {}
+        commits_counter = Counter()
+        lines_counter = Counter()
+
+        for row in project_rows:
+            project_id = row["id"]
+            project_name = row["name"]
+            project_path = row["project_path"] if "project_path" in row.keys() else None
+
+            tech_summary = {}
+            if "tech_json" in row.keys() and row["tech_json"]:
+                try:
+                    tech_summary = json.loads(row["tech_json"])
+                except Exception:
+                    tech_summary = {}
+
+            git_metrics = None
+            if "git_metrics_json" in row.keys() and row["git_metrics_json"]:
+                try:
+                    git_metrics = json.loads(row["git_metrics_json"])
+                except Exception:
+                    git_metrics = None
+
+            # Skills (project-level)
+            cur.execute(
+                """
+                SELECT s.name
+                FROM project_skills ps
+                JOIN skills s ON s.id = ps.skill_id
+                WHERE ps.project_id = ?
+                ORDER BY s.name COLLATE NOCASE
+                """,
+                (project_id,),
+            )
+            skills = [r["name"] for r in cur.fetchall()]
+
+            # Find latest scan_id for this project (pruning keeps only the newest)
+            cur.execute(
+                "SELECT id FROM scans WHERE project = ? ORDER BY scanned_at DESC, id DESC LIMIT 1",
+                (project_name,),
+            )
+            scan_row = cur.fetchone()
+            scan_id = scan_row["id"] if scan_row else None
+
+            # Languages/frameworks (fallback to file_languages if tech summary missing)
+            languages = tech_summary.get("languages") or []
+            frameworks = tech_summary.get("frameworks") or []
+            if (not languages and not frameworks) and scan_id:
+                cur.execute(
+                    """
+                    SELECT DISTINCT l.name
+                    FROM file_languages fl
+                    JOIN languages l ON l.id = fl.language_id
+                    JOIN files f ON f.id = fl.file_id
+                    WHERE f.scan_id = ?
+                    ORDER BY l.name COLLATE NOCASE
+                    """,
+                    (scan_id,),
+                )
+                languages = [r["name"] for r in cur.fetchall()]
+
+            contributions = {}
+            if isinstance(git_metrics, dict):
+                commits_per_author = git_metrics.get("commits_per_author") or {}
+                files_changed_per_author = git_metrics.get("files_changed_per_author") or {}
+                lines_added_per_author = git_metrics.get("lines_added_per_author") or {}
+                for author, commits in commits_per_author.items():
+                    contributions[author] = {
+                        "commits": commits or 0,
+                        "files": files_changed_per_author.get(author, []) or [],
+                    }
+                for author, count in commits_per_author.items():
+                    if isinstance(count, int):
+                        commits_counter[author] += count
+                for author, count in lines_added_per_author.items():
+                    if isinstance(count, int):
+                        lines_counter[author] += count
+            elif scan_id:
+                # Fallback for non-git projects: build contributions from file ownership
+                cur.execute(
+                    """
+                    SELECT f.file_path, c.name
+                    FROM files f
+                    JOIN file_contributors fc ON fc.file_id = f.id
+                    JOIN contributors c ON c.id = fc.contributor_id
+                    WHERE f.scan_id = ?
+                    """,
+                    (scan_id,),
+                )
+                for row_fc in cur.fetchall():
+                    name = row_fc["name"]
+                    contributions.setdefault(name, {"commits": 0, "files": []})
+                    contributions[name]["files"].append(row_fc["file_path"])
+
+            projects[project_name] = {
+                "project_name": project_name,
+                "project_path": project_path,
+                "languages": languages,
+                "frameworks": frameworks,
+                "skills": skills,
+                "high_confidence_languages": tech_summary.get("high_confidence_languages", []),
+                "medium_confidence_languages": tech_summary.get("medium_confidence_languages", []),
+                "low_confidence_languages": tech_summary.get("low_confidence_languages", []),
+                "high_confidence_frameworks": tech_summary.get("high_confidence_frameworks", []),
+                "medium_confidence_frameworks": tech_summary.get("medium_confidence_frameworks", []),
+                "low_confidence_frameworks": tech_summary.get("low_confidence_frameworks", []),
+                "contributions": contributions,
+                "git_metrics": git_metrics or {},
+            }
+
+        root_repo_jsons = {
+            "db_aggregate": {
+                "commits_per_author": dict(commits_counter),
+                "lines_added_per_author": dict(lines_counter),
+            }
+        }
+        return projects, root_repo_jsons
     finally:
         conn.close()
 

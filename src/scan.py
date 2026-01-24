@@ -351,7 +351,8 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
 
 def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None, file_metadata: dict = None,
                   detected_languages: list = None, detected_skills: list = None, contributors: list = None,
-                  project_created_at: str = None, project_repo_url: str = None, project_thumbnail_path: str = None):
+                  project_created_at: str = None, project_repo_url: str = None, project_thumbnail_path: str = None,
+                  git_metrics: dict = None, tech_summary: dict = None):
     """Persist a scan and its file records to the database using db.save_scan.
 
     This now also attempts to persist detected languages, skills and contributors
@@ -371,6 +372,8 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
         project_created_at=project_created_at,
         project_repo_url=project_repo_url,
         project_thumbnail_path=project_thumbnail_path,
+        git_metrics=git_metrics,
+        tech_summary=tech_summary,
     )
 
 
@@ -484,6 +487,18 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                     detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
                 )
                 skills = skills_res.get('skills', []) if skills_res else []
+                tech_summary = {}
+                if skills_res:
+                    tech_summary = {
+                        "languages": skills_res.get("languages", []),
+                        "frameworks": skills_res.get("frameworks", []),
+                        "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+                        "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+                        "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+                        "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+                        "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+                        "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+                    }
 
                 # Build per-file metadata (owner) where possible
                 for item in files_found:
@@ -541,6 +556,8 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         contributors=contributors,
                         project_created_at=project_created_at,
                         project_repo_url=project_repo_url,
+                        git_metrics=metrics,
+                        tech_summary=tech_summary,
                     )
             except sqlite3.OperationalError:
                 try:
@@ -555,7 +572,15 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         _persist_multi_repo_scans(zip_path, files_found, repo_roots, file_metadata=file_meta,
                                                  extracted_locations=extracted_locations)
                     else:
-                        _persist_scan(zip_path, files_found, project=None, notes=None, file_metadata=file_meta)
+                        _persist_scan(
+                            zip_path,
+                            files_found,
+                            project=None,
+                            notes=None,
+                            file_metadata=file_meta,
+                            git_metrics=metrics if 'metrics' in locals() else None,
+                            tech_summary=tech_summary if 'tech_summary' in locals() else None,
+                        )
                 except Exception:
                     print("Warning: failed to persist zip scan results to database.")
     finally:
@@ -807,10 +832,24 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
                 project_skills = project_skills_res.get('skills', []) if project_skills_res else []
             except Exception:
                 project_skills = []
+                project_skills_res = None
+
+            tech_summary = {}
+            if project_skills_res:
+                tech_summary = {
+                    "languages": project_skills_res.get("languages", []),
+                    "frameworks": project_skills_res.get("frameworks", []),
+                    "high_confidence_languages": project_skills_res.get("high_confidence_languages", []),
+                    "medium_confidence_languages": project_skills_res.get("medium_confidence_languages", []),
+                    "low_confidence_languages": project_skills_res.get("low_confidence_languages", []),
+                    "high_confidence_frameworks": project_skills_res.get("high_confidence_frameworks", []),
+                    "medium_confidence_frameworks": project_skills_res.get("medium_confidence_frameworks", []),
+                    "low_confidence_frameworks": project_skills_res.get("low_confidence_frameworks", []),
+                }
             
             # Persist this repo's scan with its OWN detected languages and skills
             _persist_scan(
-                scan_source,
+                repo_root,
                 files_for_repo,
                 project=project_name,
                 notes=None,
@@ -820,6 +859,8 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
                 contributors=contributors,
                 project_created_at=created_at,
                 project_repo_url=repo_url,
+                git_metrics=metrics,
+                tech_summary=tech_summary,
             )
             if show_progress:
                 print(f"  Saved project: {project_name}")
@@ -1059,6 +1100,20 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             skills = skills_res.get('skills', []) if skills_res else []
         except Exception:
             skills = []
+            skills_res = None
+
+        tech_summary = {}
+        if skills_res:
+            tech_summary = {
+                "languages": skills_res.get("languages", []),
+                "frameworks": skills_res.get("frameworks", []),
+                "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+                "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+                "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+                "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+                "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+                "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+            }
 
         # build file metadata (owner) for each file
         file_meta = {}
@@ -1115,7 +1170,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     contributors=contributors,
                     project_created_at=project_created_at,
                     project_repo_url=project_repo_url,
-                    project_thumbnail_path=project_thumbnail_path
+                    project_thumbnail_path=project_thumbnail_path,
+                    git_metrics=metrics,
+                    tech_summary=tech_summary,
                 )
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
@@ -1134,7 +1191,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                         file_metadata=file_meta,
                         detected_languages=langs,
                         detected_skills=skills,
-                        project_thumbnail_path=project_thumbnail_path
+                        project_thumbnail_path=project_thumbnail_path,
+                        git_metrics=metrics if 'metrics' in locals() else None,
+                        tech_summary=tech_summary if 'tech_summary' in locals() else None,
                     )
             except Exception:
                 print("Warning: failed to persist scan results to database.")
