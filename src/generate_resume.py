@@ -315,62 +315,73 @@ def main():
         return 1
 
     # Blacklist of usernames to avoid suggesting or generating resumes for
-    BLACKLIST = {'githubclassroombot'}
+    BLACKLIST = {
+        "githubclassroombot",
+        "github classroom bot",
+        "github-classroom-bot",
+        "unknown",
+        "repo_root",
+        "contributions",
+        "type",
+    }
 
     # If username not provided, attempt to list detected usernames and prompt the user
     username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
+
     if not username:
         candidates = set()
+
         for info in projects.values():
-            contribs = info.get('contributions') or {}
+            contribs = info.get("contributions") or {}
             candidates.update(contribs.keys())
-        for fname, j in root_repo_jsons.items():
-            if isinstance(j, dict):
-                candidates.update(j.keys())
-        # remove blacklisted names from suggestions
-        candidates = sorted([c for c in candidates if c not in BLACKLIST])
+
+        # normalize + filter candidates
+        candidates = sorted(
+            [
+                c.strip()
+                for c in candidates
+                if c and c.strip().lower() not in BLACKLIST
+            ],
+            key=str.lower
+        )
 
         if not candidates:
-            print('No candidate usernames detected in `output/`.')
-            try:
-                user_in = input('Enter username to generate resume for: ').strip()
-            except EOFError:
-                print('No username provided and input not available.')
-                return 1
-            if not user_in:
-                print('No username entered; aborting.')
-                return 1
-            username = user_in
-        else:
-            # Print a clean numbered list of candidates for the user to choose from
-            print('\nDetected candidate usernames:')
-            for i, c in enumerate(candidates, start=1):
-                print(f"  {i}. {c}")
-            print('\nYou may enter the number (e.g. 1) or the exact username.')
-            try:
-                user_in = input('Select username (number or name, leave blank to abort): ').strip()
-            except EOFError:
-                print('No username provided and input not available.')
-                return 1
-            if not user_in:
-                print('No username entered; aborting.')
-                return 1
-            # If the user entered a number, map it to the username
-            if user_in.isdigit():
-                idx = int(user_in) - 1
-                if 0 <= idx < len(candidates):
-                    username = candidates[idx]
-                else:
-                    print('Selection out of range; aborting.')
-                    return 1
+            print("No candidate usernames detected in `output/`.")
+            return 1
+
+        print("\nDetected candidate usernames:")
+        for i, c in enumerate(candidates, start=1):
+            print(f"  {i}. {c}")
+
+        print("\nYou may enter the number (e.g. 1) or the exact username.")
+        try:
+            user_in = input(
+                "Select username (number or name, leave blank to abort): "
+            ).strip()
+        except EOFError:
+            print("No username provided and input not available.")
+            return 1
+
+        if not user_in:
+            print("No username entered; aborting.")
+            return 1
+
+        if user_in.isdigit():
+            idx = int(user_in) - 1
+            if 0 <= idx < len(candidates):
+                username = candidates[idx]
             else:
-                username = user_in
+                print("Selection out of range; aborting.")
+                return 1
+        else:
+            username = user_in.strip()
     else:
         username = username.strip()
+          
 
     # Prevent generating resumes for blacklisted accounts unless explicitly allowed
-    if username in BLACKLIST and not args.allow_bots:
+    if username.strip().lower() in BLACKLIST and not args.allow_bots:
         print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
         return 1
 

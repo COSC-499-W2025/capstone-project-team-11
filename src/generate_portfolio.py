@@ -520,9 +520,31 @@ def main():
         # Discover possible usernames from project contributions
         candidates = set()
         for info in projects.values():
-            contribs = info.get('contributions') or {}
+            contribs = info.get("contributions") or {}
             candidates.update(contribs.keys())
-        candidates = sorted([c for c in candidates if c not in BLACKLIST])
+
+        # Expand blacklist + normalize filtering
+        BLACKLIST = {
+            "githubclassroombot",
+            "github classroom bot",
+            "github-classroom-bot",
+            "unknown",
+            "repo_root",
+            "contributions",
+            "type",
+        }
+
+        # normalize + filter candidates (case-insensitive)
+        candidates = sorted(
+            [
+                c.strip()
+                for c in candidates
+                if c and c.strip().lower() not in BLACKLIST
+            ],
+            key=str.lower,
+        )
+
+
 
         if not candidates:
             print('No candidate usernames detected in `output/`.')
