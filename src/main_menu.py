@@ -62,7 +62,8 @@ def print_main_menu():
     print("9. View Resumes")
     print("10. View Portfolios")
     print("11. Analyze Contributor Roles")
-    print("12. Exit")
+    print("12. Edit Project Resume Display Names") 
+    print("13. Exit")
 
 
 def handle_scan_directory():
@@ -496,8 +497,7 @@ def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
     Delegates username prompting and candidate listing entirely to the
-    generate_resume script. After generation, optionally allows editing
-    project display names and re-generating the resume.
+    generate_resume script.
     """
     print("\n=== Generate Resume ===")
 
@@ -509,30 +509,16 @@ def handle_generate_resume():
     cmd = [sys.executable, script_path, '--save-to-db']
 
     try:
-        # Run the resume generator and inherit stdio so it can prompt the user
         result = subprocess.run(cmd)
-
         if result.returncode != 0:
             print(f"Resume generator exited with code {result.returncode}")
             return
 
-        # Ask if the user wants to edit project display names
-        edit_choice = input(
-            "\nWould you like to edit project names used on the resume? (y/n): "
-        ).strip().lower()
-
-        if edit_choice == "y":
-            handle_edit_project_display_name()
-
-            regen_choice = input(
-                "\nRe-generate resume now to apply changes? (y/n): "
-            ).strip().lower()
-
-            if regen_choice == "y":
-                subprocess.run(cmd)
+        print("\nResume generated. (Tip: use option 12 to edit project display names.)")
 
     except Exception as e:
         print(f"Failed to run resume generator: {e}")
+
 
         
 def handle_edit_project_display_name():
@@ -547,12 +533,19 @@ def handle_edit_project_display_name():
 
     print("\nProjects:")
     for idx, p in enumerate(projects, start=1):
-        current = p["custom_name"] or "(default)"
-        print(f"  {idx}. {p['name']}  ->  {current}")
+        custom = (p["custom_name"] or "").strip()
+        default = p["name"]
+        display = custom or default
+
+        if custom:
+         print(f"  {idx}. {display}  [custom | default: {default}]")
+        else:
+         print(f"  {idx}. {display}  (default)")
+
 
     choice = input(
-        "\nSelect a project number to edit (blank to cancel): "
-    ).strip()
+    "\nEnter the project number from the list above to edit (blank to cancel): "
+).strip()
 
     if not choice:
         return
@@ -570,7 +563,6 @@ def handle_edit_project_display_name():
     print("Leave blank to clear the custom name and use the default.")
 
     new_name = input("New display name: ").strip()
-
     set_project_display_name(project_name, new_name or None)
 
     if new_name:
@@ -975,7 +967,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-12): ").strip()
+        choice = input("\nSelect an option (1-13): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -1000,14 +992,14 @@ def main():
         elif choice == "11":
             handle_analyze_roles()
         elif choice == "12":
+            handle_edit_project_display_name()
+        elif choice == "13":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-12.")
+            print("\nInvalid option. Please select a number between 1-13.")
 
-        # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
-
 
 if __name__ == "__main__":
     main()
