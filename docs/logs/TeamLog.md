@@ -1,4 +1,32 @@
-# Team #11 - Week 3 Team Log (September 15th through September 21st)
+# Team #11 - Team Log
+
+## Weekly Navigation
+
+### Term 2 (Milestone #2)
+- [Week #3 - January 19th-25th](#team-11---week-3-team-log-january-19th---january-25th)
+- [Week #2 - January 12th-18th](#team-11---week-2-team-log-january-12th---january-18th)
+- [Week #1 - January 5th-11th](#team-11---week-1-team-log-january-5th---january-11th)
+
+### Term 1 (Milestone #1)
+- [Week #14 - December 1st-7th](#team-11---week-14-team-log-december-1st---december-7th)
+- [Week #13 - November 24th-30th](#team-11---week-13-team-log-november-24th---november-30th)
+- [Week #12 - November 17th-23rd](#team-11---week-12-team-log-november-17th---november-23rd)
+- [Week #10 - November 2nd-9th](#team-11---week-10-team-log-november-2nd---november-9th)
+- [Week #9 - October 27th-November 2nd](#team-11---week-9-team-log-october-27th---november-2nd)
+- [Week #8 - October 20th-26th](#team-11---week-8-team-log-october-20th---october-26th)
+- [Week #7 - October 13th-19th](#team-11---week-7-team-log-october-13th---october-19th)
+- [Week #6 - October 6th-12th](#team-11---week-6-team-log-october-6th---october-12th)
+- [Week #5 - September 29th-October 5th](#team-11---week-5-team-log-september-29th---october-5th)
+- [Week #4 - September 22nd-28th](#team-11---week-4-team-log-september-22nd---september-28th)
+- [Week #3 - September 15th-21st](#team-11---week-3-team-log-september-15th---september-21st)
+
+---
+
+# ===== MILESTONE #1 =====
+
+---
+
+# Team #11 - Week 3 Team Log (September 15th - September 21st)
 
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -38,7 +66,9 @@ Table view of in progress tasks on project board (by which username):
 Test Report: 
 - N/A For week 3
 
-# Team #11 - Week 4 Team Log (September 22nd through September 28th)
+---
+
+# Team #11 - Week 4 Team Log (September 22nd - September 28th)
 
 Overview:
 This week we focused on completing the following tasks from our Kanban board:
@@ -57,7 +87,9 @@ Table view of completed tasks on project board (by name):
 Testing Report:
 - N/A For week 4
 
-# Team #11 - Week 5 Team Log (September 29nd through October 5th)
+---
+
+# Team #11 - Week 5 Team Log (September 29th - October 5th)
 
 Overview:
 This week we focused on completing the following tasks from our Kanban board:
@@ -81,7 +113,9 @@ Table view of completed tasks on project board (by name):
 Testing Report:
 - N/A For week 4
 
-# Team #11 - Week 6 Team Log (October 6th through October 12th)
+---
+
+# Team #11 - Week 6 Team Log (October 6th - October 12th)
 
 Overview:
 This week we focused on completing the following tasks from our Kanban board:
@@ -112,7 +146,9 @@ Testing Report:
 - Each test is clearly structured with descriptive names and uses temporary directories.
 - Overall, tests have strong coverage, clean organization, and validate both normal and edge-case behaviors.
 
-# Team #11 - Week 7 Team Log (October 13th through October 19th)
+---
+
+# Team #11 - Week 7 Team Log (October 13th - October 19th)
 
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -156,8 +192,9 @@ Planning Activities (Week 8):
 - Begin preparing for Milestone #1 submission by verifying all current modules meet functional requirements.  
 - Continue updating documentation as new features are finalized.
 
+---
 
-# Team #11 - Week 8 Team Log (October 20th through October 26th)
+# Team #11 - Week 8 Team Log (October 20th - October 26th)
 
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -232,9 +269,9 @@ Planning Activities (Week 9):
 - Extract key skills from a given project (#31)
 - Output all key information for a project (#32)
 
+---
 
-
- # Team #11 - Week 8 Team Log (October 27th through November 2nd)
+# Team #11 - Week 9 Team Log (October 27th - November 2nd)
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
@@ -334,7 +371,9 @@ Planning Activities (Week 10):
 - Sort "Skills Exercised" Chronologically #40
 - bug fixes
 
-# Team #11 - Week 10 Team Log (November 2nd through November 9th)
+---
+
+# Team #11 - Week 10 Team Log (November 2nd - November 9th)
 Team Members      --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
@@ -420,7 +459,9 @@ As for week 12, we have discussed it as a team and decided that we hope to:
 - Implement "Summarize the User's Top-Ranked Projects" Issue #37
 - General bug-fixes that we notice during testing/implementation
 
-# Team #11 - Week 12 Team Log (November 17nd-23rd)
+---
+
+# Team #11 - Week 12 Team Log (November 17th - November 23rd)
 Team Members    --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
 - Tyler Cummings  --> TylerC-3042
@@ -505,6 +546,8 @@ Planning Activities (Week 13)
 - Finalize revisions to Language/framework detection, Chronological ranking and project metadata, Contribution summarization and Skill grouping
 - Begin or continue résumé/portfolio generation, Retrieving previously stored résumés/portfolio entries, Completing any remaining Kanban tasks and clean up scan.py for the demo
 
+---
+
 # Team #11 - Week 13 Team Log (November 24th - November 30th)
 Team Members      --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -587,7 +630,7 @@ For week 14, we have discussed it as a team and decided that we hope to:
 
 ---
 
-# Team #11 - Week 14 Team Log (December 1st – December 7th)
+# Team #11 - Week 14 Team Log (December 1st - December 7th)
 Team Members      --> GitHub Username  
 - Priyanshu Chugh --> priyanshupc04  
 - Tyler Cummings  --> TylerC-3042  
@@ -662,10 +705,13 @@ As we reached the **end of Milestone 1**, our team demonstrated strong coordinat
 - Conduct a milestone retrospective to identify process improvements  
 - Adjust workflows based on TA/professor feedback
 
-<br></br>
-# Milestone 2
-<br></br>
-# Team 11 - Week 1 Team Log (January 5th - January 11th)
+---
+
+# ===== MILESTONE #2 =====
+
+---
+
+# Team #11 - Week 1 Team Log (January 5th - January 11th)
 Team Members      --> GitHub Username  
 - Priyanshu Chugh --> priyanshupc04  
 - Tyler Cummings  --> TylerC-3042  
@@ -754,5 +800,268 @@ This week was productive, professional, and effective. Oftentimes it can be chal
 - Distribute work and plan tasks for the week.
 - Prepare for weekly checkin.
 - Address missing marks from Milestone 1 with TA.
-- Prove PR quiz answers to TA. 
-  
+- Prove PR quiz answers to TA.
+
+---
+
+# Team #11 - Week 2 Team Log (January 12th - January 18th)
+
+Team Members      --> GitHub Username
+- Priyanshu Chugh --> priyanshupc04
+- Tyler Cummings  --> TylerC-3042
+- Tanner Dyck     --> TannerDyck
+- Travis Frank    --> travis-frank
+- Jaxson Kahl     --> jaxsonkahl
+- Daniel Sokic    --> danielsokic
+
+## Overview
+
+Building on the foundation established in Milestone 2 – Week 1, the team continued expanding the system's flexibility, depth, and user control. This week focused heavily on customization, output quality, backend extensibility, and deeper analytical insight.
+
+Priyanshu implemented support for custom project wording in résumé output, allowing users to replace folder-based project names with resume friendly titles while preserving internal project identifiers. Jaxson delivered a full FastAPI integration, exposing core functionality (scanning, project details, skills, resume/portfolio generation, and editing) through a robust backend API with comprehensive HTTP tests and documentation. Daniel extended the Key Roles feature to be project centric, enabling contributors to view role breakdowns per project in addition to overall roles. Travis integrated evidence of success into resume and portfolio outputs, allowing optional, user-supplied metrics and feedback to enhance impact without affecting ranking or extraction logic. Tanner continued advancing portfolio generation with richer contribution metrics, confidence based technology filtering, and full database integration for saving, viewing, and deleting portfolios via the CLI.Tyler added a headless portfolio regeneration workflow, making it possible to rescan projects (directories or zip files) and regenerate an existing portfolio Markdown file programmatically, with support for overwriting previous outputs and saving updated metadata back into the database.
+
+Overall, the team made strong progress toward making the system more user driven, explainable, and extensible, while maintaining test coverage and backward compatibility.
+
+## Burnup Chart
+
+<img width="1026" height="495" alt="Screenshot 2026-01-18 at 4 22 03 PM" src="https://github.com/user-attachments/assets/4c814db8-4940-4b9f-b918-f8463721a25b" />
+
+## Team Members Completed Tasks
+
+### Priyanshu
+
+PR #271 – Customize project wording for résumé items
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/271
+
+Added support for custom resume display names for projects
+
+Persisted custom names in the database without affecting project paths or identifiers
+
+Integrated a CLI workflow to edit project display names after resume generation
+
+Updated resume rendering logic to apply custom names when available
+
+Added unit tests validating storage, retrieval, and rendering behavior
+
+### Jaxson
+
+PR #264 – FastAPI Integration
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/264
+
+Implemented a full FastAPI backend exposing project, skill, resume, and portfolio endpoints
+
+Wired API endpoints to existing CLI and database logic
+
+Added extensive HTTP style tests using FastAPI TestClient
+
+Provided detailed API documentation and setup instructions
+
+### Daniel
+
+PR #267 – Project-centric contributor role analysis
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/267
+
+Extended role detection to support per project analysis
+
+Updated formatted role reports to include per-project breakdowns
+
+Integrated new functionality into the main menu
+
+Added targeted unit tests covering formatting, edge cases, and multi project scenarios
+
+### Travis
+
+PR #265 – Integrate project evidence into résumé and portfolio outputs
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/265
+
+Integrated optional evidence of success (metrics, feedback, evaluations) into downstream outputs
+
+Added conditional rendering to avoid clutter when evidence is absent
+
+Extended both resume and portfolio generators
+
+Added and updated tests covering validation, formatting, and integration
+
+### Tanner
+
+PR #260 – Broadened portfolio generation functionality
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/260
+
+PR #261 – Database integration for portfolios
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/261
+
+Expanded portfolio metrics using detailed contribution data
+
+Added confidence-based filtering for detected languages and frameworks
+
+Integrated portfolios into the database with save, view, and delete support
+
+Updated CLI menus and downstream tests to reflect new functionality
+
+### Tyler
+
+- PR [#278 – Incrementing portfolio information](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/278)
+
+Added headless portfolio regeneration workflow (scan → rebuild markdown → optionally save metadata to DB)
+
+Added overwrite flag to allow regenerating and replacing existing portfolio files
+
+Integrated portfolio regeneration flow into `main_menu.py`
+
+Added new regeneration modules: `regenerate_portfolio.py` and `regenerate_portfolio_scan.py`
+
+Added unit tests validating scan/regeneration behavior, overwrite handling, and error cases
+
+### All Members
+
+Reviewed pull requests and provided feedback
+
+Coordinated on feature integration and test stability
+
+Completed individual logs and peer reviews
+
+## Testing Report
+All new and existing unit tests continue to pass successfully across both local and Docker environments. Validation was conducted through a combination of automated and manual testing.
+
+### Tests Added:
+
+**test_project_display_names.py**
+
+test_save_and_fetch_custom_project_name: Verifies that a custom resume display name can be saved to and retrieved from the database for a project.
+
+test_resume_uses_custom_project_name_when_present: Ensures that generated resume markdown uses the custom project display name when one is defined.
+
+test_resume_falls_back_to_default_name: Confirms that resume generation correctly falls back to the default project name when no custom name is set.
+
+**test_api.py**
+
+Consent flow tests: Verifies privacy consent is required and correctly persisted before scanning.
+
+Project upload tests: Ensures projects can be uploaded, scanned, and optionally saved to the database.
+
+Project list and detail tests: Confirms enriched project responses correctly aggregate scans, skills, languages, contributors, and evidence.
+
+Skills endpoint tests: Verifies all detected skills can be queried via the API.
+
+Resume API tests: Covers resume generation, retrieval, and editing through HTTP endpoints.
+
+Portfolio API tests: Covers portfolio generation, retrieval, and editing through HTTP endpoints using isolated test directories.
+
+**test_detect_roles.py**
+
+TestPerProjectAnalysis: Validates contributor role detection on a per-project basis.
+
+Report formatting tests: Ensures formatted output correctly includes both overall roles and per project breakdowns.
+
+Edge case handling: Verifies correct behavior for empty projects, single contributors, and multiple contributors across projects.
+
+**test_project_evidence.py**
+
+Evidence validation tests: Ensures only allowed evidence types are accepted and required fields are enforced.
+
+Evidence CRUD tests: Verifies evidence can be added, updated, fetched, and deleted correctly.
+
+Formatting tests: Confirms resume and portfolio evidence sections are formatted correctly and omitted when no evidence exists.
+
+**test_generate_resume.py**
+
+Evidence integration tests: Verifies that an Impact bullet is appended to resume output when project evidence exists.
+
+Display name integration tests: Confirms resume output reflects custom project display names when available.
+
+Regression tests: Ensures resume output remains unchanged when optional features (evidence or custom names) are not present.
+
+**test_generate_portfolio.py**
+
+Evidence section tests: Confirms portfolios include an "Evidence of Success" section when evidence exists and omit it otherwise.
+
+Contribution metrics tests: Verifies expanded performance metrics (commit counts, ownership, timelines, rankings) are rendered correctly.
+
+Confidence filtering tests: Ensures only high-confidence languages and frameworks are included by default.
+
+Portfolio structure tests: Validates complete portfolio markdown structure and metadata accuracy.
+
+CLI invocation tests: Confirms portfolio generation via the CLI produces correct markdown output.
+
+**test_regenerate_portfolio.py**
+
+test_portfolio_scan_calls_headless_scan: Verifies that a headless scan is triggered with the correct arguments during portfolio regeneration.
+
+test_portfolio_scan_with_zip_file_creates_temp_dir: Ensures that zip inputs create a temporary extraction directory and still trigger a headless scan.
+
+test_portfolio_scan_nonexistent_path_raises: Confirms that an error is raised when attempting to regenerate a portfolio from an invalid path.
+
+test_regenerate_portfolio_writes_file_and_saves_metadata: Verifies that portfolio regeneration writes the Markdown file and saves metadata to the database when save_to_db is enabled.
+
+test_regenerate_portfolio_missing_username_raises: Ensures an error is raised when the username is missing during portfolio regeneration.
+
+test_regenerate_portfolio_missing_path_raises: Ensures an error is raised when the portfolio path is missing.
+
+test_regenerate_portfolio_missing_output_root_raises: Confirms an error is raised when the specified output directory does not exist.
+
+test_generate_portfolio_overwrite_flag_overwrites_existing_file: Verifies that the --overwrite flag correctly replaces an existing portfolio file.
+
+## Reflection:
+This week demonstrated strong collaboration and steady progress toward a more polished and flexible system. The team successfully balanced adding significant new functionality with maintaining stability and test coverage. Features introduced this week empower users to better control how their work is presented, while also laying groundwork for future extensions through both the CLI and API. Communication remained strong, and PR reviews were timely and constructive.
+
+## Looking ahead to Week 3:
+- Distribute work and plan tasks for the week.
+- Prepare for weekly checkin.
+
+---
+
+# Team #11 - Week 3 Team Log (January 19th - January 25th)
+
+Team Members --> GitHub Username
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+## Overview
+-
+
+## Team Members Completed Tasks
+
+### Daniel
+-
+
+### Jaxson
+-
+
+### Priyanshu
+-
+
+### Tanner
+-
+
+### Travis
+-
+
+### Tyler
+-
+
+### All Members
+- Code reviews and verification
+- Attended team meeting on Wednesday
+- Completion of individual logs and peer reviews
+
+## Testing Report
+-
+<img width="" height="" alt="t2week3-tests" src="" />
+
+## Reflection
+-
+
+## Looking ahead to Week 4:
+-
+
+## Burnup Chart
+<img width="" height="" alt="t2week3-burnup" src="" />
+
+## Kanban Board
+<img width="" height="" alt="t2week3-kanban" src="" />
+
+---
