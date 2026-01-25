@@ -177,6 +177,181 @@ class TestListFilesInDirectory(unittest.TestCase):
         entries = {t[0] for t in rv}
         self.assertFalse(any('inner.txt' in e for e in entries))
 
+    def test_deeply_nested_folders_recursive(self):
+        """Should scan files in deeply nested folder structures."""
+        # Create a deep nested structure: level1/level2/level3/level4/
+        deep_path = self.test_dir
+        for i in range(1, 5):
+            deep_path = os.path.join(deep_path, f"level{i}")
+            os.makedirs(deep_path)
+            # Add a file at each level
+            test_file = os.path.join(deep_path, f"file_at_level{i}.txt")
+            with open(test_file, "w") as f:
+                f.write(f"content at level {i}")
+        
+        output, rv = self.capture_output(self.test_dir, recursive=True)
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv}
+        
+        # All files from all levels should be found
+        for i in range(1, 5):
+            self.assertIn(f"file_at_level{i}.txt", basenames)
+
+    def test_deeply_nested_folders_non_recursive(self):
+        """Non-recursive should only show root level files, not nested."""
+        # Create nested structure
+        level1 = os.path.join(self.test_dir, "level1")
+        level2 = os.path.join(level1, "level2")
+        os.makedirs(level2)
+        
+        root_file = os.path.join(self.test_dir, "root.txt")
+        level1_file = os.path.join(level1, "level1.txt")
+        level2_file = os.path.join(level2, "level2.txt")
+        
+        for f in [root_file, level1_file, level2_file]:
+            with open(f, "w") as fp:
+                fp.write("test")
+        
+        output, rv = self.capture_output(self.test_dir, recursive=False)
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv}
+        
+        self.assertIn("root.txt", basenames)
+        self.assertNotIn("level1.txt", basenames)
+        self.assertNotIn("level2.txt", basenames)
+
+    def test_nested_folders_with_various_file_types(self):
+        """Recursive scan should handle multiple file types in nested folders."""
+        # Create nested structure with mixed file types
+        folder1 = os.path.join(self.test_dir, "docs")
+        folder2 = os.path.join(self.test_dir, "src")
+        folder3 = os.path.join(folder2, "utils")
+        
+        os.makedirs(folder1)
+        os.makedirs(folder3)
+        
+        files = {
+            os.path.join(folder1, "readme.md"): "# README",
+            os.path.join(folder1, "notes.txt"): "notes",
+            os.path.join(folder2, "main.py"): "print('hello')",
+            os.path.join(folder3, "helper.py"): "def help(): pass",
+            os.path.join(folder3, "config.json"): "{}",
+        }
+        
+        for path, content in files.items():
+            with open(path, "w") as f:
+                f.write(content)
+        
+        # Test filtering by .py files
+        output, rv = self.capture_output(self.test_dir, recursive=True, file_type=".py")
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv}
+        
+        self.assertIn("main.py", basenames)
+        self.assertIn("helper.py", basenames)
+        self.assertNotIn("readme.md", basenames)
+        self.assertNotIn("notes.txt", basenames)
+        self.assertNotIn("config.json", basenames)
+
+    def test_nested_zip_with_multiple_levels(self):
+        """Should handle zip files nested multiple levels deep."""
+        import io as _io
+        
+        # Create innermost zip (level 3)
+        level3_bytes = _io.BytesIO()
+        with zipfile.ZipFile(level3_bytes, 'w') as zf3:
+            zf3.writestr('deepest.txt', 'level 3 content')
+            zf3.writestr('data/info.json', '{"level": 3}')
+        
+        # Create middle zip (level 2) containing level 3
+        level2_bytes = _io.BytesIO()
+        with zipfile.ZipFile(level2_bytes, 'w') as zf2:
+            zf2.writestr('middle.txt', 'level 2 content')
+            zf2.writestr('level3.zip', level3_bytes.getvalue())
+        
+        # Create outer zip (level 1) containing level 2
+        outer_zip = os.path.join(self.test_dir, 'level1.zip')
+        with zipfile.ZipFile(outer_zip, 'w') as zf1:
+            zf1.writestr('outer.txt', 'level 1 content')
+            zf1.writestr('nested/level2.zip', level2_bytes.getvalue())
+        
+        output, rv = self.capture_output(outer_zip, recursive=True)
+        entries = {t[0] for t in rv}
+        
+        # Should find files from all levels
+        self.assertTrue(any('outer.txt' in e for e in entries))
+        self.assertTrue(any('middle.txt' in e for e in entries))
+        self.assertTrue(any('deepest.txt' in e for e in entries))
+        self.assertTrue(any('info.json' in e for e in entries))
+
+    def test_nested_zip_preserves_path_structure(self):
+        """Nested zip paths should use colon-separated notation."""
+        import io as _io
+        
+        inner_bytes = _io.BytesIO()
+        with zipfile.ZipFile(inner_bytes, 'w') as inner:
+            inner.writestr('folder/document.txt', 'content')
+        
+        outer_zip = os.path.join(self.test_dir, 'container.zip')
+        with zipfile.ZipFile(outer_zip, 'w') as outer:
+            outer.writestr('archives/inner.zip', inner_bytes.getvalue())
+        
+        output, rv = self.capture_output(outer_zip, recursive=True)
+        entries = {t[0] for t in rv}
+        
+        # Should have the proper nested path format
+        self.assertTrue(any('container.zip:archives/inner.zip:folder/document.txt' in e 
+                           for e in entries))
+
+    def test_mixed_nested_folders_in_zip(self):
+        """Zip files should handle deeply nested folder structures."""
+        zip_path = os.path.join(self.test_dir, 'project.zip')
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.writestr('src/main/java/App.java', 'public class App {}')
+            zf.writestr('src/main/resources/config.xml', '<config/>')
+            zf.writestr('src/test/java/AppTest.java', 'public class AppTest {}')
+            zf.writestr('README.md', '# Project')
+        
+        output, rv = self.capture_output(zip_path, recursive=True, file_type='.java')
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv}
+        
+        self.assertIn('App.java', basenames)
+        self.assertIn('AppTest.java', basenames)
+        self.assertNotIn('config.xml', basenames)
+        self.assertNotIn('README.md', basenames)
+
+    def test_empty_nested_folders(self):
+        """Should handle empty folders in nested structure gracefully."""
+        # Create nested empty folders
+        empty1 = os.path.join(self.test_dir, "empty1")
+        empty2 = os.path.join(empty1, "empty2")
+        empty3 = os.path.join(empty2, "empty3")
+        os.makedirs(empty3)
+        
+        # Add file outside the empty folders
+        test_file = os.path.join(self.test_dir, "file.txt")
+        with open(test_file, "w") as f:
+            f.write("test")
+        
+        output, rv = self.capture_output(self.test_dir, recursive=True)
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv}
+        
+        # Should only find the one file
+        self.assertIn("file.txt", basenames)
+        self.assertEqual(len([b for b in basenames if b == "file.txt"]), 1)
+
+    def test_nested_zip_with_empty_folders(self):
+        """Zip files with empty folders should only list actual files."""
+        zip_path = os.path.join(self.test_dir, 'sparse.zip')
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            # Some zip tools create directory entries
+            zf.writestr('empty_folder/', '')
+            zf.writestr('folder/subfolder/', '')
+            zf.writestr('folder/file.txt', 'content')
+        
+        output, rv = self.capture_output(zip_path, recursive=True)
+        basenames = {os.path.basename(t[0].split(':')[-1]) for t in rv if t[0].split(':')[-1]}
+        
+        # Should only find actual files, not directory entries
+        self.assertIn('file.txt', basenames)
+
     def test_collaboration_info_unknown_when_no_git(self):
         """When run in a non-git temp directory, collaboration info should be unknown."""
         # get_collaboration_info should return 'unknown' when git isn't present
