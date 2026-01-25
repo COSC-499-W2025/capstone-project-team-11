@@ -1,12 +1,15 @@
 import os
+import json
 import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
 import pytest
 
+import importlib
 import regenerate_resume
 import regenerate_resume_scan
+import db as db_mod
 
 
 class TestRegenerateResume(unittest.TestCase):
@@ -17,29 +20,62 @@ class TestRegenerateResume(unittest.TestCase):
         os.makedirs(self.output_root, exist_ok=True)
         self.resume_path = os.path.join(self.temp_dir.name, "resume.md")
         self.username = "testuser"
+        self.db_path = os.path.join(self.temp_dir.name, "file_data.db")
+        self._old_env = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = self.db_path
 
-        # Create fake project JSON
-        self.project_json_path = os.path.join(self.output_root, "proj1_info.json")
-        with open(self.project_json_path, "w", encoding="utf-8") as f:
-            f.write("""{
-                "project_name": "proj1",
-                "project_path": "/fake/path/proj1",
-                "languages": ["Python"],
-                "frameworks": ["Django"],
-                "skills": ["Testing"],
-                "contributions": {
-                    "testuser": {
-                        "commits": 5,
-                        "files": ["a.py", "b.py"]
-                    }
-                },
-                "git_metrics": {
-                    "lines_added_per_author": {"testuser": 42},
-                    "project_start": "2026-01-01"
-                }
-            }""")
+        global db_mod, regenerate_resume
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+        regenerate_resume = importlib.reload(regenerate_resume)
+
+        git_metrics = {
+            "lines_added_per_author": {"testuser": 42},
+            "commits_per_author": {"testuser": 5},
+            "files_changed_per_author": {"testuser": ["a.py", "b.py"]},
+            "project_start": "2026-01-01",
+            "total_commits": 5,
+        }
+        tech_summary = {
+            "languages": ["Python"],
+            "frameworks": ["Django"],
+            "high_confidence_languages": ["Python"],
+            "medium_confidence_languages": [],
+            "low_confidence_languages": [],
+            "high_confidence_frameworks": ["Django"],
+            "medium_confidence_frameworks": [],
+            "low_confidence_frameworks": [],
+        }
+        conn = db_mod.get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                ("proj1", "/fake/path/proj1", json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", ("Testing",))
+            skill_id = conn.execute(
+                "SELECT id FROM skills WHERE name = ?",
+                ("Testing",),
+            ).fetchone()["id"]
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("proj1",),
+            ).fetchone()["id"]
+            conn.execute(
+                "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                (project_id, skill_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
     def tearDown(self):
+        import gc
+        gc.collect()
+        if self._old_env is None:
+            os.environ.pop("FILE_DATA_DB_PATH", None)
+        else:
+            os.environ["FILE_DATA_DB_PATH"] = self._old_env
         self.temp_dir.cleanup()
 
     def test_normalize_project_name_preserves_acronyms(self):
@@ -84,8 +120,8 @@ class TestRegenerateResume(unittest.TestCase):
             regenerate_resume.regenerate_resume(self.username, "", output_root=self.output_root)
 
     def test_regenerate_resume_missing_output_root_raises(self):
-        with self.assertRaises(ValueError):
-            regenerate_resume.regenerate_resume(self.username, self.resume_path, output_root="/nonexistent/path")
+        regenerate_resume.regenerate_resume(self.username, self.resume_path, output_root="/nonexistent/path")
+        self.assertTrue(os.path.exists(self.resume_path))
 
 
 class TestRegenerateResumeScan(unittest.TestCase):
