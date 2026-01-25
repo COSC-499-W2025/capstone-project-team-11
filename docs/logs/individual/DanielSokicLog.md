@@ -282,3 +282,51 @@ Overall the team was pretty organized and were able to communicate with each oth
 - Fix zip file github project bugs.
 - LLM integration
 
+# T2 Week 3 (January 19th-25th)
+
+<img width="802" height="464" alt="image" src="https://github.com/user-attachments/assets/16e6ca72-b49d-44c8-b92a-d59bc53f41c2" />
+
+## Overview 
+This week I reworked some features of the scanning logic in order to make it possible to scan nested folders and nested zip files. Before, it would treat zip files as one project although there could be multiple projects inside so I worked on the scan so that if there are multiple projects nested, they will all get scanned individually and be stored in the database individually. This implementation fixes a big flaw in our core scanning process and allows for more coverage if people want to scan multiple things at once. 
+
+- Closed issue #289
+
+## Reflection
+Overall the team worked really well together this week. During our checkin we discussed the peer testing coming up and what our priorities should be for that. We all communicated very well and even helped each other out in times of need. I want to give Tanner a big shoutout because he helped me fix a bug with my zip scanning feature and was very helpful, quick to respond, and respectful. We will take this momentum into the next week especially for peer testing. 
+
+## Coding Tasks:
+- Reworked Scan to fix nested folder scans PR #292
+  - Enhanced zip scanning to use extracted_locations when mapping files to repositories so nested projects are persisted correctly.
+  - Updated both zip and directory scans to persist one DB scan per detected project.
+  - Reworked all identify_contributions consumers to support the new nested structure.
+  - Cleaned summary output, no empty/Unknown entries, authors ordered by commit count
+  - Added _find_candidate_project_roots fallback to treat multiple top-level folders as independent projects when .git is absent (e.g., unzipped exports).
+
+ ## Testing and Debugging:
+ - With Tanner's help we removed bugs within resume generation caused by the new scan structure and the outputting the JSON and txt data.
+      - Removed redundant loop from generate_resume.py's username collection logic
+      - Restructured code in both generate_resume.py and generate_portfolio.py to ensure parity between the files, in both code structure, spacing, and comments
+      - Added "Unknown" to the list of blacklisted usernames
+  
+ - Added tests for nested folders #PR 300
+      - test_deeply_nested_folders_recursive: Tests recursive scanning through 4 levels of nested folders
+      - test_deeply_nested_folders_non_recursive: Ensures non-recursive mode only scans root level
+      - test_nested_folders_with_various_file_types: Tests filtering by file type (e.g., .py) across nested folder structure
+      - test_nested_zip_with_multiple_levels: Tests zip files nested 3 levels deep (zip within zip within zip)
+      - test_nested_zip_preserves_path_structure: Confirms nested zip paths use proper colon-separated notation
+      - test_mixed_nested_folders_in_zip: Tests deeply nested folder structures inside zip files (e.g., src/main/java/App.java)
+      - test_empty_nested_folders: Handles edge case of deeply nested empty folders
+      - test_nested_zip_with_empty_folders: Handles zip files containing empty directory entries
+
+## Reviewing and Collaboration
+- Travis' Fix portfolio generation to exclude non-contributor projects #291
+- Pri's Add project resume display name editing #294
+
+## Issues and Blockers
+No main issues or blockers.
+
+## Plans for next week
+- Prepare for peer testing #1.
+- Fix existing bugs from Milestone 1 feedback.
+- Continue researching LLMs.
+
