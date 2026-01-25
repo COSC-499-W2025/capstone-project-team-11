@@ -38,8 +38,15 @@ class TestAPI(unittest.TestCase):
         self.portfolio_dir = os.path.join(self.tmpdir.name, "portfolios")
 
     def tearDown(self):
+        try:
+            if getattr(self, "client", None) is not None:
+                self.client.close()
+        except Exception:
+            pass
         os.environ.clear()
         os.environ.update(self._old_env)
+        import gc
+        gc.collect()
         self.tmpdir.cleanup()
 
     def _write_project_info(self, username="alice"):
