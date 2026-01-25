@@ -1,6 +1,7 @@
 # Tanner Dyck's Personal Log
 
 ### Term 2 (Milestone #2)
+- [Week #3 - January 19th-25th](#week-3---january-19th---25th)
 - [Week #2 - January 12th-18th](#week-2---january-12th---18th)
 - [Week #1 - January 5th-11th](#week-1---january-5th---11th)
 
@@ -502,3 +503,84 @@ Additionally, if I have the time, or if work on the two deliverables above is no
 This week I was able to tentatively close issue #29. Display textual information about a project as a portfolio showcase (item #238 on GitHub). The wording for the deliverable is fairly vague, and depending on feedback from teaching staff, I may need to re-open it in future weeks to make sure the feature is satisfiably implemented.
 
 <img width="1874" height="895" alt="t2week2-kanban" src="https://github.com/user-attachments/assets/b66b47a7-8b54-4ddf-8646-a204f2d1d4a5" />
+
+---
+
+# Week #3 - January 19th - 25th
+
+<img width="" height="" alt="t2week3-tasks" src="" />
+
+## Connection to Last Week
+Last week I completed the portfolio generation feature with database integration and the "View Portfolios" menu option. I mentioned a variety of goals I wanted to work towards this week, but most of them didn't pan out as I expected. On Wednesday we met up as a team to discuss our plans, and we decided that pushing forward with new features/integrations was not a priority. As we wanted to ensure we had a bulletproof build of our program for our upcoming peer testing event. We focused largely on bug-fixing, polishing, and small or missing functionalities. I decided I wanted to rework our Docker setup to accomodate our new "API mode" as well as update some outdated dependencies/requirements. I also built some simple documentation for our Docker setup to add to the README to help onboard new users and make using Docker with our program as simple as possible. Additionally, I performed some light refactoring by standardizing our naming scheme for test files. I was also able to rework our Kanban issues to include the updated milestone 2 deliverables, as i mentioned I would last week.     
+
+## Coding Tasks
+
+### Docker and Test Suite Refactoring [PR #288](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/288)
+- Renamed all test files within `test/` to follow a consistent naming convention: `test_TESTNAME.py` (previously some files used `TESTNAME_test.py`)
+- Reorganized file headers across the test suite to ensure imports (namely pytest) are handled consistently
+- Moved `inspect_db.py` from `test/` into `src/` as it was never a testing file
+- Updated `Dockerfile` by removing duplicate `RUN apt ...` statements and cleaning up dependency installations
+- Updated `docker-compose.yml`:
+    - Created an additional "api" image to allow users to choose CLI vs API interaction within Docker
+    - Added updated instructions for switching between CLI, API, and Testing modes
+    - Updated test discovery to use `test_*.py` instead of the outdated `*_test.py` format
+- Updated `requirements.txt` to include pydantic and uvicorn dependencies (required for FastAPI)
+- Fixed import ordering in `main_menu.py` that was causing Docker container startup failures
+- Added error handling in `project_evidence.py` for when no "projects" table exists in the database (i.e., when no project scans have occurred yet)
+
+### Nested Folder Scan Support [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292)
+- Fixed username extraction logic in `generate_resume.py` and `generate_portfolio.py` to properly handle nested JSON dictionary structures (previously failing on nested folder scans)
+- Removed redundant loop from `generate_resume.py`'s username collection logic
+- Restructured code in both files to ensure parity in code structure, spacing, and comments
+- Added "Unknown" to the list of blacklisted usernames to filter out invalid entries
+
+## Testing & Debugging Tasks
+
+### Test Suite Updates [PR #288](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/288)
+- Renamed 6 test files to follow the `test_*.py` naming convention:
+    - `collab_summary_test.py` → `test_collab_summary.py`
+    - `config_test.py` → `test_config.py`
+    - `consent_test.py` → `test_consent_test.py`
+    - `contrib_metrics_test.py` → `test_contrib_metrics.py`
+    - `file_utils_test.py` → `test_file_utils.py`
+    - `scan_test.py` → `test_scan.py`
+    - `scan_db_test.py` → `test_scan_db.py`
+- Updated imports and headers across all 28 modified test files to ensure consistency
+
+### Nested Folder Test Fixes [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292)
+- Updated `test_project_info_output.py` to handle the new return type from `output_project_info()` (now returns lists of paths instead of single strings top allow for nested project detection)
+- Modified 2 tests to properly unpack lists and access the first element to accommodate the nested folder scanning changes
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the week in our Discord server
+- Completed individual log and peer review for T2 Week 3
+- Reviewed and approved:
+    - Code PRs: 
+        - [#291 - Fix portfolio generation to exclude non-contributor projects](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/291),
+        - [#292 - Reworked Scan to fix nested folder scans](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292), 
+        - [#298 - Resume/Portfolio tests update after rework](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298),
+        - [#300 - Added tests for nested folders](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/300)
+    - Log PRs:
+        - [#](),
+        - [#]()
+
+- I also helped with polishing touches / quick fixes in the following PRs:
+    - [#292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292) *My contributions are listed at the bottom of the PR template description + I also reworked test_project_info_output.py to account for a change in the return type of output_project_info().*
+    - [#298](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298) *I loosely suggested some test fixes I found last week. Travis, Jaxson, and Pri are all on Mac, while the other three of us are on Windows. When using temporary DB connections in our testing suite, Windows handles file locks differently than Mac, leading to some accessibility issues between the two operating systems. I found that by reorganizing the tearDown() function, and importing garbage collection to use gc.collect() helps to ensure that all file handles are removed on Windows before temporary connection cleaning begins, stopping the errors we were encountering. I did not specifically commit to this branch, but I suggested some potential fixes in our Discord. Jaxson's commit where he implemented these fixes was titled: "Fix Windows test cleanup by closing TestClient and forcing GC" (811ce7e).*
+
+## Issues & Blockers
+I cannot say that we encountered any major issues or blockers this week. We had a few minor hiccups, a few of the PRs ended up introduciong some breaking changes that went unnoticed at the time of posting, but were quickly indentified and rectificed during the code review process. We continue to run into this pesky issue, where file locks are handled differently between Windows and Mac devices, causing issues in any unit tests that rely on temporary directories and SQLite connections. We have identified this as a repeated issue, and have documented a consistent fix that we will need to continue to implement as we continue writing unit tests. We have also set a precedent of ensuring at least one Windows user and one Mac user should be reviewing every PR to ensure no OS-specific issues are slipping into our codebase. Overall, this week went smoothly, and we made a lot of solid progress towards polishing the current build of our program.
+
+## Reflection Points
+Everyone worked together really well this week, and we had to rely on collaboration more than ever. Daniel has made his [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292) and ran into a few breaking changes, but as he was busy travelling to and from campus, I fixed a few small issues I encountered during my reviewing of his branch and updated the Discord server with my changes. Similarily, when Daniel encountered the pesky file lock bug mentioned above in Jaxson's [PR #298](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298), I was able to loosely propose a fix I implemented last week when I encountered a similar issue with Travis' tests, despite being at my place of employment with no access to a computer. As we encountered issues, we documented them in the Discord, often with accompanying screenshots, and we all banded together to suggest fixes whenever possible. I am very proud of how our team worked together this week!
+
+## Goals for Next Week (T2 Week 4)
+Next week I want to pick up where we left off at the end of last week. This week was largely focused on bug-fixing and polishing, but next week I'd like to continue implementing larger features:
+
+- I still have a lot to do in terms of getting portfolio generation/editing into it's final state. I want to make portfolios more configurable/editable from the CLI, but I have my doubts about how cumbersome it will become, and whether or not I should wait until we have a frontend to flesh-out this feature. But I will likely do some research early next week to determine what is feasible.
+- If I do not feel comfortable further developing the feature above, I would like to assist Daniel with LLM-integration. As it will be a large part of our program's analysis, it will likely need to be retroactively tied into all of our major functionalities included thus far, which will inevitably be a lot of work. I would like to help out with this process if at all possible.
+- I would also like to do a better job at staying on top of our documentation this milestone, namely by regularly updating the README. It is not a high-priority task, but if I can find the time I would love to include what we have implemented so far in term 2.
+
+## Kanban Board at End of T2 Week 3
+
+<img width="" height="" alt="t2week3-kanban" src="" />
