@@ -263,13 +263,12 @@ def render_markdown(agg, generated_ts=None):
         files = p.get('user_files') or []
 
         md.append(line)
-        if p.get('path'):
-            md.append(f"- Path: `{p.get('path')}`")
+        
         # generate 2-4 bullets similar to earlier style
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []
         if commits:
-            bullets.append(f"Implemented features and fixes across the codebase ({commits} commits); files changed: {len(files)}.")
+         bullets.append("Contributed features and fixes across the codebase in collaboration with the team.")
         if techs:
             bullets.append(f"Technologies: {techs}.")
         if skills:
@@ -292,10 +291,7 @@ def render_markdown(agg, generated_ts=None):
             md.append(f"- {b}")
         md.append('')
 
-    md.append('## Evidence & Metrics')
-    md.append('')
-    md.append(f"- Total commits (detected): {agg.get('total_commits', 0)}")
-    md.append(f"- Total lines added (detected): {agg.get('total_lines_added', 0)}")
+    
     md.append('')
     md.append(f"_Generated (UTC): {date}_")
     return '\n'.join(md)
