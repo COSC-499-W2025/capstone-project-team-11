@@ -22,6 +22,7 @@ def get_connection():
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    _ensure_schema(conn)
     return conn
 
 def init_db():
@@ -600,3 +601,159 @@ def delete_portfolio(portfolio_id: int):
         raise
     finally:
         conn.close()
+
+def _ensure_schema(conn):
+    """Ensure the database schema exists and matches init_db.sql (non-destructive)."""
+    cur = conn.cursor()
+    
+    # --- Core tables ---
+    cur.execute("PRAGMA foreign_keys = ON")
+
+    # --- Core tables ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            project TEXT,
+            notes TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            custom_name TEXT,
+            repo_url TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            thumbnail_path TEXT,
+            project_path TEXT,
+            git_metrics_json TEXT,
+            tech_json TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_extension TEXT,
+            file_size INTEGER,
+            created_at TEXT,
+            modified_at TEXT,
+            owner TEXT,
+            metadata_json TEXT,
+            FOREIGN KEY (scan_id) REFERENCES scans(id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contributors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS languages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS skills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        )
+    """)
+
+    # --- Join tables ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS file_contributors (
+            file_id INTEGER NOT NULL,
+            contributor_id INTEGER NOT NULL,
+            PRIMARY KEY (file_id, contributor_id),
+            FOREIGN KEY (file_id) REFERENCES files(id),
+            FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS file_languages (
+            file_id INTEGER NOT NULL,
+            language_id INTEGER NOT NULL,
+            PRIMARY KEY (file_id, language_id),
+            FOREIGN KEY (file_id) REFERENCES files(id),
+            FOREIGN KEY (language_id) REFERENCES languages(id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS project_skills (
+            project_id INTEGER NOT NULL,
+            skill_id INTEGER NOT NULL,
+            PRIMARY KEY (project_id, skill_id),
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            FOREIGN KEY (skill_id) REFERENCES skills(id)
+        )
+    """)
+
+    # --- Evidence ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS project_evidence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            description TEXT,
+            value TEXT,
+            source TEXT,
+            url TEXT,
+            added_by_user BOOLEAN DEFAULT TRUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    """)
+
+    # --- Generated outputs ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS resumes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contributor_id INTEGER,
+            username TEXT NOT NULL,
+            resume_path TEXT NOT NULL,
+            metadata_json TEXT,
+            generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS portfolios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contributor_id INTEGER,
+            username TEXT NOT NULL,
+            portfolio_path TEXT NOT NULL,
+            metadata_json TEXT,
+            generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contributor_id) REFERENCES contributors(id)
+        )
+    """)
+
+    # --- Indexes ---
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_file_path ON files (file_path)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_file_name ON files (file_name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_files_scan_id ON files (scan_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contributors_name ON contributors (name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_languages_name ON languages (name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_skills_name ON skills (name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_resumes_username ON resumes (username)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_resumes_generated_at ON resumes (generated_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_username ON portfolios (username)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_generated_at ON portfolios (generated_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_project_evidence_project_id ON project_evidence (project_id)")
+
+    conn.commit()
