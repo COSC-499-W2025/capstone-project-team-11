@@ -1,3 +1,22 @@
+# Weekly Logs Navigation
+
+## Term 2
+- [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
+- [T2 Week 2 (Jan 12 – Jan 18)](#t2-week-2-personal-logs-jan-12th---18th)
+- [T2 Week 1 (Jan 5 – Jan 11)](#t2-week-1-personal-logs-jan-5th---11th)
+
+## Term 1
+- [Week 14 (Dec 1 – Dec 7)](#week-14-personal-logs-december-1st---7th)
+- [Week 13 (Nov 24 – Nov 30)](#week-13-personal-logs-november-24th---30th)
+- [Week 12 (Nov 17 – Nov 23)](#week-12-personal-logs-november-17th---23rd)
+- [Week 10 (Nov 3 – Nov 9)](#week-10-personal-logs-november-3rd---9th)
+- [Week 9 (Oct 27 – Nov 2)](#week-9-personal-logs-27th-oct---2nd-nov)
+- [Week 8 (Oct 20 – Oct 26)](#week-8-personal-logs-20th---26th-of-october)
+- [Week 7 (Oct 13 – Oct 19)](#week-7-personal-logs-13th---19th-of-october)
+- [Week 6 (Oct 6 – Oct 12)](#week-6-personal-logs-6th---12th-of-october)
+- [Week 5 (Sept 29 – Oct 5)](#week-5-personal-logs-29th---5th-of-october)
+- [Week 4 (Sept 22 – Sept 28)](#week-4-personal-log-22nd-28th-of-september)
+- [Week 3 (Sept 15 – Sept 21)](#week-3-personal-log-15th-21st-of-september)
 
 
 # Week 3 Personal Log (15th-21st of September)
@@ -409,3 +428,40 @@ This week built directly on T2 Week 1, where database-backed features and projec
 - Select an LLM and begin initial integration planning for Milestone 2.
 <img width="834" height="526" alt="Screenshot 2026-01-18 at 2 49 42 PM" src="https://github.com/user-attachments/assets/52d0f62a-a14e-4b4f-8450-667d889c3353" />
 
+# T2 Week 3 Personal Logs (Jan 19th - 25th)
+## Overview
+This week, I worked on reworking the resume and portfolio generation feature for our application. Previously, we used a .json file found in the /output directory to generate the resume/portfolio. I reworked this by making sure the generation used the database to generate the info that is found in these files. This improves the consistency of our projects, which helps with debugging. I also worked on creating the questionnaire for the peer testing session.
+
+## Coding Tasks
+- Reviewed and validated the refactor that moves resume/portfolio generation to load data directly from the database instead of `/output` artifacts.  
+  - This includes persisting generation-related data (project path, git metrics, and tech summaries) into the `projects` table and adding a DB loader that rebuilds the generator input structure.
+  - (PR: #297)
+- Verified the updated scan persistence flow threads the required metadata (git metrics + tech summaries) into DB saves across directory, multi-repo, and zip scan flows.
+  - (PR: #297)
+(Closed issue #296)
+
+## Testing and Debugging
+- Reviewed and validated the test refactor that updates all failing resume/portfolio tests to match the new DB-backed generation flow.  
+  - Updated fixtures now seed temporary DBs with expected project fields and regeneration inputs.
+  - API tests reload modules after setting `FILE_DATA_DB_PATH` to ensure environment isolation is reliable.
+    - (PR: #298)
+- Confirmed the test updates cover:
+  - generate resume/portfolio from DB
+  - regenerate resume/portfolio from DB
+  - API generation endpoints using DB-seeded data
+    - (PR: #298)
+
+## Reviewing and Collaboration
+- Reviewed and provided feedback on:
+  - Tanner’s Docker updates & Test suite refactors (PR: #288)
+  - Travis's Fix portfolio generation to exclude non-contributor projects (PR: #291)
+  - Tyler's DB table missing error fixed by auto initialization (PR: #304)
+
+## Issues / Blockers
+- The only small issue was that I was unable to start working on the LLM route, as most of my time was spent on reworking the resume/portfolio generation
+  
+## Plan for Next Week
+- Make sure that our peer testing goes smoothly and we are prepared
+- Rework the information in the resumes, as some information is seen as redundant and not useful
+
+<img width="829" height="494" alt="Screenshot 2026-01-25 at 5 09 06 PM" src="https://github.com/user-attachments/assets/f5d040b3-cdd1-47a8-af0a-0885b10d4889" />
