@@ -179,7 +179,15 @@ def generate_combined_summary(
         # Get contribution info for this contributor
         contributions = project_data.get("contributions", {})
         contrib_info = contributions.get(contributor_name, {})
-        commits = contrib_info.get("commits", 0)
+        
+        # Compute contributor-specific commit count
+        commits = 0
+        git_metrics = project_data.get("git_metrics", {})
+        commits_per_author = git_metrics.get("commits_per_author", {})
+        if contributor_name in commits_per_author:
+            commits = commits_per_author[contributor_name]
+        elif "commits" in contrib_info:
+            commits = contrib_info["commits"]
         
         project_details.append({
             "name": project_name,
@@ -191,7 +199,7 @@ def generate_combined_summary(
             "total_files": total_proj_files,
             "score": score,
             "commits": commits,
-            "git_metrics": project_data.get("git_metrics")
+            "git_metrics": git_metrics
         })
     
     # Write combined summary
