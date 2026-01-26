@@ -1,7 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
-- [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--25th-2026)
+- [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
 - [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
 - [Week 1 (Jan 5 – Jan 11, 2026)](#semester-2--week-1-personal-log-january-5th---11th-2026)
 
