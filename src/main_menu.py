@@ -455,14 +455,55 @@ def handle_rank_projects():
 def handle_summarize_contributor_projects():
     """Handle generating summary for top-ranked projects by contributor."""
     print("\n=== Summarize Contributor Projects ===")
-    contributor_name = input("Enter contributor name: ").strip()
+    
+    BLACKLIST = {"githubclassroombot", "unknown"}
+    
+    # Query contributors from the database
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT name FROM contributors;")
+        raw_contributors = [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch contributors: {e}")
+        return
+    finally:
+        cur.close()
+    
+    # Normalize contributor names into canonical usernames
+    def normalize_username(name: str) -> str:
+        return ''.join(c for c in name.lower() if c.isalnum())
+    
+    canonical_usernames = sorted(
+        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
+    )
+    
+    # Display canonical usernames
+    if canonical_usernames:
+        print("\nDetected candidate usernames:")
+        for idx, username in enumerate(canonical_usernames, 1):
+            print(f"  {idx}. {username}")
+        print("Press Enter to manually type a username.")
+    
+    # Prompt for contributor selection
+    contributor_name = input("\nSelect a username by number or type it manually: ").strip()
+    if contributor_name.isdigit():
+        contributor_index = int(contributor_name) - 1
+        if 0 <= contributor_index < len(canonical_usernames):
+            contributor_name = canonical_usernames[contributor_index]
+        else:
+            print("[ERROR] Invalid selection. Returning to main menu.")
+            return
+    
     if not contributor_name:
-        print("No contributor name provided.")
+        print("[ERROR] No username provided. Returning to main menu.")
         return
     
+    # Prompt for optional project limit
     limit_input = input("Limit number of top projects (leave blank for all): ").strip()
     limit = int(limit_input) if limit_input.isdigit() else None
     
+    # Call summarize_top_ranked_projects
     try:
         results = summarize_top_ranked_projects(
             contributor_name=contributor_name,
@@ -470,7 +511,7 @@ def handle_summarize_contributor_projects():
         )
         print(f"\nProcessed {len(results)} project(s).")
     except Exception as e:
-        print(f"Error generating contributor projects summary: {e}")
+        print(f"[ERROR] Failed to generate contributor projects summary: {e}")
 
 
 def handle_generate_project_summary():

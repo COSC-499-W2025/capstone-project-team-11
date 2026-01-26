@@ -53,7 +53,15 @@ def get_project_path(project_name: str) -> Optional[str]:
         file_path = row[0]
         if not file_path:
             return None
-        
+
+        # Resolve project root directly from file path if project name is in the path
+        path_components = os.path.abspath(file_path).split(os.sep)
+        if project_name in path_components:
+            project_root_index = path_components.index(project_name)
+            project_root = os.sep.join(path_components[:project_root_index + 1])
+            if os.path.exists(project_root) and os.path.basename(project_root) == project_name:
+                return project_root
+
         # Handle zip file paths (format: "/path/to.zip:inner/path/file.py")
         zip_sep_index = file_path.lower().find(".zip:")
         if zip_sep_index != -1:
@@ -99,8 +107,8 @@ def get_project_path(project_name: str) -> Optional[str]:
             current = parent
             depth += 1
         
-        # If we couldn't find a clear project root, return the directory containing the file
-        return os.path.dirname(os.path.abspath(file_path)) if file_path else None
+        # If we couldn't find a clear project root, return None
+        return None
     except Exception as e:
         print(f"[WARNING] Could not determine path for project '{project_name}': {e}")
         return None
@@ -109,88 +117,17 @@ def get_project_path(project_name: str) -> Optional[str]:
         pass
 
 
-def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None) -> List[Dict]:
-    """Generate summaries for a contributor's top-ranked projects.
-    
-    Args:
-        contributor_name: Name of the contributor to rank projects for
-        limit: Maximum number of top projects to summarize (None for all)
-    
-    Returns:
-        List of dicts with keys: project, project_path, summary_paths (dict with json_path, txt_path),
-        and error (if summary generation failed).
-    """
-    default_output_dir = "output"  # Default output directory
-
-    # Try to import project_info_output functions
-    try:
-        from project_info_output import gather_project_info, output_project_info
-    except ImportError:
-        try:
-            from .project_info_output import gather_project_info, output_project_info
-        except ImportError:
-            print("[ERROR] Could not import project_info_output module. Summaries cannot be generated.")
-            return []
-    
-    # Get top-ranked projects for the contributor (reuse existing ranking logic)
-    top_projects = rank_projects_by_contributor(contributor_name, limit=limit)
-    
-    if not top_projects:
-        print(f"No projects found for contributor '{contributor_name}'.")
-        return []
-    
-    results = []
-    print(f"\nGenerating summaries for top {len(top_projects)} project(s) for '{contributor_name}'...\n")
-    
-    try:
-        os.makedirs(default_output_dir, exist_ok=True)
-    except Exception as e:
-        print(f"Error creating output directory: {e}")
-        return []
-    
-    for i, project_info in enumerate(top_projects, 1):
-        project_name = project_info["project"]
-        print(f"[{i}/{len(top_projects)}] Processing: {project_name}")
-        
-        # Get the project path
-        project_path = get_project_path(project_name)
-        
-        if not project_path or not os.path.exists(project_path):
-            print(f"  [SKIP] Could not find project path for '{project_name}'")
-            results.append({
-                "project": project_name,
-                "project_path": None,
-                "summary_paths": None,
-                "error": "Project path not found"
-            })
-            continue
-        
-        print(f"  [INFO] Project path: {project_path}")
-        
-        # Generate summary using existing project_info_output functions
-        try:
-            info = gather_project_info(project_path)
-            json_path, txt_path = output_project_info(info, output_dir=default_output_dir)
-            print(f"  [SUCCESS] Summary generated: {txt_path}\n")
-            results.append({
-                "project": project_name,
-                "project_path": project_path,
-                "summary_paths": {
-                    "json_path": json_path,
-                    "txt_path": txt_path
-                },
-                "error": None
-            })
-        except Exception as e:
-            print(f"  [ERROR] Failed to generate summary: {e}\n")
-            results.append({
-                "project": project_name,
-                "project_path": project_path,
-                "summary_paths": None,
-                "error": str(e)
-            })
-    
-    return results
+def find_unzipped_project_root(base_path: str, project_name: str) -> Optional[str]:
+    """Search for directories matching '<base_path>/<project_name>__unzipped/<project_name>'."""
+    if not base_path or not os.path.exists(base_path):
+        return None
+    for root, dirs, _ in os.walk(base_path):
+        for dir_name in dirs:
+            if dir_name == f"{project_name}__unzipped":
+                potential_path = os.path.join(root, dir_name, project_name)
+                if os.path.exists(potential_path):
+                    return potential_path
+    return None
 
 
 def generate_combined_summary(
@@ -250,7 +187,15 @@ def generate_combined_summary(
         # Get contribution info for this contributor
         contributions = project_data.get("contributions", {})
         contrib_info = contributions.get(contributor_name, {})
-        commits = contrib_info.get("commits", 0)
+        
+        # Compute contributor-specific commit count
+        commits = 0
+        git_metrics = project_data.get("git_metrics", {})
+        commits_per_author = git_metrics.get("commits_per_author", {})
+        if contributor_name in commits_per_author:
+            commits = commits_per_author[contributor_name]
+        elif "commits" in contrib_info:
+            commits = contrib_info["commits"]
         
         project_details.append({
             "name": project_name,
@@ -262,7 +207,7 @@ def generate_combined_summary(
             "total_files": total_proj_files,
             "score": score,
             "commits": commits,
-            "git_metrics": project_data.get("git_metrics")
+            "git_metrics": git_metrics
         })
     
     # Write combined summary
@@ -407,6 +352,11 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
         # Get the project path
         project_path = get_project_path(project_name)
         
+        # Attempt to resolve extracted zip project root
+        resolved_path = find_unzipped_project_root(project_path, project_name)
+        if resolved_path:
+            project_path = resolved_path
+        
         if not project_path or not os.path.exists(project_path):
             print(f"  [SKIP] Could not find project path for '{project_name}'")
             results.append({
@@ -422,6 +372,13 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
         # Gather project info (but don't output individual files)
         try:
             info = gather_project_info(project_path)
+            
+            # Enforce single-project invariant
+            if info.get("projects_detected", 1) > 1:
+                raise ValueError(
+                    f"Refusing to summarize multi-project directory: {project_path}"
+                )
+            
             print(f"  [SUCCESS] Project info gathered\n")
             results.append({
                 "project": project_name,

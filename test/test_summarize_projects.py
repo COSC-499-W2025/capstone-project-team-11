@@ -379,6 +379,134 @@ class TestSummarizeTopRankedProjects(unittest.TestCase):
                     # Since get_project_path returns None, both will be skipped
                     self.assertEqual(len(result), 2)
 
+    def test_contributor_commit_count_is_used(self):
+        """Test that per-contributor commit counts are used instead of defaulting to 0."""
+        project_dir = os.path.join(self.temp_dir, 'commit-project')
+        os.makedirs(project_dir)
+        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
+            f.write('# Commit Test')
+
+        mock_projects = [
+            {'project': 'commit-project', 'contrib_files': 3, 'total_files': 10, 'score': 0.3}
+        ]
+
+        mock_info = {
+            'project_name': 'commit-project',
+            'languages': ['Python'],
+            'skills': [],
+            'contributions': {
+                'TestUser': {
+                    'commits': 7,
+                    'files': ['a.py', 'b.py'],
+                    'file_count': 2
+                }
+            },
+            'git_metrics': {
+                'total_commits': 42,
+                'commits_per_author': {
+                    'TestUser': 7
+                }
+            }
+        }
+
+        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
+            with patch('summarize_projects.get_project_path', return_value=project_dir):
+                with patch('project_info_output.gather_project_info', return_value=mock_info):
+                    with patch('summarize_projects.generate_combined_summary') as mock_gen:
+                        summarize_projects.summarize_top_ranked_projects('TestUser')
+
+                        # Ensure summary generator was called
+                        self.assertTrue(mock_gen.called)
+
+                        # Extract the project details passed to generate_combined_summary
+                        args, kwargs = mock_gen.call_args
+                        project_data_list = kwargs['project_data_list']
+
+                        # Verify that the contributor's commit count is correctly used
+                        commits = project_data_list[0]['project_info']['git_metrics']['commits_per_author']['TestUser']
+                        self.assertEqual(commits, 7)
+
+    def test_skills_are_populated_correctly(self):
+        """Test that skills are correctly aggregated and included in the summary."""
+        project_dir = os.path.join(self.temp_dir, 'skills-project')
+        os.makedirs(project_dir)
+        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
+            f.write('# Skills Test')
+
+        mock_projects = [
+            {'project': 'skills-project', 'contrib_files': 2, 'total_files': 5, 'score': 0.4}
+        ]
+
+        mock_info = {
+            'project_name': 'skills-project',
+            'languages': ['Python'],
+            'skills': ['Data Analysis', 'Machine Learning'],
+            'contributions': {},
+            'git_metrics': {}
+        }
+
+        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
+            with patch('summarize_projects.get_project_path', return_value=project_dir):
+                with patch('project_info_output.gather_project_info', return_value=mock_info):
+                    with patch('summarize_projects.generate_combined_summary') as mock_gen:
+                        summarize_projects.summarize_top_ranked_projects('TestUser')
+
+                        # Ensure summary generator was called
+                        self.assertTrue(mock_gen.called)
+
+                        # Extract the project details passed to generate_combined_summary
+                        args, kwargs = mock_gen.call_args
+                        project_data_list = kwargs['project_data_list']
+
+                        # Verify that skills are correctly populated
+                        skills = project_data_list[0]['project_info']['skills']
+                        self.assertIn('Data Analysis', skills)
+                        self.assertIn('Machine Learning', skills)
+
+    def test_fallback_to_contributions_commits(self):
+        """Test that the fallback to contributions['commits'] is used when commits_per_author is missing."""
+        project_dir = os.path.join(self.temp_dir, 'fallback-project')
+        os.makedirs(project_dir)
+        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
+            f.write('# Fallback Test')
+
+        mock_projects = [
+            {'project': 'fallback-project', 'contrib_files': 2, 'total_files': 5, 'score': 0.4}
+        ]
+
+        mock_info = {
+            'project_name': 'fallback-project',
+            'languages': ['Python'],
+            'skills': [],
+            'contributions': {
+                'TestUser': {
+                    'commits': 5,
+                    'files': ['file1.py', 'file2.py'],
+                    'file_count': 2
+                }
+            },
+            'git_metrics': {
+                'total_commits': 20
+            }
+        }
+
+        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
+            with patch('summarize_projects.get_project_path', return_value=project_dir):
+                with patch('project_info_output.gather_project_info', return_value=mock_info):
+                    with patch('summarize_projects.generate_combined_summary') as mock_gen:
+                        summarize_projects.summarize_top_ranked_projects('TestUser')
+
+                        # Ensure summary generator was called
+                        self.assertTrue(mock_gen.called)
+
+                        # Extract the project details passed to generate_combined_summary
+                        args, kwargs = mock_gen.call_args
+                        project_data_list = kwargs['project_data_list']
+
+                        # Verify that the fallback commit count is used
+                        commits = project_data_list[0]['project_info']['contributions']['TestUser']['commits']
+                        self.assertEqual(commits, 5)
+
 
 if __name__ == '__main__':
     unittest.main()
