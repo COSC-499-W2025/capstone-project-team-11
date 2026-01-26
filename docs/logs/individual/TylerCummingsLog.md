@@ -153,4 +153,188 @@ Week 11 Plans:
 
 <img width="1896" height="778" alt="image" src="https://github.com/user-attachments/assets/b2d131ba-1356-4acb-a8b8-1142066119df" />
 
+# Tyler's Week 12 Personal Log (17-23 Nov.)
+
+Focus of the week was modifying the scan.py file to create a menu to allow the user to either scan or view previous scanned insights and allow the deletion of them
+
+<img width="985" height="582" alt="image" src="https://github.com/user-attachments/assets/c383f91b-d785-4ef1-8cca-aad144485b4e" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Added to scan.py to create a menu
+- Added the ability to view previously scanned insights
+- Added the ability to delete previously scanned insights
+- Reviewed teammates pull requests and code
+- Finished individual log 12
+- Finished peer reviews for week 12
+- Finished team log for week 12
+
+Week 13 Plans:
+- Work on creating db table for insights and allow the viewing and deletion of the insights in the database instead of the current file folder saving it does.
+
+<img width="1654" height="826" alt="image" src="https://github.com/user-attachments/assets/50650c4d-d5df-4e45-a3f9-000c79d1142c" />
+
+# Tyler's Week 13 Personal Log (24-30 Nov.)
+
+Focus of the week was modifying the scan.py file to auto create and output project key information and modified it to include all the new and present analysis added
+
+<img width="741" height="572" alt="image" src="https://github.com/user-attachments/assets/ff94da51-bce1-4344-b1d1-c47ce7b30c84" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+
+- Added to scan.py to output key information to file on scan
+- Removed the need for the previous key information file
+- Modified key information output for projects to include detect langs analysis
+- Finished slides for team presentation
+- Finished individual log 13
+- Finished peer reviews for week 13
+- Finished team log for week 13
+
+Week 13 Plans:
+- Work on the video for our project and clean up any minor things to polish up the project for video
+
+<img width="1893" height="387" alt="image" src="https://github.com/user-attachments/assets/cab2bf05-9419-483f-ae9e-e3147a871c1b" />
+
+# Tyler's Week 14 Personal Log (1-7 Dec.)
+
+Focus of the week was cleaning up our code and making sure we have completed all parts for milestone 1, make the contract, make the video presentation and slideshow presentation and present our project to the class.
+
+<img width="976" height="571" alt="image" src="https://github.com/user-attachments/assets/55ff2b73-6359-43fb-b20e-0ab7b4dca0fc" />
+
+Tasks Completed:
+- I have been involved with the following tasks either alone or helping my other classmates.
+- Presented our slides to class and prof.
+- Tested all the code for milestones 11-20 and made recommended changes to teammates
+- Made script, video and edited the videos for each milestone part (11-20)
+- Reviewed team contract
+- Reviewed code changes and bug fixes for project
+- Finished individual log 14
+- Finished peer reviews for week 14
+
+Week 15 Plans:
+- Exams
+
+<img width="1877" height="786" alt="image" src="https://github.com/user-attachments/assets/210157dd-ce94-435c-968e-3638e2699354" />
+*All issues for milestone 1 have been completed, nothing to do until next term*
+
+# Tyler's T2 Week 1 Personal Log (5-11 Jan.)
+Focus of the week was starting the new milestone issues/deliverables. I worked on completeing the allow incremental information by adding another zipped folder of files for the same portfolio or résumé. This week I completed the resume portion of it.
+
+<img width="2382" height="1210" alt="image" src="https://github.com/user-attachments/assets/5375b00d-0685-4b7d-8f6c-147065369a59" />
+
+Tasks Completed:
+- Implemented the “add new project to existing resume” feature in main_menu.py.
+- Developed resume_scan in regenerate_resume_scan.py to handle directory or zip scans for resume regeneration.
+- Implemented regenerate_resume.py logic to overwrite existing resumes with updated project data.
+- Wrote full unit tests for the new resume addition and regeneration features (test_main_menu_add_resume.py, test_resume_scan.py, test_regenerate_resume.py).
+- Documented PR contribution with filled-out PR template reflecting the changes and testing procedures.
+- Reviewed teammates code changes, pr's and bug fixes
+- Finished individual log T2 week 1
+- Finished peer reviews for T2 week 1
+
+Week 15 Plans:
+- Finish milestone 21 by doing what I did for resumes but now for portfolios
+- Speak with team on modifying file structure, layout, integrations to make it more streamlined, organized and efficient for scalability
+
+<img width="2692" height="1210" alt="image" src="https://github.com/user-attachments/assets/60a00e82-6fae-4145-9ba9-cb01be0bc6f5" />
+
+# Tyler's T2 Week 2 Personal Log (12-18 Jan.)
+[Back to Term 2 Navigation](#)
+
+Focus of the week was extending the incremental portfolio/resume workflow and integrating headless portfolio regeneration. This builds upon last week's work on resume incremental updates. I completed the portfolio portion of the incremental addition, ensuring that new project folders or zip files could be added to existing portfolios, with overwrite functionality and full tests.
+
+<img width="997" height="577" alt="image" src="https://github.com/user-attachments/assets/63f64917-2406-4d2d-9a4e-abe2fc2c5bf9" />
+
+---
+
+## Coding Tasks
+- Implemented the **“add new project to existing portfolio”** feature in [main_menu.py](#) for interactive and headless workflows.
+- Developed **portfolio_scan** in [regenerate_portfolio_scan.py](#) to handle directory or zip scans for portfolio regeneration.
+- Implemented [regenerate_portfolio.py](#) logic to **overwrite existing portfolio Markdown files**, including `--overwrite` flag functionality.
+- Updated [generate_portfolio.py](#) to integrate **overwrite functionality** and **confidence-level filtering** for languages/frameworks.
+
+---
+
+## Testing / Debugging Tasks
+- Wrote full unit tests for the new portfolio addition and regeneration features (`test_regenerate_portfolio.py`).
+- Verified that previously implemented resume incremental updates still work correctly after portfolio changes.
+- Confirmed overwrite functionality correctly replaces old portfolio files without creating duplicates.
+
+---
+
+## Reviewing / Collaboration Tasks
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #264](#), [PR #265](#), [PR #267](#)).
+- Documented PR contributions with filled-out PR template reflecting portfolio changes, overwrite functionality, and testing procedures.
+- Maintained communication with the team on any issues encountered with output folder structures and database metadata handling.
+
+---
+
+## Blockers / Issues
+- Minor conflicts when integrating portfolio regeneration with existing resume workflows. Resolved by ensuring `output/` directory structure is consistent and both resume and portfolio generation append to the same root.
+
+---
+
+## T2 Week 3 Plans
+- Work on polishing any features that have bugs or need improvements.
+- Look for new features to add and coordinate with teammates for splitting tasks if needed.
+- Reorganize and streamline file layouts and integration workflows ([Issue #246](#)).
+- Complete interactive + headless portfolio generation workflow for all contributors.
+- Continue peer review for T2 week 2 submissions.
+
+<img width="1507" height="722" alt="image" src="https://github.com/user-attachments/assets/5488036b-cc22-475f-ae3d-6f6f2a4adc9b" />
+
+# Tyler's T2 Week 3 Personal Log (12-18 Jan.)
+[Back to Term 2 Navigation](#)
+
+Focus of the week was extending the incremental portfolio/resume workflow and integrating headless portfolio regeneration. This builds upon last week's work on resume incremental updates. I completed the portfolio portion of the incremental addition, ensuring that new project folders or zip files could be added to existing portfolios, with overwrite functionality and full tests. Additionally, I implemented full database schema initialization with proper foreign key constraints and cascade rules, and wrote comprehensive tests to ensure schema integrity.
+
+<img width="983" height="572" alt="image" src="https://github.com/user-attachments/assets/af23d11a-8150-44db-bee6-92473bad0997" />
+
+---
+
+## Coding Tasks
+
+- Implemented the “add new project to existing portfolio” feature in main_menu.py for interactive and headless workflows.
+- Developed portfolio_scan in regenerate_portfolio_scan.py to handle directory or zip scans for portfolio regeneration.
+- Implemented regenerate_portfolio.py logic to overwrite existing portfolio Markdown files, including --overwrite flag functionality.
+- Updated generate_portfolio.py to integrate overwrite functionality and confidence-level filtering for languages/frameworks.
+- Created _ensure_schema in db.py to initialize the full database schema with tables, foreign keys, join tables, indexes, and cascade rules for project evidence.
+- Verified foreign key constraints and ON DELETE CASCADE behavior for relevant tables.
+
+---
+
+## Testing / Debugging Tasks
+- Wrote unit tests for database schema initialization (test_db_schema_init.py) to verify:
+  - All expected tables are created.
+  - All indexes exist.
+  - Default values (like scanned_at) are set correctly.
+  - Foreign key constraints and cascading deletes work properly.
+- Extended tests to cover join tables and ensure integrity of relationships between files, contributors, languages, and skills.
+- Verified all tests pass with in-memory SQLite database to avoid side effects.
+- Debugged foreign key errors and ensured schema is fully compatible with existing portfolio and resume workflows.
+
+---
+
+## Reviewing / Collaboration Tasks
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #294], [PR #300], [PR #267]).
+- Documented PR contributions with filled-out PR template reflecting portfolio changes, overwrite functionality, and testing procedures.
+- Maintained communication with the team on any issues encountered with output folder structures and database metadata handling.
+
+---
+
+## Blockers / Issues
+- Minor conflicts when integrating database schema updates with existing portfolio/resume regeneration workflows. Resolved by updating schema and test coverage to reflect new relationships.
+
+---
+
+## T2 Week 4 Plans
+- Work on polishing any features that have bugs or need improvements for peer testing
+- Set up peer testing environment
+- Practice presenting and running peer testing
+
+<img width="1908" height="886" alt="image" src="https://github.com/user-attachments/assets/ee53cfd6-5fba-4212-b887-dfbbe5b4bc49" />
+
+
 

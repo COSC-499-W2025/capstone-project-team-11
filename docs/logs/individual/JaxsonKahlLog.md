@@ -1,3 +1,24 @@
+# Weekly Logs Navigation
+
+## Term 2
+- [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
+- [T2 Week 2 (Jan 12 – Jan 18)](#t2-week-2-personal-logs-jan-12th---18th)
+- [T2 Week 1 (Jan 5 – Jan 11)](#t2-week-1-personal-logs-jan-5th---11th)
+
+## Term 1
+- [Week 14 (Dec 1 – Dec 7)](#week-14-personal-logs-december-1st---7th)
+- [Week 13 (Nov 24 – Nov 30)](#week-13-personal-logs-november-24th---30th)
+- [Week 12 (Nov 17 – Nov 23)](#week-12-personal-logs-november-17th---23rd)
+- [Week 10 (Nov 3 – Nov 9)](#week-10-personal-logs-november-3rd---9th)
+- [Week 9 (Oct 27 – Nov 2)](#week-9-personal-logs-27th-oct---2nd-nov)
+- [Week 8 (Oct 20 – Oct 26)](#week-8-personal-logs-20th---26th-of-october)
+- [Week 7 (Oct 13 – Oct 19)](#week-7-personal-logs-13th---19th-of-october)
+- [Week 6 (Oct 6 – Oct 12)](#week-6-personal-logs-6th---12th-of-october)
+- [Week 5 (Sept 29 – Oct 5)](#week-5-personal-logs-29th---5th-of-october)
+- [Week 4 (Sept 22 – Sept 28)](#week-4-personal-log-22nd-28th-of-september)
+- [Week 3 (Sept 15 – Sept 21)](#week-3-personal-log-15th-21st-of-september)
+
+
 # Week 3 Personal Log (15th-21st of September)
 
 This weeks focus consisted of created the project requirements and creating a form of communication that works for all group members.  
@@ -208,3 +229,239 @@ This was a steady week for our group. Most of us had at least 2 midterms, which 
 
 <img width="889" height="622" alt="Screenshot 2025-11-09 at 7 35 32 PM" src="https://github.com/user-attachments/assets/970ebdde-a4af-4f19-8331-a5232f75cad1" />
 
+# Week 12 Personal Logs (November 17th - 23rd)
+
+<img width="958" height="562" alt="Screenshot 2025-11-23 at 7 59 53 PM" src="https://github.com/user-attachments/assets/211b87d0-b185-45a7-b0b6-b66d8bd5f9f6" />
+
+## Tasks Completed:
+This week, I focused on improving and refactoring our “Rank Projects Chronologically” feature to ensure project ordering reflects the true project creation dates rather than just scan timestamps.
+- Closed issue #146
+
+### Reflection of the past week:
+This was a good week for our group as we have been in a steady flow of each member committing code. Most of our code was committed before Sunday night to avoid merger errors, which has been a problem in the past. For the upcoming week, we plan on preparing for the quiz as well as the presentation for Milestone 1. 
+
+### Additions and Features:
+- **`scan.py`**: Added Git-based metadata extraction to detect Git repository root, repo URL, and initial commit timestamp. This passes `project_created_at` and `project_repo_url` into the persistence layer. I also ensured that VCS-derived creation dates are used instead of overwriting them with the latest scan timestamps.
+- **`db.py`**: Extended `save_scan()` to store `project_created_at` and `project_repo_url`, which uses non-destructive logic with `INSERT OR IGNORE` + safe `UPDATE` to avoid overwriting valid metadata.
+- **`rank_projects.py`**: Updated SQL ordering to use `projects.created_at` (preferred) and a fallback to `MIN(scanned_at)` when missing. I added readable timestamp formatting via `human_ts()` and improved printed output for clarity.
+- **`inspect_db.py`**: Improved timestamp normalization and readability, which makes it easier to distinguish between VCS-derived and fallback timestamps. 
+
+### Testing:
+- **`test_rank_projects.py`**: Updated to match new chronological ranking logic, which adds a temporary in-memory `projects` table to support JOIN behaviour. Assertions updated to confirm, correct ordering by `created_at`, correct fallback to the earliest scan when needed, and the human-readable formatting
+
+### Reviews: 
+- Tanner's Second Round of Revisions to Language/Framework Detection Feature (PR #157)
+- Tanner's Detect programming languages revision: Cleaned codebase and updated unit testing suite (PR #159)
+  
+## In progress tasks
+- Retrieve Previously-Generated Portfolio Information (issue #34)
+- Quiz 1 preparation 
+
+## Planned tasks for next sprint
+- Finalise project outputs for Milestone 1 Presentations
+
+<img width="833" height="496" alt="Screenshot 2025-11-23 at 8 03 50 PM" src="https://github.com/user-attachments/assets/b76ea4d1-ec35-4c93-b49e-1bc6ec8cb98a" />
+
+# Week 13 Personal Logs (November 24th - 30th)
+
+<img width="703" height="492" alt="Screenshot 2025-11-30 at 4 02 48 PM" src="https://github.com/user-attachments/assets/c71c8c83-f0bb-415a-a478-2b8f456f528e" />
+
+## Tasks Completed:
+This week, I focused on generating a resume-ready Markdown file for any contributor found in any of the scanned projects
+- Closed issue #176
+
+### Reflection of the past week:
+This was a good week for our group as we have been in a steady flow of each member committing code. All of our code was committed before Sunday night to avoid merger errors, improving on our problems from the previous weeks. For the upcoming week, we plan on preparing for the presentation and reworking some of our designs to reflect the current system before the term ends. We are also working on the team contract and the final reflections.
+
+### Additions and Features:
+- **`generate_resume.py`** Scans output for project info JSONs and repo-level contribution JSONs. Aggregates per-user projects, technologies, and skills. Renders a Markdown resume with a timestamp and writes it to resumes/resume_<username>_<YYYYmmddTHHMMSSZ>.md. Interactive username selection: prints a clean numbered list of detected candidate usernames and accepts either a number or exact username. Blacklists bot accounts (githubclassroombot) by default and offers --allow-bots to override.
+- **`main_menu.py`** Added menu entry 6. Generate Resume. Added handle_generate_resume() that delegates to generate_resume.py. Keeps the main menu behavior consistent and non-blocking.
+
+### Testing:
+- **`test_generate_resume.py`** Tests included: normalize_project_name() behavior. collect_projects() and aggregate_for_user() return shapes and content. render_markdown() output and generation timestamp. CLI-level behavior: file generation for a user, blacklist enforcement for bots, and override via --allow-bots. Uses temporary output directories in tests to avoid touching repository data.
+
+### Reviews: 
+- Daniel's Refactor/skills timeline module (PR #180)
+- Travis' Main menu module that acts as a unified CLI interface (PR #181)
+- Tyler's Auto Output Key Information On Scan That Includes All New Analysis Info (PR #186)
+- Tanner's Updated the unit testing suite for data-access consent feature (PR #187)
+  
+## In progress tasks
+- Presentation preparation
+- Updating system architecture and data flow diagrams
+- Team contract
+- Reflection
+
+## Planned tasks for next sprint
+- Christmas Break
+
+<img width="835" height="417" alt="Screenshot 2025-11-30 at 5 33 09 PM" src="https://github.com/user-attachments/assets/997854ef-4b79-4eeb-ba9f-e620a7e3e049" />
+
+# Week 14 Personal Logs (December 1st - 7th)
+
+<img width="684" height="493" alt="Screenshot 2025-12-07 at 4 59 34 PM" src="https://github.com/user-attachments/assets/1b281de6-93cc-4d61-bc4e-3513425c7471" />
+
+## Tasks Completed:
+This week, I focused on preparing for our Milestone 1 presentation, the individual reflection, and the final deliverable, which was retrieving and deleting generated resume items
+- Closed issue #35
+
+### Reflection of the past week:
+With exams starting and projects wrapping up in other courses, this was still a good week for our group. All group members completed something to do with the end of milestone 1. We also completed our presentation for Milestone 1, which we had prepared for. We are not too sure what is planned for the week coming back from Christmas break, but we will decide that when classes resume again.
+
+
+### Additions and Features:
+- **`main_menu.py`** wires the scan flow to persist results on demand and, after any scan, immediately derives project info and writes the JSON/TXT reports under an `/output/<project_name>/` folder for easier follow-up. This fixes the empty resume generation problem we encountered.
+- **`scan.py`** reinstates database persistence during scans: language/skill detection falls back to empty lists, file metadata is always built, and retries after `init_db()` carry the same project metadata, eliminating the previous UnboundLocalError when saving.
+- **`collab_summary.py`** now keeps `identify_contributions()` focused on returning structured data: the JSON file write is suppressed by default and `summarize_project_contributions()` calls it with `write_output=False`, so scans no longer drop contributions artifacts in `/output/`.
+- **`init_db.sql`**: adds resumes table plus indexes to store generated resumes linked to contributors.
+- **`db.py`**: introduces save_resume helper to persist resume path/metadata with contributor linkage and timestamp.
+- **`generate_resume.py`**: adds --save-to-db flag and calls save_resume after writing markdown, with error handling for missing schema.
+- **`main_menu.py`**: when inspecting DB, now lists recent resumes; resume generator menu runs with --save-to-db.
+- **`main_menu.py`**: Built a full “View Resumes” flow—lists recent resumes, prompts to view or delete, renders Markdown to readable plain text for previews and full paging, and deletes via _delete_resume, which removes the DB row then tries to remove the file with clear messaging. Added helpers for markdown-to-plain rendering, resume listing, previewing, paging, and fixed sqlite3.Row access during deletion.
+- **`scan.py`**: 
+   - Added `_resolve_extracted_root`, `_prepare_nested_extract_root`, and` _safe_join_extract_root` helpers to safely unpack archives (and nested archives) into real directories so they're scanned exactly once, without leaking temp dirs or allowing path traversal.
+   - Updated `_scan_zip` to track the actual extracted path for each zip:path entry, skip macOS junk and nested containers, avoid counting nested zips as files unless the user explicitly filters for .zip, and descend into nested archives using the shared extraction tree.
+   - `list_files_in_zip` now keeps a single temp extraction directory, builds accurate file metadata (owner/language) using the tracked real paths, and passes that directory to language/skill detection.
+   - `list_files_in_directory` and run_with_saved_settings detect when the target is a zip, extract it once, reuse that path for contributions/metrics/summaries, and clean up afterward.
+- **`project_info_output.py`**:  extracts zip targets (outer and nested) before running any detectors so project summaries operate on actual files, not archive placeholders.
+- **`collab_summary.py`** ignores .DS_Store, __MACOSX, ._*, and .zip files when summarizing non-git contributions, preventing archive containers and macOS metadata from inflating the “Changed files” list.
+- **`detect_langs.py`** and **`detect_skills.py`** share the same artifact filter to keep language/skill stats from counting container zips or macOS junk, ensuring [Filtering Stats] reflect only real files.
+
+### Testing:
+- **`test_main_menu.py`**  updated `test_print_main_menu_outputs_correct_text` to reflect new menu options.
+- Removed **`test_json_output_file`** since the contribution JSON is no longer needed.
+- **`test_generate_resume.py`**: ensures temp DB path applies to subprocess and adds a test verifying resume rows are created.
+- **`test_main_menu.py`**: Updated menu output expectations, added coverage for the markdown renderer and preview helper, and added deletion tests that use sqlite3.Row rows to ensure DB rows are removed, files are deleted, and missing files are handled gracefully.
+
+### Reviews: 
+- Tyler's Milestone 1 videos (PR #208)
+- Daniel's Reworked skipped unsupported file formats (PR #210)
+  
+## In progress tasks
+- No tasks currently in progress
+
+## Planned tasks for next sprint
+- Christmas Break
+
+<img width="739" height="495" alt="Screenshot 2025-12-07 at 5 11 10 PM" src="https://github.com/user-attachments/assets/7d882fb9-c604-445b-af30-0e1f3ce73727" />
+
+# T2 Week #1 Personal Logs (Jan 5th - 11th)
+
+<img width="936" height="535" alt="Screenshot 2026-01-11 at 10 22 59 AM" src="https://github.com/user-attachments/assets/6ee6a6ed-f17b-4efb-a2e8-84f77a889b2b" />
+
+## Tasks Completed:
+This week, I worked on adding the project thumbnail feature. This feature allows the user to upload an image to be used as a thumbnail for a scanned project. This will be useful for our future frontend UI.
+- Closed issue #235
+
+### Reflection of the past week:
+This week, we mainly focused on understanding the Milestone 2 deliverables and dividing the tasks among our group members. We have had good communication among our team members and have accomplished our tasks with minimal problems so far. Next week we are planning to dive deeping into a true API integration as well as starting on our LLM route. 
+
+### Additions and Features:
+- **`init_db.sql`**: Added `thumbnail_path` column to `projects`
+- **`db.py`**: Added `_ensure_projects_thumbnail_column` to migrate existing DBs. `save_scan` now accepts `project_thumbnail_path` and updates the project row when provided.
+- **`file_utils.py`**: Added `IMAGE_EXTENSIONS` and `is_image_file` for thumbnail validation
+- **`scan.py`**: Added` _prepare_project_thumbnail` to copy the chosen image into `output/<project>/<original_name>.<ext>`. Threaded `project_thumbnail_path` through `_persist_scan`, `list_files_in_directory`, and `run_with_saved_settings`.
+- **`main_menu.py`**: Added optional thumbnail prompt when saving scans to the DB
+
+### Testing: 
+- **`test_db_updates.py`**: Verified `projects.thumbnail_path` exists in schema. Asserted `save_scan` persists the thumbnail path.
+- **`scan_db_test.py`**: Added a thumbnail persistence test using `_prepare_project_thumbnail` and validated the stored path.
+
+### Reviews: 
+- Tyler's Incremental resume information (version 1) (PR #245)
+- Tyler's Individual Logs (PR #246)
+- Pri's Duplicate project scans (PR #249)
+- Travis's project evidence module and tests (PR #250)
+- Travis's Individual Logs (PR #251)
+  
+## In progress tasks
+- API endpoint integration
+
+## Planned tasks for next sprint
+- Complete API Integration and start working on LLM integration
+
+<img width="834" height="469" alt="Screenshot 2026-01-11 at 4 06 43 PM" src="https://github.com/user-attachments/assets/9ca555e2-3317-4788-9062-2345cc35fc5d" />
+
+# T2 Week #2 Personal Logs (Jan 12th - 18th)
+<img width="925" height="535" alt="Screenshot 2026-01-18 at 2 39 04 PM" src="https://github.com/user-attachments/assets/de8ca9e2-6f0e-4950-9e5f-7ce7db8b164f" />
+
+## Overview
+This week built directly on T2 Week 1, where database-backed features and project thumbnails were added. The focus shifted to bridging frontend and backend by implementing a complete FastAPI layer to expose scanning, consent, project data, skills, and resume/portfolio functionality through documented API endpoints.
+
+## Coding Tasks
+- Implemented FastAPI application with all required backend endpoints: (PR #264)
+  - Project upload and scanning
+  - Privacy consent handling
+  - Projects listing and project detail retrieval
+  - Skills listing
+  - Resume and portfolio generation
+  - Resume and portfolio edit and retrieval
+- Created `api.py` to serve as the main backend interface between the frontend and database.
+- Wrote full API documentation in `api.md`, including setup instructions, endpoint descriptions, and example requests/responses.
+- Updated `requirements.txt` to include required dependencies (`fastapi`, `httpx`).
+(Closed issue #262)
+
+## Testing and Debugging
+- Added HTTP-style tests using FastAPI TestClient.
+- Tests validate:
+  - Privacy consent flow
+  - Project upload, listing, and detail endpoints
+  - Skills listing endpoint
+  - Resume and portfolio generate, get, and edit endpoints
+- All tests run using isolated temporary databases, config files, and output directories to avoid shared-state issues.
+- Added a small fix to Pri's "Feature/custom project wording clean" PR to fix database initialization problem
+
+
+## Reviewing and Collaboration
+- Reviewed and provided feedback on:
+  - Tanner’s broadened portfolio generation functionality (PR #260)
+  - Tanner’s database integration for portfolios (PR #261)
+  - Pri's Feature/custom project wording clean (PR #271)
+  - Tanner's Individual Logs
+
+## Issues / Blockers
+- No major blockers this week.
+- Some care was required to keep API tests isolated from the local environment, which was resolved by using temporary directories and test-specific configuration.
+
+## Plan for Next Week
+- Research and evaluate local LLM options suitable for the project.
+- Select an LLM and begin initial integration planning for Milestone 2.
+<img width="834" height="526" alt="Screenshot 2026-01-18 at 2 49 42 PM" src="https://github.com/user-attachments/assets/52d0f62a-a14e-4b4f-8450-667d889c3353" />
+
+# T2 Week 3 Personal Logs (Jan 19th - 25th)
+## Overview
+This week, I worked on reworking the resume and portfolio generation feature for our application. Previously, we used a .json file found in the /output directory to generate the resume/portfolio. I reworked this by making sure the generation used the database to generate the info that is found in these files. This improves the consistency of our projects, which helps with debugging. I also worked on creating the questionnaire for the peer testing session.
+
+## Coding Tasks
+- Reviewed and validated the refactor that moves resume/portfolio generation to load data directly from the database instead of `/output` artifacts.  
+  - This includes persisting generation-related data (project path, git metrics, and tech summaries) into the `projects` table and adding a DB loader that rebuilds the generator input structure.
+  - (PR: #297)
+- Verified the updated scan persistence flow threads the required metadata (git metrics + tech summaries) into DB saves across directory, multi-repo, and zip scan flows.
+  - (PR: #297)
+(Closed issue #296)
+
+## Testing and Debugging
+- Reviewed and validated the test refactor that updates all failing resume/portfolio tests to match the new DB-backed generation flow.  
+  - Updated fixtures now seed temporary DBs with expected project fields and regeneration inputs.
+  - API tests reload modules after setting `FILE_DATA_DB_PATH` to ensure environment isolation is reliable.
+    - (PR: #298)
+- Confirmed the test updates cover:
+  - generate resume/portfolio from DB
+  - regenerate resume/portfolio from DB
+  - API generation endpoints using DB-seeded data
+    - (PR: #298)
+
+## Reviewing and Collaboration
+- Reviewed and provided feedback on:
+  - Tanner’s Docker updates & Test suite refactors (PR: #288)
+  - Travis's Fix portfolio generation to exclude non-contributor projects (PR: #291)
+  - Tyler's DB table missing error fixed by auto initialization (PR: #304)
+
+## Issues / Blockers
+- The only small issue was that I was unable to start working on the LLM route, as most of my time was spent on reworking the resume/portfolio generation
+  
+## Plan for Next Week
+- Make sure that our peer testing goes smoothly and we are prepared
+- Rework the information in the resumes, as some information is seen as redundant and not useful
+
+<img width="829" height="494" alt="Screenshot 2026-01-25 at 5 09 06 PM" src="https://github.com/user-attachments/assets/f5d040b3-cdd1-47a8-af0a-0885b10d4889" />

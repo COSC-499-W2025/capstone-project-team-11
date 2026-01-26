@@ -144,3 +144,189 @@ Overall this was less of a productive week for myself and for some other team me
 The next sprint will be important going forward since our milestone 1 demo is coming up shortly. During this week I would like to get started working on the ranking of projects based on importance. This will be a big tasks that will need to be done in order to further enhance the project. 
 
 
+
+# Week 12 (November 17th - 23rd)
+<img width="1602" height="938" alt="image" src="https://github.com/user-attachments/assets/71f38a8c-f0af-4216-a6ae-62b68d05b80a" />
+
+## Tasks Completed
+- Added feature that ranks importance of a project based on user contributions. It displays the projects based on the info:
+    - Project: project key/name.
+    - TotalFiles: total number of files recorded for that project
+    - Contributors: number of distinct contributors recorded for files in that project.
+    - TopContributor: contributor name with the largest number of files they are linked to within the project.
+    - TopFiles: number of files the top contributor is linked to.
+    - TopFraction: TopFiles / TotalFiles (a float 0.00–1.00). Shows how concentrated the project's files are with that single contributor (1.00 means the top contributor owns all recorded files).
+ 
+- Created two main contribution functions:
+    - rank_projects_contribution_summary: is project-centric, it summarizes, for each project, how contributors are distributed and who the top contributor is. It is useful when you want an at-a-glance view of how contribution is distributed across projects.
+    - rank_projects_by_contributor: is specific contributor centric, it summarizes, for each project, the contributions of the specific user for all the projects.
+- Added sufficient testing for the feature.
+- Reviewed Travis and Tanner's prs
+- Individual logs.
+
+## Refelction
+After a relaxing week for reading break, we came back as a team and started to gain momentum. Overall, I believe I had a pretty productive week by completing another feature that will contribute towards completing milestone 1. The deadline is rapidly approaching so as a group we have to come together and devise a plan especially for the upcoming presentation.
+
+## Week 13 Plans
+There are not a lot of major tasks left to be picked up in the Kanban board and there will be more focus on the quiz and the informational lecture on Monday. Beyond this, I will start working on ideas for the milestone 1 demo that is coming up. I will also be around to review and help others with minor updates and features left to add. 
+   
+# Week 13 (November 24th - 30th)
+
+<img width="1602" height="928" alt="image" src="https://github.com/user-attachments/assets/0d0e5023-d110-4f94-bd3a-e3d0c0432a9c" />
+
+## Tasks Completed
+- Reworked the output of a scan by removing the output of all the files that get scanned.
+  - scan.py: main implementation changes that adds a progress load bar during a scan (progress UI,captured detector execution, quiet zip/directory scanning, concise stats).
+  - scan_test.py: updated unit tests to assert on returned structured scan results rather than printed filenames; handle zip-style file paths when asserting basenames.
+- Worked on the Milestone 1 presentation.
+- Reviewed Travis's and Jaxson's pull requests.
+- Individual logs.
+
+## Reflection 
+As we approach the deadline for Milestone 1, as a team we worked towards finalizing the last deliverables and improve certain features. I  mainly focused on cleaning up the cluttered and noisy output of scans with a loading bar which vastly the readability and iterpredibility. Overall this week was productive for all of us as we transition towards the final week before deadline.
+
+## Week 13 Plans
+This is the final week of the semester so we have a lot of tasks that need to be completed. I will be working and helping others with the presentation in class on Wednesday, updating the documentation (DFD, System Architecture, etc.), finalizing project for video demo.
+
+
+# Week 14 (December 1st - 7th)
+
+<img width="800" height="472" alt="image" src="https://github.com/user-attachments/assets/b6459a8c-aa27-4dbd-997f-83adbdb39976" />
+
+## Tasks completed:
+- Worked on the milestone 1 presentation slides
+- Presented milestone 1 in front of class
+- Reworked the feature to distinguish an individual project vs a collaborative project.
+  - Added determine_project_collaboration() function in scan.py that checks git history.
+  - Returns "Collaborative" if project has 2+ unique authors, "Individual" otherwise
+  - Integrated into scan output to display project type at the end of scanningAdded get_project_collaboration_status() in rank_projects.py to count distinct contributors per project from database
+- Fixed the following failing tests
+  - test_zip_scan_persists_nested_files
+  - test_nested_zip_file_paths_are_recorded_with_zip_colon_format
+  - test_cli_saves_resume_to_db
+  - test_print_projects_output
+- Created the group contract.
+- Milestone 1 reflection quiz
+- Approved and reviewed PRs
+- Individual logs
+
+
+## Reflection
+This is the final week of the semester and the deadline for milestone 1. It was a very stressful week with lots of things that needed to get done such as small bugs for features that were hard to film the demo for, the presentation in front of the class, and all the documentation to update and add. Overall, as a team we worked really hard and collaborated very well. Everyone was around to help out and there were no issues in finishing the final touches of the project for this first milestone. I am very pleased how we worked together and were able to get the work done!
+
+## Winter Break plans
+Sleep and relax. Potentially look into APIs and LLMs to integrate.
+
+<br></br>
+# Milsestone 2
+<br></br>
+# Week 1 (January 5th - 11th)
+<img width="799" height="466" alt="image" src="https://github.com/user-attachments/assets/749d4e4d-0293-4f1b-9ba3-0804a918cbb7" />
+
+## Tasks completed:
+- Worked on identifying key roles of a project
+  - Heuristic Role Classification
+  - Role Pattern Mapping
+  - Contribution Breakdown Analysis
+ - Reviewed PRs
+ - Team log
+ - Individual logs
+
+## Reflection
+Overall, this week went pretty well considering we are all coming back from a long break. We all communicated well and were able to push a couple new fetures and lay down the foundation for future improvements. We also took a look at some features from milestone 1 that appeared to lose us some marks which we will address in our weekly checkin this week. This was a positive week for the group as we strive to improve our project.
+
+## Week 2 plans
+- Integrate key roles of users into the menu
+- Look into APIs and LLMs to improve insights. 
+
+
+# T2 Week 2 Logs (January 12th - 18th)
+<img width="798" height="458" alt="image" src="https://github.com/user-attachments/assets/0920c733-8ab2-4cbb-bf7a-a2dd8f19ce9d" />
+
+## Overview
+This week I continued to work on the key roles feature by adding a feature to make it more project centric. Previously it would give a user a role for a combination of all their projects in the database but now there is a feature that shows the role of each user in each project specifically. Additionally, this feature was seperated from the main menu so I added it there with the sufficient menu testing and testing for updates to the key roles feature.
+
+- Closed issue #266
+
+## Refelection
+Overall the team was pretty organized and were able to communicate with each other productively. Team members delivered on new features or improved on existing ones and reviews were conducted quickly and professionally. For the most part, all code was pushed and reviewed before late Sunday. 
+
+## Coding Tasks
+- Updated key roles to be project centric #267
+    - Added load_contributors_per_project_from_db() function to query and analyze contributor roles on a per-project basis
+    - Updated [format_roles_report() to accept optional per-project data and display a "PER-PROJECT CONTRIBUTIONS" section
+    - Report now shows both overall contributor roles and individual project breakdowns with condensed metrics
+    - Added new menu option "11. Analyze Contributor Roles"
+    - Updated exit option from 11 to 12
+
+## Testing and Debugging
+- Added tests for updated project centric key roles and main menu tests
+- Tests validate:
+    - Report formatting with/without per-project data
+    -  Multiple contributors across projects
+    -  Empty project handling
+    -   Role differences across projects
+    -  Overall analysis without per-project
+    -  Per-project breakdown display
+    -  Multiple contributors
+    -  Metrics display validation
+
+## Reviewing and Collaboration
+- Jaxson's FastAPI Integration #264
+- Pri's Feature/custom project wording clean #271
+
+## Issues and Blockers
+- No main issues
+
+## Planned Tasks for next Sprint
+- Fix zip file github project bugs.
+- LLM integration
+
+# T2 Week 3 (January 19th-25th)
+
+<img width="802" height="464" alt="image" src="https://github.com/user-attachments/assets/16e6ca72-b49d-44c8-b92a-d59bc53f41c2" />
+
+## Overview 
+This week I reworked some features of the scanning logic in order to make it possible to scan nested folders and nested zip files. Before, it would treat zip files as one project although there could be multiple projects inside so I worked on the scan so that if there are multiple projects nested, they will all get scanned individually and be stored in the database individually. This implementation fixes a big flaw in our core scanning process and allows for more coverage if people want to scan multiple things at once. 
+
+- Closed issue #289
+
+## Reflection
+Overall the team worked really well together this week. During our checkin we discussed the peer testing coming up and what our priorities should be for that. We all communicated very well and even helped each other out in times of need. I want to give Tanner a big shoutout because he helped me fix a bug with my zip scanning feature and was very helpful, quick to respond, and respectful. We will take this momentum into the next week especially for peer testing. 
+
+## Coding Tasks:
+- Reworked Scan to fix nested folder scans PR #292
+  - Enhanced zip scanning to use extracted_locations when mapping files to repositories so nested projects are persisted correctly.
+  - Updated both zip and directory scans to persist one DB scan per detected project.
+  - Reworked all identify_contributions consumers to support the new nested structure.
+  - Cleaned summary output, no empty/Unknown entries, authors ordered by commit count
+  - Added _find_candidate_project_roots fallback to treat multiple top-level folders as independent projects when .git is absent (e.g., unzipped exports).
+
+ ## Testing and Debugging:
+ - With Tanner's help we removed bugs within resume generation caused by the new scan structure and the outputting the JSON and txt data.
+      - Removed redundant loop from generate_resume.py's username collection logic
+      - Restructured code in both generate_resume.py and generate_portfolio.py to ensure parity between the files, in both code structure, spacing, and comments
+      - Added "Unknown" to the list of blacklisted usernames
+  
+ - Added tests for nested folders #PR 300
+      - test_deeply_nested_folders_recursive: Tests recursive scanning through 4 levels of nested folders
+      - test_deeply_nested_folders_non_recursive: Ensures non-recursive mode only scans root level
+      - test_nested_folders_with_various_file_types: Tests filtering by file type (e.g., .py) across nested folder structure
+      - test_nested_zip_with_multiple_levels: Tests zip files nested 3 levels deep (zip within zip within zip)
+      - test_nested_zip_preserves_path_structure: Confirms nested zip paths use proper colon-separated notation
+      - test_mixed_nested_folders_in_zip: Tests deeply nested folder structures inside zip files (e.g., src/main/java/App.java)
+      - test_empty_nested_folders: Handles edge case of deeply nested empty folders
+      - test_nested_zip_with_empty_folders: Handles zip files containing empty directory entries
+
+## Reviewing and Collaboration
+- Travis' Fix portfolio generation to exclude non-contributor projects #291
+- Pri's Add project resume display name editing #294
+
+## Issues and Blockers
+No main issues or blockers.
+
+## Plans for next week
+- Prepare for peer testing #1.
+- Fix existing bugs from Milestone 1 feedback.
+- Continue researching LLMs.
+

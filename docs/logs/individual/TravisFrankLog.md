@@ -1,3 +1,23 @@
+## Weekly Navigation
+
+### Semester 2
+- [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
+- [Week 1 (Jan 5 – Jan 11, 2026)](#semester-2--week-1-personal-log-january-5th---11th-2026)
+
+### Semester 1
+- [Week 14 (Dec 1 – Dec 7, 2025)](#week-14-personal-log-dec-1st--dec-7th)
+- [Week 13 (Nov 24 – Nov 30, 2025)](#week-13-personal-log-nov-24th--nov-30th)
+- [Week 12 (Nov 10 – Nov 23, 2025)](#week-12-personal-log-nov-10th--nov-23rd)
+- [Week 10 (Nov 3 – Nov 9, 2025)](#week-10-personal-log-nov-3rd--nov-9th)
+- [Week 9 (Oct 27 – Nov 2, 2025)](#week-9-personal-log-oct-27th--nov-2nd)
+- [Week 8 (Oct 20 – Oct 26, 2025)](#week-8-personal-log-oct-20th--oct-26th)
+- [Week 7 (Oct 13 – Oct 19, 2025)](#week-7-personal-log-oct-13th---oct-19th)
+- [Week 6 (Oct 6 – Oct 12, 2025)](#week-6-personal-log-oct-6th---oct-12th)
+- [Week 5 (Sep 29 – Oct 5, 2025)](#week-5-personal-log-sep-29th---oct-5th)
+- [Week 4 (Sep 22 – Sep 28, 2025)](#week-4-personal-log-september-22nd---28th)
+- [Week 3 (Sep 15 – Sep 21, 2025)](#week-3-personal-log-september-15th---21st)
+
+
 # Week 3 Personal Log (September 15th - 21st)
 ---
 Throughout this week we collaborated on project requirments and the set up of our repo/communication. We'll now look towards system design and acrhitecture. 
@@ -159,3 +179,154 @@ In addition to the bug fix, I participated in peer code reviews for PR #131 (Dat
 - Continue reviewing teammate PRs ahead of Milestone 1 submission  
 - Contribute to documentation updates
 - Support final debugging and consistency checks across merged feature
+
+---
+
+# Week 12 Personal Log (Nov 10th – Nov 23rd)
+
+This week I implemented a new contributor-focused project summarization feature. My update (PR #158) added a full implementation of `summarize_projects.py`, which analyzes a contributor’s top-ranked projects from the database, gathers project metadata, and generates one combined summary file. The summary includes languages, skills, frameworks, contribution metrics, ranking breakdowns, and per-project details. The feature resolves project paths, handles missing/invalid paths, aggregates all stats cleanly, and produces a readable multi-section report. It’s completely standalone and can be run manually through the CLI without affecting the main scanning pipeline. I also added a comprehensive test suite covering path resolution, skipping invalid projects, info-gathering behavior, error handling, and limit enforcement. All automated tests passed, and manual runs produced correct summary files.
+
+As a group, I feel we had a solid week. We expanded our reporting tools and kept everything aligned as we move toward the end of Milestone 1. Over the next couple of weeks, we’ll need to come together to tighten up our product for the demo, which I believe we will.
+
+<img width="1107" height="663" alt="Screenshot 2025-11-23 at 5 21 43 PM" src="https://github.com/user-attachments/assets/7b91fd97-37e7-4a08-8ab3-700f9b636ffe" />
+
+## Tasks Completed
+- Added full contributor project summarization feature to `summarize_projects.py` (PR #158)  
+- Implemented complete test suite in `test_summarize_projects.py`  
+- Verified summary reports manually and through pytest  
+- Reviewed PR #157  
+- Reviewed PR #153   
+- Updated project board and personal log  
+
+<img width="1333" height="184" alt="Screenshot 2025-11-23 at 5 43 05 PM" src="https://github.com/user-attachments/assets/6a7ed131-4705-4819-a4de-446b2dbe25a9" />
+
+## Plans for Week 13
+- Continue refining contributor/project reporting tools
+- **Issue #35 (Retrieve Previously-Generated Résumé Item)** to see if we have good enough reports to support retrieval
+- Look into generating résumé/portfolio items **if needed**, depending on how the requirement develops  
+- Look into integrating an LLM
+- Support upcoming PR reviews ahead of Milestone 1 due date  
+- Add documentation for new summary-reporting feature  
+- Begin drafting integration notes for contributor-focused analysis
+
+---
+
+# Week 13 Personal Log (Nov 24th – Nov 30th)
+
+This week I implemented the full `main_menu.py` module (PR #181), which now acts as the unified CLI interface for all major MDA features. The menu consolidates scanning, ranking, project summaries, and full database inspection into one consistent entry point. The update includes a complete set of helper utilities, support for per-project and contributor-level reporting, and a much cleaner workflow for interacting with the SQLite database. I also added a full test suite (`test_main_menu.py`) that covers the deterministic logic in the module, including `safe_query()`, `human_ts()`, and the database inspection handler. All tests passed successfully, and the new menu structure should make the user-facing experience much more organized heading into Milestone 1.
+
+As a group, we also spent time preparing and refining our presentation slides for the Milestone 1 demo. We synced our individual logs, reviewed each other's PRs, and made sure the reporting and analysis features aligned well with what we want to showcase. Overall, it was a productive week, and I feel confident with where our project stands heading into the final stretch of Milestone 1.
+
+<img width="1120" height="626" alt="Screenshot 2025-11-30 at 3 49 41 PM" src="https://github.com/user-attachments/assets/28b83416-5787-4393-8eea-84b8077fe217" />
+
+## Tasks Completed
+- Implemented full unified CLI interface via `main_menu.py` (PR #181)
+- Added complete test suite `test_main_menu.py` with coverage for non-interactive logic
+- Reviewed PR #183 (clean noisy scan output)
+- Reviewed PR #184 (improved framework detection accuracy)
+- Reviewed PR #185 (updated data-access consent policy)
+- Helped prepare team slides for Milestone 1
+- Updated individual log and project board
+
+<img width="1113" height="155" alt="Screenshot 2025-11-30 at 3 52 20 PM" src="https://github.com/user-attachments/assets/c573d6c0-947a-4676-8307-8d91caba22db" />
+
+## Plans for Week 14
+- Continue working on **Issue #35 (Retrieve Previously-Generated Résumé Item)**
+- Complete Milestone 1 video demo
+- Finalize and submit team contract
+- Finish Milestone 1 deliverable
+- Complete Milestone 1 self-reflection
+- Update system architecture for Milestone 2 requirements
+
+---
+
+# Week 14 Personal Log (Dec 1st – Dec 7th)
+
+This week was busy as our team wrapped up the remaining Milestone 1 tasks and finalized our deliverables. We divided the remaining work across the group, and I focused on a mix of development fixes, architecture updates, and documentation as most of our coding was done.
+
+One of my main contributions was **PR #212**, which fixes a Windows file path issue that caused summary generation to fail. The update standardizes how paths are parsed and makes the summary and reporting tools work consistently across both macOS and Windows environments. I also spent time updating our **system architecture diagram** so it accurately reflects the Milestone 1 implementation. This included organizing the layers, clarifying the flow between the CLI, scanners, detection engine, and database, and adding the resume output and consent/config elements. The updated diagram now gives a clean, accurate overview of how the system behaves end-to-end.
+
+I feel it has been a succecsul milestone/semester and am happy with where our project is at thus far.
+
+<img width="1086" height="645" alt="Screenshot 2025-12-07 at 2 24 57 PM" src="https://github.com/user-attachments/assets/b271c4cc-709a-470b-bc03-3f83f974189e" />
+
+## Tasks Completed
+- Submitted **PR #212** fixing Windows file path issues  
+- Updated the system architecture diagram to match Milestone 1 functionality  
+- Reviewed multiple bug-fix PRs from teammates
+- Completed Individual Log
+- Completed Team Log for team this week
+- Participated in final checks for Milestone 1 deliverables 
+
+<img width="1071" height="159" alt="Screenshot 2025-12-07 at 3 39 31 PM" src="https://github.com/user-attachments/assets/22714fb2-33db-4fbd-8822-9a511b7fe9fa" />
+
+Plans for reading break:
+- Begin outlining work for **Milestone 2**
+- Improve summary/report generation pipeline based on milestone feedback
+
+---
+
+# Semester 2 – Week 1 Personal Log (January 5th - 11th, 2026)
+
+During the first week of Semester 2, the team regrouped following the reading break to transition into Milestone 2 development. We reviewed feedback from Milestone 1, clarified technical priorities, and began implementing features aimed at strengthening project traceability and portfolio readiness. My primary focus this week was contributing to the backend design and CLI integration of the Project Evidence module, establishing infrastructure to support richer reporting and résumé-generation outputs later in the milestone.
+
+Overall, this was a highly productive first week back. Establishing a clean, testable evidence layer early in Milestone 2 positions the team well for building more advanced reporting and export features, and I’m excited to see how it integrates with our existing contribution metrics.
+
+<img width="1141" height="683" alt="Screenshot 2026-01-11 at 3 29 15 PM" src="https://github.com/user-attachments/assets/6bcc4a23-a0c7-4351-b55b-3774f07a81ba" />
+
+## Tasks Completed
+ - Reviewed Milestone 1 feedback and helped plan Milestone 2 priorities
+ - Class meeting to go over Milestone 1 deliverables
+ - Implemented **Project Evidence Module** with full backend support (Issue #234, PR #250)
+ - Integrated new **“Manage Project Evidence”** option into the main CLI menu (`main_menu.py`)
+ - Added comprehensive test coverage (`test_project_evidence.py` + menu-related tests)
+ - Updated individual log and synced team progress on the project board
+
+<img width="1071" height="114" alt="Screenshot 2026-01-11 at 3 33 57 PM" src="https://github.com/user-attachments/assets/0007c0f8-906e-428c-8f8f-cd48a301f539" />
+
+### Plans for Week 2
+- Await feedback on Pr #250
+- Begin integrating evidence data into project summary and reporting outputs to complete issue #234
+- Continue reviewing teammate PRs as Milestone 2 development ramps up  
+- Help refine documentation for the evidence management workflow  
+- Participate in team planning sessions to align on LLM integration possibilities and remaining Milestone 2 deliverables  
+
+---
+
+# Semester 2 – Week 2 Personal Log (January 12th – 18th, 2026)
+
+During Week 2 of Semester 2, my focus shifted toward completing the full integration of the Project Evidence feature across downstream outputs and reviewing ongoing team contributions as Milestone 2 development continued. Building on the backend and CLI groundwork established last week, I finalized the flow for surfacing evidence data within résumé and portfolio generation pipelines, ensuring the feature was end-to-end complete and aligned with Milestone 2 objectives. In parallel, I spent time reviewing teammate pull requests and researching potential LLM options to inform future integration decisions.
+
+This week felt like a strong follow-through on earlier design decisions. Completing the evidence integration into résumé and portfolio outputs closes a major Milestone 2 feature and significantly improves the system’s ability to generate meaningful, evidence-backed artifacts.
+
+<img width="981" height="629" alt="Screenshot 2026-01-18 at 3 29 09 PM" src="https://github.com/user-attachments/assets/2c48a6f0-6430-4a27-9400-9f65cafce1c5" />
+
+## Coding Tasks 
+- Integrated **Project Evidence** into résumé and portfolio generation pipelines (Issue #234, PR #265)
+- Completed end-to-end evidence flow across backend, CLI, and export layers, finalizing Milestone 2 evidence support (Issue #234, PR #265)
+- Implemented résumé and portfolio evidence formatting logic, including legacy fallback handling and conditional section rendering (Issue #234, PR #265)
+
+## Testing Tasks
+- **`test_project_evidence.py`**: Validates evidence types and required fields, verifies project lookup behavior, and confirms correct résumé/portfolio evidence formatting with legacy and empty-evidence fallbacks
+- **`test_generate_resume.py`**: Ensures résumé generation appends an *Impact* bullet when evidence exists and remains unchanged when no evidence is present
+- **`test_generate_portfolio.py`**: Verifies the *Evidence of Success* section is conditionally rendered and formatted consistently with other optional sections
+- All automated tests passed after integration changes
+
+## Reviewing / Collaboration Tasks
+- Reviewed and provided feedback on the following pull requests:
+  - PR #261: Portfolio database integration
+  - PR #264: FastAPI integration
+  - PR #267: Update key roles to be project centric
+- Coordinated with teammates to align on Milestone 2 priorities and upcoming integration work
+- Researched potential LLM options and integration approaches for future features
+
+<img width="1069" height="125" alt="Screenshot 2026-01-18 at 3 30 55 PM" src="https://github.com/user-attachments/assets/a84a56cb-914e-403c-9bc8-1091a0f2d21b" />
+
+### Issues / Blockers
+- No major blockers this week. Most challenges involved coordinating evidence formatting across résumé and portfolio outputs, which were resolved through testing and iteration.
+
+### Plans for Week 3
+- Begin active work toward **LLM integration**, informed by research completed this week
+- Continue strengthening and expanding API endpoints to support richer downstream features
+- Start work on Issue #239: *Display textual information about a project as a résumé item*
+- Ongoing PR reviews and collaboration as Milestone 2 development progresses
