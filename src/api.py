@@ -303,8 +303,7 @@ def get_resume(resume_id: int):
 @app.post("/resume/generate", status_code=201)
 def generate_resume(payload: ResumeGenerateRequest):
     # Reuse the resume generator logic used by the CLI.
-    if not os.path.isdir(payload.output_root):
-        raise HTTPException(status_code=400, detail="output_root not found")
+    # output_root retained for backward compatibility but ignored (DB is used)
 
     username = payload.username.strip()
     if not username:
@@ -386,8 +385,7 @@ def get_portfolio(portfolio_id: int):
 @app.post("/portfolio/generate", status_code=201)
 def generate_portfolio(payload: PortfolioGenerateRequest):
     # Reuse the portfolio generator logic used by the CLI.
-    if not os.path.isdir(payload.output_root):
-        raise HTTPException(status_code=400, detail="output_root not found")
+    # output_root retained for backward compatibility but ignored (DB is used)
 
     username = payload.username.strip()
     if not username:

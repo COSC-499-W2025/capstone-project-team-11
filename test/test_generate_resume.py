@@ -1,11 +1,13 @@
-import os
-import sys
-import unittest
-import json
-import tempfile
-import subprocess
 import importlib
+import json
+import os
 import sqlite3
+import subprocess
+import sys
+import tempfile
+import unittest
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
@@ -16,8 +18,70 @@ import project_evidence as pe_mod
 
 class TestGenerateResume(unittest.TestCase):
     def setUp(self):
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        self.output_dir = os.path.join(repo_root, 'output')
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        self._old_env = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = self.db_path
+
+        global db_mod, gr
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+        gr = importlib.reload(gr)
+
+        self.output_dir = self.tmpdir.name
+
+        project_name = 'assignment-5-tcp-and-udp-programming-with-java-jaxsonkahl'
+        project_path = os.path.join(self.tmpdir.name, project_name)
+        git_metrics = {
+            'commits_per_author': {'jaxsonkahl': 4},
+            'lines_added_per_author': {'jaxsonkahl': 120},
+            'files_changed_per_author': {'jaxsonkahl': ['src/Main.java', 'README.md']},
+            'project_start': '2025-01-01 00:00:00',
+            'total_commits': 4,
+        }
+        tech_summary = {
+            'languages': ['Java', 'Python', 'Go', 'TCP'],
+            'frameworks': ['Flask'],
+            'high_confidence_languages': ['Java', 'Python'],
+            'medium_confidence_languages': ['Go'],
+            'low_confidence_languages': ['TCP'],
+            'high_confidence_frameworks': ['Flask'],
+            'medium_confidence_frameworks': [],
+            'low_confidence_frameworks': [],
+        }
+
+        conn = db_mod.get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                (project_name, project_path, json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            for skill in ["Asynchronous Programming", "Database / SQL"]:
+                conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", (skill,))
+                skill_id = conn.execute(
+                    "SELECT id FROM skills WHERE name = ?",
+                    (skill,),
+                ).fetchone()["id"]
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    (project_name,),
+                ).fetchone()["id"]
+                conn.execute(
+                    "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                    (project_id, skill_id),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def tearDown(self):
+        import gc
+        gc.collect()
+        if self._old_env is None:
+            os.environ.pop("FILE_DATA_DB_PATH", None)
+        else:
+            os.environ["FILE_DATA_DB_PATH"] = self._old_env
+        self.tmpdir.cleanup()
 
     def test_normalize_project_name_acronyms(self):
         name = 'assignment-5-tcp-and-udp-programming-with-java-jaxsonkahl'
@@ -51,50 +115,69 @@ class RobustGenerateResumeTests(unittest.TestCase):
         self.output_root = os.path.join(self.tmpdir.name, 'output')
         os.makedirs(self.output_root, exist_ok=True)
 
-        # Create a fake project directory with an info JSON
-        proj_dir = os.path.join(self.output_root, 'assignment-5-tcp-and-udp-programming-with-java-alice')
-        os.makedirs(proj_dir, exist_ok=True)
-        project_info = {
-            'project_name': 'assignment-5-tcp-and-udp-programming-with-java-alice',
-            'project_path': proj_dir,
-            'detected_type': 'coding_project',
-            'languages': ['Java', 'Python', 'Go', 'TCP'],
-            'frameworks': ['Flask'],
-            'skills': ['Asynchronous Programming', 'Database / SQL'],
-            'contributions': {
-                'alice': {
-                    'commits': 3,
-                    'files': ['src/Main.java', 'README.md']
-                },
-                'githubclassroombot': {
-                    'commits': 1,
-                    'files': ['bot.txt']
-                }
-            },
-            'git_metrics': {
-                'lines_added_per_author': {'alice': 120, 'githubclassroombot': 50},
-                'project_start': '2025-01-01 00:00:00'
-            }
-        }
-        info_path = os.path.join(proj_dir, 'assignment-5-tcp-and-udp-programming-with-java-alice_info_20251127.json')
-        with open(info_path, 'w', encoding='utf-8') as fh:
-            json.dump(project_info, fh)
-
-        # Create a root-level contributions JSON
-        root_contrib = {
-            'commits_per_author': {'alice': 3, 'githubclassroombot': 2},
-            'lines_added_per_author': {'alice': 120, 'githubclassroombot': 50}
-        }
-        with open(os.path.join(self.output_root, 'contributions_git_test.json'), 'w', encoding='utf-8') as fh:
-            json.dump(root_contrib, fh)
-
         self.resume_dir = os.path.join(self.tmpdir.name, 'resumes')
         os.makedirs(self.resume_dir, exist_ok=True)
+
+        self.db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        self._old_env = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = self.db_path
+
+        global db_mod, gr
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+        gr = importlib.reload(gr)
+
+        project_name = 'assignment-5-tcp-and-udp-programming-with-java-alice'
+        project_path = os.path.join(self.tmpdir.name, project_name)
+        git_metrics = {
+            'commits_per_author': {'alice': 3, 'githubclassroombot': 1},
+            'lines_added_per_author': {'alice': 120, 'githubclassroombot': 50},
+            'files_changed_per_author': {'alice': ['src/Main.java', 'README.md']},
+            'project_start': '2025-01-01 00:00:00',
+            'total_commits': 4,
+        }
+        tech_summary = {
+            'languages': ['Java', 'Python', 'Go', 'TCP'],
+            'frameworks': ['Flask'],
+            'high_confidence_languages': ['Java', 'Python'],
+            'medium_confidence_languages': ['Go'],
+            'low_confidence_languages': ['TCP'],
+            'high_confidence_frameworks': ['Flask'],
+            'medium_confidence_frameworks': [],
+            'low_confidence_frameworks': [],
+        }
+        conn = db_mod.get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                (project_name, project_path, json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            for skill in ["Asynchronous Programming", "Database / SQL"]:
+                conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", (skill,))
+                skill_id = conn.execute(
+                    "SELECT id FROM skills WHERE name = ?",
+                    (skill,),
+                ).fetchone()["id"]
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    (project_name,),
+                ).fetchone()["id"]
+                conn.execute(
+                    "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                    (project_id, skill_id),
+                )
+            conn.commit()
+        finally:
+            conn.close()
 
     def tearDown(self):
         # Close any lingering SQLite connections before cleanup (Windows)
         import gc
         gc.collect()
+        if self._old_env is None:
+            os.environ.pop("FILE_DATA_DB_PATH", None)
+        else:
+            os.environ["FILE_DATA_DB_PATH"] = self._old_env
         self.tmpdir.cleanup()
 
     def test_normalize_project_name(self):
@@ -130,7 +213,25 @@ class RobustGenerateResumeTests(unittest.TestCase):
             project_name = 'assignment-5-tcp-and-udp-programming-with-java-alice'
             conn = db_local.get_connection()
             try:
-                conn.execute("INSERT INTO projects (name) VALUES (?)", (project_name,))
+                git_metrics = {
+                    'commits_per_author': {'alice': 1},
+                    'lines_added_per_author': {'alice': 10},
+                    'files_changed_per_author': {'alice': ['src/Main.java']},
+                }
+                tech_summary = {
+                    'languages': ['Java'],
+                    'frameworks': ['Flask'],
+                    'high_confidence_languages': ['Java'],
+                    'medium_confidence_languages': [],
+                    'low_confidence_languages': [],
+                    'high_confidence_frameworks': ['Flask'],
+                    'medium_confidence_frameworks': [],
+                    'low_confidence_frameworks': [],
+                }
+                conn.execute(
+                    "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                    (project_name, '/tmp/project', json.dumps(git_metrics), json.dumps(tech_summary)),
+                )
                 project_id = conn.execute(
                     "SELECT id FROM projects WHERE name = ?",
                     (project_name,),
@@ -160,7 +261,7 @@ class RobustGenerateResumeTests(unittest.TestCase):
     def test_cli_generates_file_and_respects_blacklist(self):
         # Run CLI to generate for alice
         cmd = [sys.executable, os.path.join('src', 'generate_resume.py'), '--output-root', self.output_root, '--resume-dir', self.resume_dir, '--username', 'alice']
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, capture_output=True, text=True, env=os.environ.copy())
         self.assertEqual(proc.returncode, 0, msg=f"stdout:{proc.stdout}\nstderr:{proc.stderr}")
         # Find generated file
         files = os.listdir(self.resume_dir)
@@ -168,13 +269,13 @@ class RobustGenerateResumeTests(unittest.TestCase):
 
         # Attempt to generate for bot (should be blocked)
         cmd_bot = [sys.executable, os.path.join('src', 'generate_resume.py'), '--output-root', self.output_root, '--resume-dir', self.resume_dir, '--username', 'githubclassroombot']
-        proc2 = subprocess.run(cmd_bot, capture_output=True, text=True)
+        proc2 = subprocess.run(cmd_bot, capture_output=True, text=True, env=os.environ.copy())
         self.assertNotEqual(proc2.returncode, 0)
         self.assertIn("Generation disabled for user 'githubclassroombot'", proc2.stdout + proc2.stderr)
 
         # Now override with --allow-bots
         cmd_bot_allow = [sys.executable, os.path.join('src', 'generate_resume.py'), '--output-root', self.output_root, '--resume-dir', self.resume_dir, '--username', 'githubclassroombot', '--allow-bots']
-        proc3 = subprocess.run(cmd_bot_allow, capture_output=True, text=True)
+        proc3 = subprocess.run(cmd_bot_allow, capture_output=True, text=True, env=os.environ.copy())
         self.assertEqual(proc3.returncode, 0, msg=f"stdout:{proc3.stdout}\nstderr:{proc3.stderr}")
         files2 = os.listdir(self.resume_dir)
         self.assertTrue(any(f.startswith('resume_githubclassroombot_') and f.endswith('.md') for f in files2))
@@ -189,6 +290,35 @@ class RobustGenerateResumeTests(unittest.TestCase):
         import db as db_mod
         db_mod = importlib.reload(db_mod)
         db_mod.init_db()
+
+        project_name = 'assignment-5-tcp-and-udp-programming-with-java-alice'
+        project_path = os.path.join(self.tmpdir.name, project_name)
+        git_metrics = {
+            'commits_per_author': {'alice': 3},
+            'lines_added_per_author': {'alice': 120},
+            'files_changed_per_author': {'alice': ['src/Main.java', 'README.md']},
+            'project_start': '2025-01-01 00:00:00',
+            'total_commits': 3,
+        }
+        tech_summary = {
+            'languages': ['Java', 'Python'],
+            'frameworks': ['Flask'],
+            'high_confidence_languages': ['Java', 'Python'],
+            'medium_confidence_languages': [],
+            'low_confidence_languages': [],
+            'high_confidence_frameworks': ['Flask'],
+            'medium_confidence_frameworks': [],
+            'low_confidence_frameworks': [],
+        }
+        conn = db_mod.get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                (project_name, project_path, json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
         cmd = [
             sys.executable, os.path.join('src', 'generate_resume.py'),

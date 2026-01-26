@@ -26,7 +26,7 @@ def regenerate_portfolio(username: str, portfolio_path: str, output_root: str = 
     Args:
         username: GitHub username
         portfolio_path: Full path to overwrite
-        output_root: Path to scanned project JSON files
+        output_root: Deprecated (DB is used)
         confidence_level: 'high', 'medium', or 'low' for tech confidence filtering
         save_to_db: If True, save portfolio metadata to DB
     """
@@ -34,8 +34,7 @@ def regenerate_portfolio(username: str, portfolio_path: str, output_root: str = 
         raise ValueError("username is required")
     if not portfolio_path:
         raise ValueError("portfolio_path is required")
-    if not os.path.isdir(output_root):
-        raise ValueError(f"output_root not found: {output_root}")
+    # output_root retained for compatibility but ignored
 
     os.makedirs(os.path.dirname(portfolio_path), exist_ok=True)
 
@@ -44,7 +43,7 @@ def regenerate_portfolio(username: str, portfolio_path: str, output_root: str = 
     portfolio_projects = aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons)
 
     if not portfolio_projects:
-        raise ValueError(f"No projects found for user '{username}' in {output_root}")
+        raise ValueError(f"No projects found for user '{username}' in the database")
 
     # --- 2. Build portfolio object ---
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
@@ -90,7 +89,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Regenerate an existing portfolio (overwrites file).")
     parser.add_argument("--username", "-u", required=True, help="GitHub username")
     parser.add_argument("--portfolio-path", "-p", required=True, help="Path to the existing portfolio file to overwrite")
-    parser.add_argument("--output-root", "-r", default="output", help="Path to output folder with project JSONs")
+    parser.add_argument("--output-root", "-r", default="output", help="Deprecated: output folder path is ignored (DB is used)")
     parser.add_argument("--confidence", "-c", choices=["high", "medium", "low"], default="high", help="Confidence filter for languages/frameworks")
     parser.add_argument("--save-to-db", action="store_true", help="Save portfolio metadata to DB")
 

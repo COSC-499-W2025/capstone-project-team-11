@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a resume Markdown for a specified username from the `output/` folder.
+"""Generate a resume Markdown for a specified username from the database.
 
 Usage:
   python3 src/generate_resume.py --username <github_username>
 
-The script reads JSON and summary files in `output/`, aggregates project-level
+The script reads project data from the local database, aggregates project-level
 facts, and writes `resumes/<username>_resume.md`.
 """
 import argparse
@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sqlite3
-from db import get_project_display_name
+from db import get_project_display_name, load_projects_for_generation
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
@@ -124,30 +124,9 @@ def extract_project_jsons(output_root):
     return project_jsons
 
 
-def collect_projects(output_root):
-    projects = {}
-    # Find project-level info JSON files (project_info jsons)
-    for dirpath, dirs, files in os.walk(output_root):
-        for f in files:
-            if f.endswith('.json'):
-                p = os.path.join(dirpath, f)
-                j = load_json(p)
-                if not j:
-                    continue
-                # Heuristic: project info JSONs contain 'project_name' key
-                if isinstance(j, dict) and 'project_name' in j:
-                    name = j.get('project_name')
-                    projects[name] = j
-    # Also load root contributions JSONs (repo-level metrics)
-    root_repo_jsons = {}
-    for f in os.listdir(output_root):
-        if f.endswith('.json'):
-            p = os.path.join(output_root, f)
-            j = load_json(p)
-            if j:
-                root_repo_jsons[f] = j
-
-    return projects, root_repo_jsons
+def collect_projects(output_root=None):
+    # output_root is ignored; data is loaded from the database
+    return load_projects_for_generation()
 
 
 def aggregate_for_user(username, projects, root_repo_jsons):
@@ -243,7 +222,7 @@ def render_markdown(agg, generated_ts=None):
     md.append('## Projects')
     md.append('')
     if not agg['projects']:
-        md.append('- No project-specific contributions found for this user in `output/`.')
+        md.append('- No project-specific contributions found for this user in the database.')
     for p in agg['projects']:
         name = p.get('project_name')
 
@@ -263,13 +242,12 @@ def render_markdown(agg, generated_ts=None):
         files = p.get('user_files') or []
 
         md.append(line)
-        if p.get('path'):
-            md.append(f"- Path: `{p.get('path')}`")
+        
         # generate 2-4 bullets similar to earlier style
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []
         if commits:
-            bullets.append(f"Implemented features and fixes across the codebase ({commits} commits); files changed: {len(files)}.")
+         bullets.append("Contributed features and fixes across the codebase in collaboration with the team.")
         if techs:
             bullets.append(f"Technologies: {techs}.")
         if skills:
@@ -292,47 +270,44 @@ def render_markdown(agg, generated_ts=None):
             md.append(f"- {b}")
         md.append('')
 
-    md.append('## Evidence & Metrics')
-    md.append('')
-    md.append(f"- Total commits (detected): {agg.get('total_commits', 0)}")
-    md.append(f"- Total lines added (detected): {agg.get('total_lines_added', 0)}")
+    
     md.append('')
     md.append(f"_Generated (UTC): {date}_")
     return '\n'.join(md)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate resume Markdown from output/ for a given username')
+    parser = argparse.ArgumentParser(description='Generate resume Markdown from the database for a given username')
     parser.add_argument('--username', '-u', required=False, help='GitHub username (as found in output contributions). If omitted, the script will prompt.')
-    parser.add_argument('--output-root', '-r', default='output', help='Path to the output folder')
+    parser.add_argument('--output-root', '-r', default='output', help='Deprecated: output folder path is ignored (DB is used)')
+    # output-root retained for CLI compatibility but ignored (DB is used)
     parser.add_argument('--resume-dir', '-d', default='resumes', help='Directory to write generated resumes')
     parser.add_argument('--allow-bots', action='store_true', help='Allow generating resumes for known bot accounts (not recommended)')
     parser.add_argument('--save-to-db', action='store_true', help='Save generated resume metadata to the database')
     args = parser.parse_args()
 
-    if not os.path.isdir(args.output_root):
-        print(f"Output folder not found: {args.output_root}")
-        return 1
+    # output_root is retained for CLI compatibility but is no longer used
 
     # Blacklist of usernames to avoid suggesting or generating resumes for
-    BLACKLIST = {'githubclassroombot'}
+    BLACKLIST = {'githubclassroombot', 'Unknown'}
 
     # If username not provided, attempt to list detected usernames and prompt the user
     username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
+    
     if not username:
+        # Discover possible usernames from project contributions
         candidates = set()
         for info in projects.values():
             contribs = info.get('contributions') or {}
+            # Handle nested contributions structure
+            if isinstance(contribs.get('contributions'), dict):
+                contribs = contribs['contributions']
             candidates.update(contribs.keys())
-        for fname, j in root_repo_jsons.items():
-            if isinstance(j, dict):
-                candidates.update(j.keys())
-        # remove blacklisted names from suggestions
         candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
         if not candidates:
-            print('No candidate usernames detected in `output/`.')
+            print('No candidate usernames detected in the database.')
             try:
                 user_in = input('Enter username to generate resume for: ').strip()
             except EOFError:

@@ -241,10 +241,17 @@ def handle_project_evidence():
     cur = conn.cursor()
     try:
         # Check if projects exist
-        cur.execute("SELECT id, name, repo_url FROM projects ORDER BY name")
-        projects = cur.fetchall()
+        try:
+            cur.execute("SELECT id, name, repo_url FROM projects ORDER BY name")
+            projects = cur.fetchall()
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e):
+                print("No projects found. Please scan a project first before managing evidence.")
+                return
+            raise
+
         if not projects:
-            print("No projects found in the database.")
+            print("No projects found in the database. Please scan a project first.")
             return
 
         # Display projects

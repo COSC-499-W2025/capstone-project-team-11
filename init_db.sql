@@ -45,7 +45,10 @@ CREATE TABLE IF NOT EXISTS projects (
     custom_name TEXT,              -- resume display name override
     repo_url TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    thumbnail_path TEXT
+    thumbnail_path TEXT,
+    project_path TEXT,
+    git_metrics_json TEXT,
+    tech_json TEXT
 );
 
 

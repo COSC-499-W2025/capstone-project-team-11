@@ -1,10 +1,13 @@
-import os
-import sys
-import unittest
-import json
-import tempfile
-import subprocess
 import importlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 import generate_portfolio as gp
 import db as db_mod
@@ -131,6 +134,28 @@ class TestGeneratePortfolio(unittest.TestCase):
         project_names = [p['project_name'] for p in portfolio_projects]
         self.assertIn('UserProject', project_names)
         self.assertIn('NonGitProject', project_names)
+
+    # Verify aggregation excludes git projects without user contributions
+    def test_aggregate_projects_excludes_non_contributor_git_project(self):
+        all_projects = {
+            'OtherUserProject': {
+                'project_path': '/other',
+                'languages': ['Python'],
+                'frameworks': [],
+                'skills': ['Testing'],
+                'contributions': {
+                    'alice': {'commits': 5, 'files': ['a.py']}
+                },
+                'git_metrics': {
+                    'total_commits': 5
+                }
+            }
+        }
+
+        portfolio_projects = gp.aggregate_projects_for_portfolio('john', all_projects, {})
+
+        # project should be excluded
+        self.assertEqual(portfolio_projects, [])
 
     # Verify complete portfolio has all required sections and metadata
     def test_build_portfolio_structure(self):
@@ -274,39 +299,73 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
         self.output_root = os.path.join(self.tmpdir.name, 'output')
         os.makedirs(self.output_root, exist_ok=True)
 
-        # Create fake project with contributions
-        proj_dir = os.path.join(self.output_root, 'test-project-john')
-        os.makedirs(proj_dir, exist_ok=True)
-        project_info = {
-            'project_name': 'test-project-john',
-            'project_path': proj_dir,
-            'detected_type': 'coding_project',
-            'languages': ['Python', 'JavaScript'],
-            'frameworks': ['React'],
-            'skills': ['Web Development'],
-            'contributions': {
-                'john': {'commits': 10, 'files': ['app.py', 'index.js']},
-                'jane': {'commits': 5, 'files': ['test.py']}
-            },
-            'git_metrics': {
-                'total_commits': 15,
-                'duration_days': 30,
-                'commits_per_author': {'john': 10, 'jane': 5},
-                'project_start': '2025-01-01 00:00:00'
-            }
-        }
-        info_path = os.path.join(proj_dir, 'test-project-john_info_20260111.json')
-        with open(info_path, 'w', encoding='utf-8') as fh:
-            json.dump(project_info, fh)
-
         self.portfolio_dir = os.path.join(self.tmpdir.name, 'portfolios')
         os.makedirs(self.portfolio_dir, exist_ok=True)
+
+        self.db_path = os.path.join(self.tmpdir.name, 'file_data.db')
+        self._old_env = os.environ.get("FILE_DATA_DB_PATH")
+        os.environ["FILE_DATA_DB_PATH"] = self.db_path
+
+        global db_mod, gp, collect_projects
+        db_mod = importlib.reload(db_mod)
+        db_mod.init_db()
+        gp = importlib.reload(gp)
+        gr_local = importlib.import_module("generate_resume")
+        gr_local = importlib.reload(gr_local)
+        collect_projects = gr_local.collect_projects
+
+        project_name = 'test-project-john'
+        project_path = os.path.join(self.tmpdir.name, project_name)
+        git_metrics = {
+            'total_commits': 15,
+            'duration_days': 30,
+            'commits_per_author': {'john': 10, 'jane': 5},
+            'lines_added_per_author': {'john': 120, 'jane': 40},
+            'files_changed_per_author': {'john': ['app.py', 'index.js'], 'jane': ['test.py']},
+            'project_start': '2025-01-01 00:00:00',
+        }
+        tech_summary = {
+            'languages': ['Python', 'JavaScript'],
+            'frameworks': ['React'],
+            'high_confidence_languages': ['Python', 'JavaScript'],
+            'medium_confidence_languages': [],
+            'low_confidence_languages': [],
+            'high_confidence_frameworks': ['React'],
+            'medium_confidence_frameworks': [],
+            'low_confidence_frameworks': [],
+        }
+        conn = db_mod.get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO projects (name, project_path, git_metrics_json, tech_json) VALUES (?, ?, ?, ?)",
+                (project_name, project_path, json.dumps(git_metrics), json.dumps(tech_summary)),
+            )
+            conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", ("Web Development",))
+            skill_id = conn.execute(
+                "SELECT id FROM skills WHERE name = ?",
+                ("Web Development",),
+            ).fetchone()["id"]
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                (project_name,),
+            ).fetchone()["id"]
+            conn.execute(
+                "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                (project_id, skill_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
     # Clean up temporary directories after tests
     def tearDown(self):
         # Close any lingering SQLite connections before cleanup (Windows)
         import gc
         gc.collect()
+        if self._old_env is None:
+            os.environ.pop("FILE_DATA_DB_PATH", None)
+        else:
+            os.environ["FILE_DATA_DB_PATH"] = self._old_env
         self.tmpdir.cleanup()
 
     # Verify project collection, aggregation, and full portfolio building
@@ -330,7 +389,7 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
             '--portfolio-dir', self.portfolio_dir,
             '--username', 'john'
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, capture_output=True, text=True, env=os.environ.copy())
         self.assertEqual(proc.returncode, 0, msg=f"stdout:{proc.stdout}\nstderr:{proc.stderr}")
 
         # Verify file was created

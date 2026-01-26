@@ -9,7 +9,7 @@ import os
 import json
 import re
 from datetime import datetime
-from db import save_resume
+from db import save_resume, load_projects_for_generation
 
 # Common acronyms to preserve capitalization
 ACRONYMS = {
@@ -52,18 +52,9 @@ def load_json(path):
         return None
 
 
-def collect_projects(output_root):
-    """Collect project JSONs from output folder"""
-    projects = {}
-    for dirpath, dirs, files in os.walk(output_root):
-        for f in files:
-            if f.endswith('.json'):
-                p = os.path.join(dirpath, f)
-                j = load_json(p)
-                if not j:
-                    continue
-                if isinstance(j, dict) and 'project_name' in j:
-                    projects[j['project_name']] = j
+def collect_projects(output_root=None):
+    """Collect project data from the database (output_root ignored)."""
+    projects, _ = load_projects_for_generation()
     return projects
 
 
@@ -171,8 +162,7 @@ def regenerate_resume(username: str, resume_path: str, output_root: str = "outpu
         raise ValueError("username is required")
     if not resume_path:
         raise ValueError("resume_path is required")
-    if not os.path.isdir(output_root):
-        raise ValueError(f"output_root not found: {output_root}")
+    # output_root retained for compatibility but ignored
 
     os.makedirs(os.path.dirname(resume_path), exist_ok=True)
 

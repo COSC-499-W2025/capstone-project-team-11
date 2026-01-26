@@ -1,5 +1,5 @@
 # Generates a project-centric portfolio Markdown file using scanned project summaries
-# The script reads project JSON files in output/, and aggregates relevant project-level details
+# The script reads project data from the local database and aggregates project-level details
 # It then writes the generated portfolio to: portfolios/portfolio_<username>_<timestamp>.md
 """
 TODO: Once we have a frontend UI, I expect this to be a two column window: 
@@ -396,7 +396,10 @@ def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=Non
         )
 
         # Aggregates project data for portfolio
-        if user_entry or has_metadata:
+        # Include project if:
+        # - user explicitly contributed (git-tracked project), OR
+        # - project has no git contributors at all but has metadata (assumed solo / non-git project)
+        if user_entry or (not contribs and has_metadata):  # Include only if user contributed OR project has no git data
             project = {
                 'project_name': name,
                 'path': info.get('project_path'),
@@ -466,7 +469,7 @@ def build_portfolio(username, projects_data, generated_ts=None, confidence_level
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate portfolio Markdown from output/ for a given username'
+        description='Generate portfolio Markdown from the database for a given username'
     )
     parser.add_argument(
         '--username', '-u',
@@ -476,7 +479,7 @@ def main():
     parser.add_argument(
         '--output-root', '-r',
         default='output',
-        help='Path to the output folder (default: output)'
+        help='Deprecated: output folder path is ignored (DB is used)'
     )
     parser.add_argument(
         '--portfolio-dir', '-d',
@@ -502,14 +505,12 @@ def main():
     )
     args = parser.parse_args()
 
-    if not os.path.isdir(args.output_root):
-        print(f"Output folder not found: {args.output_root}")
-        return 1
+    # output_root retained for CLI compatibility but ignored
 
     # Blacklist of usernames to exclude
-    BLACKLIST = {'githubclassroombot'}
+    BLACKLIST = {'githubclassroombot', 'Unknown'}
 
-    # Username selection (interactive if not provided)
+    # If username not provided, attempt to list detected usernames and prompt the user
     username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
 
@@ -518,11 +519,14 @@ def main():
         candidates = set()
         for info in projects.values():
             contribs = info.get('contributions') or {}
+            # Handle nested contributions structure
+            if isinstance(contribs.get('contributions'), dict):
+                contribs = contribs['contributions']
             candidates.update(contribs.keys())
         candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
         if not candidates:
-            print('No candidate usernames detected in `output/`.')
+            print('No candidate usernames detected in the database.')
             try:
                 username = input('Enter username to generate portfolio for: ').strip()
             except EOFError:
@@ -565,7 +569,7 @@ def main():
     portfolio_projects = aggregate_projects_for_portfolio(username, projects, root_repo_jsons)
 
     if not portfolio_projects:
-        print(f"No projects found for user '{username}' in {args.output_root}")
+        print(f"No projects found for user '{username}' in the database")
         return 1
 
     # Build portfolio with timestamps and confidence filter

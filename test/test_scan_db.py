@@ -1,11 +1,13 @@
-import os
-import sys
-import tempfile
-import shutil
-import zipfile
 import io
 import json
+import os
+import shutil
+import sys
+import tempfile
 import unittest
+import zipfile
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 

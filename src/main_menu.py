@@ -12,14 +12,16 @@ This module provides a unified CLI interface for:
 
 import os
 import sys
-import sqlite3
-import subprocess
-from datetime import datetime
-from db import list_projects_for_display, set_project_display_name
-import re
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+import sqlite3
+import subprocess
+from datetime import datetime
+import re
+
+from db import list_projects_for_display, set_project_display_name
 
 # Import all feature modules
 from scan import run_with_saved_settings
@@ -60,7 +62,8 @@ def print_main_menu():
     print("9. View Resumes")
     print("10. View Portfolios")
     print("11. Analyze Contributor Roles")
-    print("12. Exit")
+    print("12. Edit Project Resume Display Names") 
+    print("13. Exit")
 
 
 def handle_scan_directory():
@@ -174,8 +177,21 @@ def handle_scan_directory():
         project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
         out_dir = os.path.join("output", project_name)
         os.makedirs(out_dir, exist_ok=True)
-        json_path, txt_path = output_project_info(info, output_dir=out_dir)
-        print(f"Summary reports saved to: {out_dir}")
+        json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
+        # Display saved report files
+        try:
+            if isinstance(json_paths, list) and isinstance(txt_paths, list):
+                print(f"Summary reports saved to: {out_dir}")
+                for jp in json_paths:
+                    if jp:
+                        print(f"  JSON: {jp}")
+                for tp in txt_paths:
+                    if tp:
+                        print(f"  TXT : {tp}")
+            else:
+                print(f"Summary reports saved to: {out_dir}")
+        except Exception:
+            print(f"Summary reports saved to: {out_dir}")
     except Exception as e:
         print(f"Failed to generate summary report: {e}")
 
@@ -439,14 +455,55 @@ def handle_rank_projects():
 def handle_summarize_contributor_projects():
     """Handle generating summary for top-ranked projects by contributor."""
     print("\n=== Summarize Contributor Projects ===")
-    contributor_name = input("Enter contributor name: ").strip()
+    
+    BLACKLIST = {"githubclassroombot", "unknown"}
+    
+    # Query contributors from the database
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT name FROM contributors;")
+        raw_contributors = [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch contributors: {e}")
+        return
+    finally:
+        cur.close()
+    
+    # Normalize contributor names into canonical usernames
+    def normalize_username(name: str) -> str:
+        return ''.join(c for c in name.lower() if c.isalnum())
+    
+    canonical_usernames = sorted(
+        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
+    )
+    
+    # Display canonical usernames
+    if canonical_usernames:
+        print("\nDetected candidate usernames:")
+        for idx, username in enumerate(canonical_usernames, 1):
+            print(f"  {idx}. {username}")
+        print("Press Enter to manually type a username.")
+    
+    # Prompt for contributor selection
+    contributor_name = input("\nSelect a username by number or type it manually: ").strip()
+    if contributor_name.isdigit():
+        contributor_index = int(contributor_name) - 1
+        if 0 <= contributor_index < len(canonical_usernames):
+            contributor_name = canonical_usernames[contributor_index]
+        else:
+            print("[ERROR] Invalid selection. Returning to main menu.")
+            return
+    
     if not contributor_name:
-        print("No contributor name provided.")
+        print("[ERROR] No username provided. Returning to main menu.")
         return
     
+    # Prompt for optional project limit
     limit_input = input("Limit number of top projects (leave blank for all): ").strip()
     limit = int(limit_input) if limit_input.isdigit() else None
     
+    # Call summarize_top_ranked_projects
     try:
         results = summarize_top_ranked_projects(
             contributor_name=contributor_name,
@@ -454,7 +511,7 @@ def handle_summarize_contributor_projects():
         )
         print(f"\nProcessed {len(results)} project(s).")
     except Exception as e:
-        print(f"Error generating contributor projects summary: {e}")
+        print(f"[ERROR] Failed to generate contributor projects summary: {e}")
 
 
 def handle_generate_project_summary():
@@ -481,8 +538,7 @@ def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
     Delegates username prompting and candidate listing entirely to the
-    generate_resume script. After generation, optionally allows editing
-    project display names and re-generating the resume.
+    generate_resume script.
     """
     print("\n=== Generate Resume ===")
 
@@ -494,30 +550,16 @@ def handle_generate_resume():
     cmd = [sys.executable, script_path, '--save-to-db']
 
     try:
-        # Run the resume generator and inherit stdio so it can prompt the user
         result = subprocess.run(cmd)
-
         if result.returncode != 0:
             print(f"Resume generator exited with code {result.returncode}")
             return
 
-        # Ask if the user wants to edit project display names
-        edit_choice = input(
-            "\nWould you like to edit project names used on the resume? (y/n): "
-        ).strip().lower()
-
-        if edit_choice == "y":
-            handle_edit_project_display_name()
-
-            regen_choice = input(
-                "\nRe-generate resume now to apply changes? (y/n): "
-            ).strip().lower()
-
-            if regen_choice == "y":
-                subprocess.run(cmd)
+        print("\nResume generated. (Tip: use option 12 to edit project display names.)")
 
     except Exception as e:
         print(f"Failed to run resume generator: {e}")
+
 
         
 def handle_edit_project_display_name():
@@ -532,12 +574,19 @@ def handle_edit_project_display_name():
 
     print("\nProjects:")
     for idx, p in enumerate(projects, start=1):
-        current = p["custom_name"] or "(default)"
-        print(f"  {idx}. {p['name']}  ->  {current}")
+        custom = (p["custom_name"] or "").strip()
+        default = p["name"]
+        display = custom or default
+
+        if custom:
+         print(f"  {idx}. {display}  [custom | default: {default}]")
+        else:
+         print(f"  {idx}. {display}  (default)")
+
 
     choice = input(
-        "\nSelect a project number to edit (blank to cancel): "
-    ).strip()
+    "\nEnter the project number from the list above to edit (blank to cancel): "
+).strip()
 
     if not choice:
         return
@@ -555,7 +604,6 @@ def handle_edit_project_display_name():
     print("Leave blank to clear the custom name and use the default.")
 
     new_name = input("New display name: ").strip()
-
     set_project_display_name(project_name, new_name or None)
 
     if new_name:
@@ -960,7 +1008,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-12): ").strip()
+        choice = input("\nSelect an option (1-13): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -985,14 +1033,14 @@ def main():
         elif choice == "11":
             handle_analyze_roles()
         elif choice == "12":
+            handle_edit_project_display_name()
+        elif choice == "13":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-12.")
+            print("\nInvalid option. Please select a number between 1-13.")
 
-        # Pause before returning to menu
         input("\nPress Enter to return to main menu...")
-
 
 if __name__ == "__main__":
     main()
