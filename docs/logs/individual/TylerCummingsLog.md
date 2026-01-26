@@ -285,7 +285,56 @@ Focus of the week was extending the incremental portfolio/resume workflow and in
 
 <img width="1507" height="722" alt="image" src="https://github.com/user-attachments/assets/5488036b-cc22-475f-ae3d-6f6f2a4adc9b" />
 
+# Tyler's T2 Week 3 Personal Log (12-18 Jan.)
+[Back to Term 2 Navigation](#)
 
+Focus of the week was extending the incremental portfolio/resume workflow and integrating headless portfolio regeneration. This builds upon last week's work on resume incremental updates. I completed the portfolio portion of the incremental addition, ensuring that new project folders or zip files could be added to existing portfolios, with overwrite functionality and full tests. Additionally, I implemented full database schema initialization with proper foreign key constraints and cascade rules, and wrote comprehensive tests to ensure schema integrity.
+
+<img width="983" height="572" alt="image" src="https://github.com/user-attachments/assets/af23d11a-8150-44db-bee6-92473bad0997" />
+
+---
+
+## Coding Tasks
+
+- Implemented the “add new project to existing portfolio” feature in main_menu.py for interactive and headless workflows.
+- Developed portfolio_scan in regenerate_portfolio_scan.py to handle directory or zip scans for portfolio regeneration.
+- Implemented regenerate_portfolio.py logic to overwrite existing portfolio Markdown files, including --overwrite flag functionality.
+- Updated generate_portfolio.py to integrate overwrite functionality and confidence-level filtering for languages/frameworks.
+- Created _ensure_schema in db.py to initialize the full database schema with tables, foreign keys, join tables, indexes, and cascade rules for project evidence.
+- Verified foreign key constraints and ON DELETE CASCADE behavior for relevant tables.
+
+---
+
+## Testing / Debugging Tasks
+- Wrote unit tests for database schema initialization (test_db_schema_init.py) to verify:
+  - All expected tables are created.
+  - All indexes exist.
+  - Default values (like scanned_at) are set correctly.
+  - Foreign key constraints and cascading deletes work properly.
+- Extended tests to cover join tables and ensure integrity of relationships between files, contributors, languages, and skills.
+- Verified all tests pass with in-memory SQLite database to avoid side effects.
+- Debugged foreign key errors and ensured schema is fully compatible with existing portfolio and resume workflows.
+
+---
+
+## Reviewing / Collaboration Tasks
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #294], [PR #300], [PR #267]).
+- Documented PR contributions with filled-out PR template reflecting portfolio changes, overwrite functionality, and testing procedures.
+- Maintained communication with the team on any issues encountered with output folder structures and database metadata handling.
+
+---
+
+## Blockers / Issues
+- Minor conflicts when integrating database schema updates with existing portfolio/resume regeneration workflows. Resolved by updating schema and test coverage to reflect new relationships.
+
+---
+
+## T2 Week 4 Plans
+- Work on polishing any features that have bugs or need improvements for peer testing
+- Set up peer testing environment
+- Practice presenting and running peer testing
+
+<img width="1908" height="886" alt="image" src="https://github.com/user-attachments/assets/ee53cfd6-5fba-4212-b887-dfbbe5b4bc49" />
 
 
 
