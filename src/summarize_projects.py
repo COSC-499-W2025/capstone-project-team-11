@@ -53,7 +53,15 @@ def get_project_path(project_name: str) -> Optional[str]:
         file_path = row[0]
         if not file_path:
             return None
-        
+
+        # Resolve project root directly from file path if project name is in the path
+        path_components = os.path.abspath(file_path).split(os.sep)
+        if project_name in path_components:
+            project_root_index = path_components.index(project_name)
+            project_root = os.sep.join(path_components[:project_root_index + 1])
+            if os.path.exists(project_root) and os.path.basename(project_root) == project_name:
+                return project_root
+
         # Handle zip file paths (format: "/path/to.zip:inner/path/file.py")
         zip_sep_index = file_path.lower().find(".zip:")
         if zip_sep_index != -1:
@@ -99,8 +107,8 @@ def get_project_path(project_name: str) -> Optional[str]:
             current = parent
             depth += 1
         
-        # If we couldn't find a clear project root, return the directory containing the file
-        return os.path.dirname(os.path.abspath(file_path)) if file_path else None
+        # If we couldn't find a clear project root, return None
+        return None
     except Exception as e:
         print(f"[WARNING] Could not determine path for project '{project_name}': {e}")
         return None
