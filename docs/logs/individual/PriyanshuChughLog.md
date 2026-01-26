@@ -313,6 +313,89 @@ Regression testing: Ran the full test suite (pytest) to confirm existing resume,
  <img width="1372" height="622" alt="Screenshot 2026-01-18 at 3 45 43 PM" src="https://github.com/user-attachments/assets/8c35c55c-4b72-4f2f-8945-66b0a4103211" />
 
 
+# T2 Week 3 (January 19th-25th)
 
+<img width="1071" height="608" alt="Screenshot 2026-01-25 at 3 29 37 PM" src="https://github.com/user-attachments/assets/5ad02f7a-2aa3-4be0-a5dd-08384e6f62d4" />
+
+## Overview 
+This week I focused on both feature development and peer testing. I merged a resume customization feature that allows users to control how project names appear on resumes, improved the professionalism of resume output, and reviewed and tested several major PRs related to Docker, scanning, and DB backed resume/portfolio generation.
+
+Key contributions this week:
+
+Merged PR #294 Add project resume display name editing
+
+Implemented resume output cleanup to remove non resume friendly metadata
+
+Reviewed and tested multiple high-impact PRs related to Docker, scanning, and generation
+
+Closed issue #293
+
+Closed issue #309
+
+ ## Reflection
+The team collaborated really well this week, especially around peer testing and large refactors. A lot of time was spent verifying whether reported issues were reproducible versus already resolved, which helped prevent unnecessary fixes. Communication during reviews was clear and constructive, and the team handled several large changes without breaking existing functionality. Overall, the workflow felt organized and productive.
+
+## Coding Tasks:
+Implemented custom resume display names per project by adding a custom_name column to the projects table.
+
+Added a new CLI workflow allowing users to view, set, update, or clear resume facing project names without rescanning.
+
+Updated resume generation to prefer custom names when present, with a safe fallback to default project names.
+
+Ensured the change was non-breaking and backward compatible.
+
+Resume output cleanup :
+
+Removed local filesystem paths from generated resumes, as these are environment specific and not appropriate for a professional resume.
+
+Removed low level Git metrics (commit counts and number of files changed) from individual project bullets to keep resumes focused on skills and contributions rather than raw implementation details.
+
+Ensured resume output emphasizes technologies used, skills demonstrated, and high level contribution descriptions.
+
+## Testing and Debugging:
+Ran the full pytest suite locally after resume display name and resume cleanup changes (213 passed, 1 skipped).
+
+Manually tested resume generation to confirm:
+
+Custom project names render correctly
+
+Removed metadata no longer appears in resume output
+
+Resume structure remains unchanged otherwise
+
+Investigated a peer reported issue claiming chronological skills could not generate when the skills table was empty.
+
+Reproduced the setup by scanning a real project, deleting all rows from the skills table, and generating a resume.
+
+Verified that resume generation succeeds and gracefully skips the chronological skills section when no skills are present.
+
+Determined that an earlier crash only occurs when the database has no scans (missing git metrics), not due to an empty skills table.
+
+
+## Reviewing and Collaboration
+Reviewed, tested, and provided feedback on the following PRs:
+
+#288 – Docker updates & test suite refactors
+Built Docker containers locally, ran the full test suite inside Docker, verified CLI and API startup, and confirmed test discovery improvements. Suggested adding a reload option for the API container during development.
+
+#291 – Fix portfolio generation to exclude non contributor projects
+Ran tests and performed manual scans to confirm portfolios only include projects the selected user contributed to. Verified metadata only projects still appear correctly.
+
+#292 – Reworked scan to fix nested folder scans
+Tested nested folder scenarios locally and reviewed changes to multi project detection, contribution summaries, and DB persistence. Confirmed scanning behavior is more reliable for mixed git and non-git directories.
+
+#297 – Reworked resume/portfolio generation to take info from DB
+Reset the database, ran scans, and verified resume/portfolio generation no longer depends on filesystem JSON output. Confirmed new DB fields are populated correctly.
+
+#298 – Resume/Portfolio tests update after rework
+Verified all tests pass locally (214 passed), confirmed temporary DB seeding works correctly, and ensured generation tests align with the new DB-first flow.
+
+## Issues and Blockers
+No main issues or blockers.
+
+## Plans for next week
+- Prepare for peer testing #1.
+- Fix existing bugs from Milestone 1 feedback.
+- Continue researching LLMs.
 
 
