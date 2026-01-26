@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
 - [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
 - [Week 1 (Jan 5 – Jan 11, 2026)](#semester-2--week-1-personal-log-january-5th---11th-2026)
 
@@ -330,3 +331,43 @@ This week felt like a strong follow-through on earlier design decisions. Complet
 - Continue strengthening and expanding API endpoints to support richer downstream features
 - Start work on Issue #239: *Display textual information about a project as a résumé item*
 - Ongoing PR reviews and collaboration as Milestone 2 development progresses
+
+---
+
+# Semester 2 – Week 3 Personal Log (January 19th – January 25th, 2026)
+
+This week the team focused primarily on stabilization and polish in preparation for upcoming peer testing. Rather than introducing new features, we prioritized addressing bugs, cleanup tasks, identified through Milestone 1 feedback. This allowed us to improve overall system reliability and ensure existing functionality behaves consistently ahead of external testing.
+
+My individual work focused on fixing correctness issues in contributor-based reporting and improving the reliability of summary-generation workflows. I resolved a bug in portfolio generation where git-tracked projects were incorrectly included even when the selected user was not a contributor. I also improved summarize_projects.py workflow based on Milestone 1 feedback. This included adding a guided contributor-selection prompt to the CLI, fixing an issue where per-contributor commit counts were incorrectly reported as zero, and ensuring summaries correctly reflect the selected contributor’s commits while preserving total project metrics. I will look into switching this feature to pull project info from Db next week.
+
+
+<img width="1118" height="650" alt="Screenshot 2026-01-25 at 7 19 24 PM" src="https://github.com/user-attachments/assets/7f1a373d-5788-4e77-9fb6-0b754da69295" />
+
+
+## Coding Tasks
+- Fixed portfolio aggregation logic to exclude git-tracked projects when the selected user is not a contributor, while preserving support for non-git and solo projects (PR #291)  
+- Improved the **Summarize Contributor Projects** workflow based on Milestone 1 feedback, including guided contributor selection and more accurate contributor-specific commit reporting (PR #315)  
+- Corrected per-contributor commit count handling to ensure summaries reflect the selected user’s actual commits while preserving overall project Git metrics
+- Hardened zip-based project handling to prevent invalid or multi-project directories from being summarized silently  
+
+## Testing Tasks
+- Added unit test `test_aggregate_projects_excludes_non_contributor_git_project` in `test_generate_portfolio.py` to verify portfolio aggregation excludes non-contributor git projects  
+- Added new unit tests in `test_summarize_projects.py` to validate contributor-based summary fixes:
+  - `test_contributor_commit_count_is_used`
+  - `test_skills_are_populated_correctly`
+  - `test_fallback_to_contributions_commits`
+- Performed manual CLI testing via `main_menu.py` to verify contributor selection, summary accuracy, and zip-based project handling  
+
+## Reviewing / Collaboration Tasks
+- Reviewed **Docker updates & test suite refactors** (PR #288)  
+- Reviewed **Add project résumé display name editing** (PR #294)  
+- Reviewed **Added tests for nested folders** (PR #300)  
+- Coordinated with teammates to align on Milestone 2 priorities and upcoming integration work  
+
+<img width="1103" height="148" alt="Screenshot 2026-01-25 at 8 25 43 PM" src="https://github.com/user-attachments/assets/a0ac3304-973f-4d67-bbf5-2528a457f3f4" />
+
+### Plans for Week 4
+- Begin work on **Issue #239: Display textual information about a project as a résumé item**  
+- Prepare peer testing documentation for Wednesday  
+- Finalize a polished prototype for peer testing  
+- Investigate pulling project information directly from the database in `summarize_projects.py` 
