@@ -3,9 +3,9 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #2)
-- [Week #3 - January 19th-25th](#team-11---week-3-team-log-january-19th---january-25th)
-- [Week #2 - January 12th-18th](#team-11---week-2-team-log-january-12th---january-18th)
-- [Week #1 - January 5th-11th](#team-11---week-1-team-log-january-5th---january-11th)
+- [T2 Week #3 - January 19th-25th](#team-11---t2-week-3-team-log-january-19th---january-25th)
+- [T2 Week #2 - January 12th-18th](#team-11---t2-week-2-team-log-january-12th---january-18th)
+- [T2 Week #1 - January 5th-11th](#team-11---t2-week-1-team-log-january-5th---january-11th)
 
 ### Term 1 (Milestone #1)
 - [Week #14 - December 1st-7th](#team-11---week-14-team-log-december-1st---december-7th)
@@ -711,7 +711,7 @@ As we reached the **end of Milestone 1**, our team demonstrated strong coordinat
 
 ---
 
-# Team #11 - Week 1 Team Log (January 5th - January 11th)
+# Team #11 - T2 Week 1 Team Log (January 5th - January 11th)
 Team Members      --> GitHub Username  
 - Priyanshu Chugh --> priyanshupc04  
 - Tyler Cummings  --> TylerC-3042  
@@ -804,7 +804,7 @@ This week was productive, professional, and effective. Oftentimes it can be chal
 
 ---
 
-# Team #11 - Week 2 Team Log (January 12th - January 18th)
+# Team #11 - T2 Week 2 Team Log (January 12th - January 18th)
 
 Team Members      --> GitHub Username
 - Priyanshu Chugh --> priyanshupc04
@@ -1010,7 +1010,7 @@ This week demonstrated strong collaboration and steady progress toward a more po
 
 ---
 
-# Team #11 - Week 3 Team Log (January 19th - January 25th)
+# Team #11 - T2 Week 3 Team Log (January 19th - January 25th)
 
 Team Members --> GitHub Username
 - Daniel Sokic --> danielsokic
@@ -1021,27 +1021,62 @@ Team Members --> GitHub Username
 - Tyler Cummings --> TylerC-3042
 
 ## Overview
--
+This week focused on improving system robustness, fixing critical bugs in nested folder scanning, and reworking core resume/portfolio generation logic. Daniel led the effort to fix nested folder scanning issues and added comprehensive tests. Jaxson reworked the resume and portfolio generation to properly source data from the database and updated the corresponding test suites. Priyanshu added project resume display name editing and cleaned up resume output by removing local paths and git metrics. Tanner addressed bug fixes in Docker configuration, test suite organization, and nested folder JSON handling. Travis fixed portfolio generation to correctly exclude non-contributor projects. Tyler ensured database schema initialization on startup and added comprehensive schema tests.
 
 ## Team Members Completed Tasks
 
+*See the hyperlinked PR templates for more detail*
+
 ### Daniel
--
+- [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292) – Reworked Scan to fix nested folder scans
+    - Rewrote scanning logic to properly handle nested folder structures
+    - Updated `collab_summary.py`, `project_info_output.py`, and `scan.py` to support projects found in nested folder
+    - Added per-project languages and skills extraction
+
+- [PR #300](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/300) – Added tests for nested folders
+    - Added a plethora of new tests in `test_scan.py` to ensure coverage for nested folder scenarios
 
 ### Jaxson
--
+- [PR #297](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/297) – Reworked resume/portfolio generation to take info from DB
+    - Refactored generation logic to source project data from database instead of scan results
+    - Updated API, database layer, and both resume/portfolio generators
+
+- [PR #298](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298) – Resume/Portfolio tests update after rework
+    - Updated failing test files to work with the new db-centric data aggregation approach
+    - Fixed failing tests on Windows devices due to file lock issues during temp directory cleanup
 
 ### Priyanshu
--
+- [PR #294](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/294) – Add project resume display name editing
+    - Added ability to edit custom project names for resume/portfolio display
+    - Streamlined database and menu code for display name handling
+
+- [PR #311](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/311) – Remove local paths and git metrics from resume output
+    - Removed local paths and git metrics from resume output for cleaner presentation (based on feedback from teaching staff)
 
 ### Tanner
--
+- [PR #288](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/288) – Docker updates & Test suite refactors
+    - Refactored Docker configuration and docker-compose setup process
+    - Renamed inconsistent test files to follow `test_TESTNAME.py` naming convention
+    - Added error handling for menu option six
+
+- [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292)
+    - Fixed nested JSON dict username extraction in `project_info_output.py`
+    - Updated failing tests in `test_project_info_output.py` to handle nested projects
 
 ### Travis
--
+- [PR #291](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/291) – Fix portfolio generation to exclude non-contributor projects
+    - Fixed bug where portfolios included projects that the user did not contribute to
+    - Added test for portfolio contributor filtering
+
+- [PR #315](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/315) – Fix top project summaries: correct skills, zip project resolution, and per-user commit counts
+- Allows users to select from a list of detected candidate usernames within the CLI
+- Fixes a bug where per-contributor commit counts were always reported as 0 in the combined summary
 
 ### Tyler
--
+- [PR #304](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/304) – DB table missing error fixed by auto initialization
+    - Ensured database schema is automatically initialized on startup
+    - Added comprehensive database schema tests in `test_db_schema_init.py`
+    - Added new `db.py` module to validate database initialization
 
 ### All Members
 - Code reviews and verification
@@ -1049,19 +1084,41 @@ Team Members --> GitHub Username
 - Completion of individual logs and peer reviews
 
 ## Testing Report
--
+All 222 new and existing unit tests pass successfully. Testing additions this week largely focused on nested folder handling and database schema initialization.
+
+### Tests Added:
+`test_scan.py`
+Added tests for nested folder scanning scenarios, ensuring proper extraction of project data from complex directory structures.
+
+`test_db_schema_init.py`
+Comprehensive tests validating database schema auto-initialization, table creation, and startup behavior.
+
+`test_generate_resume.py` / `test_generate_portfolio.py` / `test_api.py`
+Updated tests to reflect reworked generation logic that sources data from database rather than direct scan results found in local JSON files.
+
+`test_regenerate_resume.py` / `test_regenerate_portfolio.py`
+Updated tests for regeneration workflows with new database-backed approach.
+
+This is the result of running `py -m pytest test/ -q -W ignore::DeprecationWarning` on a Windows device on the latest build of Development branch before our end-of-week merge to main for T2 Week 3: 
 <img width="" height="" alt="t2week3-tests" src="" />
 
-## Reflection
--
+Tests are also working when using Docker
+<img width="" height="" alt="t2week3-docker-tests" src="" />
 
-## Looking ahead to Week 4:
--
+## Reflection
+The entire team collaborated well together this week. Our in-class meeting on Wednesday went well, and gave us the opportunity to set clear goals for the rest of the week. We opted to focus on bug fixes and system stability in preparation for our upcoming peer testing event. We explicitly assigned major tasks and sequentially worked through a list of smaller bug fixes based on feedback from the teaching staff. Team members were active and helpful in the Discord, and collaborated to find solutions for encountered problems. All code additions were completed by Sunday evening, and I was given plenty of time to complete this team log entry as a result. Overall, the team seems to be very happy with our performance this week, and to keeping our momentum moving into the next one. 
+
+## Plans for T2 Week 4:
+Next week we will be participating in a class-wide peer testing event as mentioned above. It is likely that we will spend the majority of the early week preparing a final build of our program to be used during the peer testing. Post-Wednesday, we plan to continue onwards with larger features and further refinements to pre-existing features:
+- Continue fixing bugs found during milestone 1
+- LLM-assisted analysis integration
+- Further informational separation between resumes and portfolios, as well as the ability to configure/edit the documents within the CLI
+- Keeping README up to date with newly implemented features
 
 ## Burnup Chart
-<img width="" height="" alt="t2week3-burnup" src="" />
+<img width="1037" height="664" alt="t2week3-burnup" src="https://github.com/user-attachments/assets/e8d5d03b-73e2-4478-8881-2d8df7c0433e" />
 
 ## Kanban Board
-<img width="" height="" alt="t2week3-kanban" src="" />
+<img width="1875" height="901" alt="t2week3-kanban" src="https://github.com/user-attachments/assets/87b736f7-6287-4d03-bd23-3cf8249e8721" />
 
 ---
