@@ -508,7 +508,7 @@ This week I was able to tentatively close issue #29. Display textual information
 
 # Week #3 - January 19th - 25th
 
-<img width="" height="" alt="t2week3-tasks" src="" />
+<img width="709" height="542" alt="t2week3-tasks" src="https://github.com/user-attachments/assets/072bb361-4a04-46be-86ae-f017ec8aa592" />
 
 ## Connection to Last Week
 Last week I completed the portfolio generation feature with database integration and the "View Portfolios" menu option. I mentioned a variety of goals I wanted to work towards this week, but most of them didn't pan out as I expected. On Wednesday we met up as a team to discuss our plans, and we decided that pushing forward with new features/integrations was not a priority. As we wanted to ensure we had a bulletproof build of our program for our upcoming peer testing event. We focused largely on bug-fixing, polishing, and small or missing functionalities. I decided I wanted to rework our Docker setup to accomodate our new "API mode" as well as update some outdated dependencies/requirements. I also built some simple documentation for our Docker setup to add to the README to help onboard new users and make using Docker with our program as simple as possible. Additionally, I performed some light refactoring by standardizing our naming scheme for test files. I was also able to rework our Kanban issues to include the updated milestone 2 deliverables, as i mentioned I would last week.     
@@ -554,15 +554,17 @@ Last week I completed the portfolio generation feature with database integration
 ## Reviewing & Collaboration Tasks
 - Communicated regularly throughout the week in our Discord server
 - Completed individual log and peer review for T2 Week 3
+- Completed the Team Log entry for this week
 - Reviewed and approved:
     - Code PRs: 
         - [#291 - Fix portfolio generation to exclude non-contributor projects](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/291),
         - [#292 - Reworked Scan to fix nested folder scans](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292), 
         - [#298 - Resume/Portfolio tests update after rework](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298),
         - [#300 - Added tests for nested folders](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/300)
+        - [#304 - DB table missing error fixed by auto initialization](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/304)
     - Log PRs:
-        - [#](),
-        - [#]()
+        - [#303 - Daniel's Individual Log](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/303),
+        - [#307 - Tyler's Individual Log](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/307)
 
 - I also helped with polishing touches / quick fixes in the following PRs:
     - [#292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292) *My contributions are listed at the bottom of the PR template description + I also reworked test_project_info_output.py to account for a change in the return type of output_project_info().*
@@ -583,4 +585,4 @@ Next week I want to pick up where we left off at the end of last week. This week
 
 ## Kanban Board at End of T2 Week 3
 
-<img width="" height="" alt="t2week3-kanban" src="" />
+<img width="1875" height="896" alt="t2week3-kanban" src="https://github.com/user-attachments/assets/444a23fe-64d7-4c38-a02b-0bcf253b57a7" />
