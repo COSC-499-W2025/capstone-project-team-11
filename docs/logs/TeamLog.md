@@ -1099,11 +1099,11 @@ Updated tests to reflect reworked generation logic that sources data from databa
 `test_regenerate_resume.py` / `test_regenerate_portfolio.py`
 Updated tests for regeneration workflows with new database-backed approach.
 
-This is the result of running `py -m pytest test/ -q -W ignore::DeprecationWarning` on a Windows device on the latest build of Development branch before our end-of-week merge to main for T2 Week 3: 
-<img width="" height="" alt="t2week3-tests" src="" />
+This is the result of running `py -m pytest test/ -W ignore::DeprecationWarning` on a Windows device on the latest build of Development branch before our end-of-week merge to main for T2 Week 3: 
+<img width="1608" height="677" alt="t2week3-tests" src="https://github.com/user-attachments/assets/8b463ada-6756-48ca-87cc-047d8a2fe7aa" />
 
 Tests are also working when using Docker
-<img width="" height="" alt="t2week3-docker-tests" src="" />
+<img width="1697" height="192" alt="t2week3-docker-tests" src="https://github.com/user-attachments/assets/c180054d-5139-478b-84af-9b8990cc0462" />
 
 ## Reflection
 The entire team collaborated well together this week. Our in-class meeting on Wednesday went well, and gave us the opportunity to set clear goals for the rest of the week. We opted to focus on bug fixes and system stability in preparation for our upcoming peer testing event. We explicitly assigned major tasks and sequentially worked through a list of smaller bug fixes based on feedback from the teaching staff. Team members were active and helpful in the Discord, and collaborated to find solutions for encountered problems. All code additions were completed by Sunday evening, and I was given plenty of time to complete this team log entry as a result. Overall, the team seems to be very happy with our performance this week, and to keeping our momentum moving into the next one. 
