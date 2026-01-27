@@ -82,20 +82,27 @@ def test_print_main_menu_outputs_correct_text(capsys):
     print_main_menu()
     output = capsys.readouterr().out
 
+    # Check header
     assert "MDA OPERATIONS MENU" in output
-    assert "1. Run directory scan" in output
-    assert "2. Inspect database" in output
-    assert "3. Rank projects" in output
-    assert "4. Summarize contributor projects" in output
-    assert "5. Generate Project Summary Report" in output
-    assert "6. Manage Project Evidence" in output
-    assert "7. Generate Resume (User-centric)" in output
-    assert "8. Generate Portfolio (Project-centric)" in output
-    assert "9. View Resumes" in output
-    assert "10. View Portfolios" in output
-    assert "11. Analyze Contributor Roles" in output
-    assert "12. Edit Project Resume Display Names" in output
-    assert "13. Exit" in output
+
+    # Check section headers
+    assert "SCANNING" in output
+    assert "RESUME & PORTFOLIO" in output
+    assert "ANALYSIS" in output
+    assert "ADMIN" in output
+
+    # Check menu options
+    assert "1. Scan Project" in output
+    assert "2. Generate Resume" in output
+    assert "3. Generate Portfolio" in output
+    assert "4. View/Manage Resumes" in output
+    assert "5. View/Manage Portfolios" in output
+    assert "6. Edit Project Display Names" in output
+    assert "7. Rank Projects" in output
+    assert "8. Analyze Contributor Roles" in output
+    assert "9. Manage Project Evidence of Success" in output
+    assert "10. Inspect Database" in output
+    assert "0. Exit" in output
 
 
 
@@ -244,12 +251,12 @@ def test_handle_analyze_roles_with_no_data(monkeypatch, capsys):
     """Test that handle_analyze_roles handles empty database gracefully."""
     # Mock load_contributors_from_db to return empty dict
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: {})
-    
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "No contributor data found in database" in out
-    assert "Please run a directory scan first" in out
+    assert "Please run a project scan first" in out
 
 
 def test_handle_analyze_roles_with_data_no_per_project(monkeypatch, capsys):

@@ -3,11 +3,11 @@ main_menu.py
 ---------------------------------
 Main menu interface that integrates all project features.
 
-This module provides a unified CLI interface for:
-- Scanning directories and zip files
-- Inspecting database contents
-- Ranking projects
-- Summarizing contributor projects
+This module provides a unified CLI interface organized into sections:
+- SCANNING: Scan projects (directories and zip files)
+- RESUME & PORTFOLIO: Generate, view, manage resumes and portfolios
+- ANALYSIS: Rank projects, analyze contributor roles, manage evidence
+- ADMIN: Inspect database
 """
 
 import os
@@ -36,7 +36,6 @@ from rank_projects import (
     print_projects_by_contributor,
     _get_all_contributors
 )
-from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
@@ -51,19 +50,25 @@ from detect_roles import (
 def print_main_menu():
     """Display the main menu options."""
     print("\n=== MDA OPERATIONS MENU ===")
-    print("1. Run directory scan")
-    print("2. Inspect database (projects, scans, skills, etc.)")
-    print("3. Rank projects")
-    print("4. Summarize contributor projects")
-    print("5. Generate Project Summary Report")
-    print("6. Manage Project Evidence")
-    print("7. Generate Resume (User-centric)")
-    print("8. Generate Portfolio (Project-centric)")
-    print("9. View Resumes")
-    print("10. View Portfolios")
-    print("11. Analyze Contributor Roles")
-    print("12. Edit Project Resume Display Names") 
-    print("13. Exit")
+    print()
+    print("  SCANNING")
+    print("    1. Scan Project")
+    print()
+    print("  RESUME & PORTFOLIO")
+    print("    2. Generate Resume")
+    print("    3. Generate Portfolio")
+    print("    4. View/Manage Resumes")
+    print("    5. View/Manage Portfolios")
+    print("    6. Edit Project Display Names")
+    print()
+    print("  ANALYSIS")
+    print("    7. Rank Projects")
+    print("    8. Analyze Contributor Roles")
+    print("    9. Manage Project Evidence of Success")
+    print()
+    print("  ADMIN")
+    print("   10. Inspect Database")
+    print("    0. Exit")
 
 
 def handle_scan_directory():
@@ -452,88 +457,6 @@ def handle_rank_projects():
         print(f"Error ranking projects by contributor: {e}")
 
 
-def handle_summarize_contributor_projects():
-    """Handle generating summary for top-ranked projects by contributor."""
-    print("\n=== Summarize Contributor Projects ===")
-    
-    BLACKLIST = {"githubclassroombot", "unknown"}
-    
-    # Query contributors from the database
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT name FROM contributors;")
-        raw_contributors = [row[0] for row in cur.fetchall()]
-    except Exception as e:
-        print(f"[ERROR] Failed to fetch contributors: {e}")
-        return
-    finally:
-        cur.close()
-    
-    # Normalize contributor names into canonical usernames
-    def normalize_username(name: str) -> str:
-        return ''.join(c for c in name.lower() if c.isalnum())
-    
-    canonical_usernames = sorted(
-        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
-    )
-    
-    # Display canonical usernames
-    if canonical_usernames:
-        print("\nDetected candidate usernames:")
-        for idx, username in enumerate(canonical_usernames, 1):
-            print(f"  {idx}. {username}")
-        print("Press Enter to manually type a username.")
-    
-    # Prompt for contributor selection
-    contributor_name = input("\nSelect a username by number or type it manually: ").strip()
-    if contributor_name.isdigit():
-        contributor_index = int(contributor_name) - 1
-        if 0 <= contributor_index < len(canonical_usernames):
-            contributor_name = canonical_usernames[contributor_index]
-        else:
-            print("[ERROR] Invalid selection. Returning to main menu.")
-            return
-    
-    if not contributor_name:
-        print("[ERROR] No username provided. Returning to main menu.")
-        return
-    
-    # Prompt for optional project limit
-    limit_input = input("Limit number of top projects (leave blank for all): ").strip()
-    limit = int(limit_input) if limit_input.isdigit() else None
-    
-    # Call summarize_top_ranked_projects
-    try:
-        results = summarize_top_ranked_projects(
-            contributor_name=contributor_name,
-            limit=limit
-        )
-        print(f"\nProcessed {len(results)} project(s).")
-    except Exception as e:
-        print(f"[ERROR] Failed to generate contributor projects summary: {e}")
-
-
-def handle_generate_project_summary():
-    """Handle generating a project summary report."""
-    print("\n=== Generate Project Summary Report ===")
-    directory = input("Enter project directory path: ").strip()
-    if not directory or not os.path.exists(directory):
-        print("Invalid directory path.")
-        return
-    
-    try:
-        info = gather_project_info(directory)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(directory))
-        out_dir = os.path.join("output", project_name)
-        os.makedirs(out_dir, exist_ok=True)
-        json_path, txt_path = output_project_info(info, output_dir=out_dir)
-        print(f"\nSummary reports saved to: {out_dir}")
-        print(f"  JSON: {json_path}")
-        print(f"  TXT:  {txt_path}")
-    except Exception as e:
-        print(f"Error generating project summary: {e}")
-
 def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
@@ -555,7 +478,7 @@ def handle_generate_resume():
             print(f"Resume generator exited with code {result.returncode}")
             return
 
-        print("\nResume generated. (Tip: use option 12 to edit project display names.)")
+        print("\nResume generated. (Tip: use option 6 to edit project display names.)")
 
     except Exception as e:
         print(f"Failed to run resume generator: {e}")
@@ -972,7 +895,7 @@ def handle_analyze_roles():
     
     if not contributors_data:
         print("\nNo contributor data found in database.")
-        print("Please run a directory scan first (Option 1) to populate the database.")
+        print("Please run a project scan first (Option 1) to populate the database.")
         return
     
     print(f"Found {len(contributors_data)} contributors")
@@ -1008,37 +931,33 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-13): ").strip()
+        choice = input("\nSelect an option: ").strip()
 
         if choice == "1":
             handle_scan_directory()
         elif choice == "2":
-            handle_inspect_database()
-        elif choice == "3":
-            handle_rank_projects()
-        elif choice == "4":
-            handle_summarize_contributor_projects()
-        elif choice == "5":
-            handle_generate_project_summary()
-        elif choice == "6":
-            handle_project_evidence()
-        elif choice == "7":
             handle_generate_resume()
-        elif choice == "8":
+        elif choice == "3":
             handle_generate_portfolio()
-        elif choice == "9":
+        elif choice == "4":
             handle_view_resumes()
-        elif choice == "10":
+        elif choice == "5":
             handle_view_portfolios()
-        elif choice == "11":
-            handle_analyze_roles()
-        elif choice == "12":
+        elif choice == "6":
             handle_edit_project_display_name()
-        elif choice == "13":
+        elif choice == "7":
+            handle_rank_projects()
+        elif choice == "8":
+            handle_analyze_roles()
+        elif choice == "9":
+            handle_project_evidence()
+        elif choice == "10":
+            handle_inspect_database()
+        elif choice == "0":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-13.")
+            print("\nInvalid option. Please select a valid menu number (0-10).")
 
         input("\nPress Enter to return to main menu...")
 
