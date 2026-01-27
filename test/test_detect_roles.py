@@ -43,7 +43,7 @@ class TestCategorizeContributorRole(unittest.TestCase):
         self.assertEqual(result["metrics"]["total_files"], 3)
     
     def test_qa_tester_test_files(self):
-        """Test that test file contributions result in QA / Tester role."""
+        """Test that test file contributions result in Quality Assurance Developer role."""
         result = categorize_contributor_role(
             "Bob",
             files_changed=["test_main.py", "test_utils.py", "test_app.py"],
@@ -53,9 +53,9 @@ class TestCategorizeContributorRole(unittest.TestCase):
             activity_by_category={"code": 0, "test": 3, "docs": 0, "design": 0, "other": 0}
         )
         
-        # Primary role could be QA/Tester or Full Stack (depends on scoring)
+        # Primary role could be Quality Assurance Developer or Full Stack (depends on scoring)
         self.assertTrue(
-            "QA / Tester" in result["primary_role"] or 
+            "Quality Assurance Developer" in result["primary_role"] or 
             "Full Stack Developer" in result["primary_role"]
         )
         self.assertGreater(result["confidence"], 0.0)
@@ -149,7 +149,7 @@ class TestCalculateRoleScores(unittest.TestCase):
         scores = _calculate_role_scores(files, breakdown)
         
         # QA/Tester should be boosted due to test activity > 30%
-        self.assertGreater(scores.get("QA / Tester", 0), 2)
+        self.assertGreater(scores.get("Quality Assurance Developer", 0), 2)
     
     def test_design_files_ui_ux_designer(self):
         """Test that design files result in UI/UX Designer scoring."""
@@ -164,9 +164,9 @@ class TestCalculateRoleConfidence(unittest.TestCase):
     """Test role confidence calculation."""
     
     def test_project_lead_high_confidence(self):
-        """Test that Project Lead gets very high confidence."""
-        role_scores = [("Project Lead / Architect", 100), ("Backend Developer", 50)]
-        confidence = _calculate_role_confidence("Project Lead / Architect", role_scores)
+        """Test that Project Steward gets very high confidence."""
+        role_scores = [("Project Steward", 100), ("Backend Developer", 50)]
+        confidence = _calculate_role_confidence("Project Steward", role_scores)
         
         self.assertEqual(confidence, 0.95)
     
@@ -239,7 +239,7 @@ class TestAnalyzeProjectRoles(unittest.TestCase):
         role_dist_str = str(result["summary"]["role_distribution"])
         self.assertTrue(
             "Backend Developer" in role_dist_str or 
-            "QA / Tester" in role_dist_str or
+            "Quality Assurance Developer" in role_dist_str or
             "Full Stack Developer" in role_dist_str
         )
 
@@ -263,7 +263,7 @@ class TestFormatRolesReport(unittest.TestCase):
         report = format_roles_report(analysis)
         
         self.assertIn("PROJECT ROLE ANALYSIS REPORT", report)
-        self.assertIn("alice", report)
+        self.assertIn("ALICE", report)
         self.assertIn("Backend Developer", report)
         self.assertIn("Metrics:", report)
 

@@ -45,7 +45,8 @@ from detect_roles import (
     load_contributors_from_db,
     load_contributors_per_project_from_db,
     analyze_project_roles,
-    format_roles_report
+    format_roles_report,
+    display_all_roles
 )
 
 def print_main_menu():
@@ -965,6 +966,12 @@ def handle_add_to_resume(resume_row, path):
 def handle_analyze_roles():
     """Handle contributor role analysis."""
     print("\n=== Analyze Contributor Roles ===")
+    
+    # Ask if user wants to see all available roles first
+    show_roles = ask_yes_no("\nWould you like to see all available contributor roles and their descriptions? (y/n): ", False)
+    
+    if show_roles:
+        print(display_all_roles())
     
     # Load overall contributor data
     print("Loading contributors from database...")
