@@ -444,11 +444,24 @@ def handle_rank_projects():
                 print(f"  {i}. {contrib}")
             print()
         
-        name = input('Enter a contributor name to show per-project importance (leave blank to skip): ').strip()
-        if name:
-            print(f"\nRanking projects by contributor: {name}\n")
-            user_projects = rank_projects_by_contributor(name, limit=limit)
-            print_projects_by_contributor(user_projects, name)
+            user_input = input('Enter a contributor name or number to show per-project importance (leave blank to skip): ').strip()
+            if user_input:
+                # Check if user entered a number
+                name = None
+                try:
+                    index = int(user_input) - 1
+                    if 0 <= index < len(contributors):
+                        name = contributors[index]
+                    else:
+                        print(f"Invalid number. Please enter a number between 1 and {len(contributors)}.")
+                except ValueError:
+                    # User entered a name, not a number
+                    name = user_input
+                
+                if name:
+                    print(f"\nRanking projects by contributor: {name}\n")
+                    user_projects = rank_projects_by_contributor(name, limit=limit)
+                    print_projects_by_contributor(user_projects, name)
     except Exception as e:
         print(f"Error ranking projects by contributor: {e}")
 
