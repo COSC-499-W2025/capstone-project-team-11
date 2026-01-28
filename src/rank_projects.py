@@ -43,7 +43,10 @@ def _get_project_collaboration_status(project_name: str) -> str:
 
 
 def _get_all_contributors() -> List[str]:
-    """Get a sorted list of all unique contributor names from the database, normalized."""
+    """Get a sorted list of all unique contributor names from the database, normalized.
+    
+    Filters out non-human contributors like the GitHub Classroom bot.
+    """
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -52,7 +55,10 @@ def _get_all_contributors() -> List[str]:
         normalized = [canonical_username(row['name']) for row in rows]
         # Remove duplicates while preserving order
         seen = set()
-        return [x for x in normalized if not (x in seen or seen.add(x))]
+        contributors = [x for x in normalized if not (x in seen or seen.add(x))]
+        # Filter out GitHub Classroom bot and other non-human contributors
+        filtered = [c for c in contributors if c and 'classroom' not in c.lower() and 'bot' not in c.lower()]
+        return filtered
     except Exception:
         return []
 
@@ -194,9 +200,21 @@ def print_projects_contribution_summary(projects: List[Dict]):
         ))
 
     # Briefly explain the metric so CLI output is self-documenting.
-    print("\nTopFraction = fraction of files contributed by the top contributor.")
-    print("TopScore (project-level) = 60% coverage + 30% dominance gap + 10% team-size factor.")
-    print("Contributor score (per-user view) = 60% coverage + 30% dominance gap + 10% team-size factor.")
+    print("\n=== Scoring Explanation ===")
+    print("TopFraction = fraction of files contributed by the top contributor.")
+    print()
+    print("TopScore (project-level) = 60% coverage + 30% dominance gap + 10% team-size factor")
+    print("  * Coverage (60%): Percentage of project files touched by the top contributor.")
+    print("    Higher coverage indicates a more central role in the project.")
+    print()
+    print("  * Dominance Gap (30%): Lead of the top contributor over the next highest.")
+    print("    Measured as (top_files - second_files) / total_files.")
+    print("    Higher gap indicates the top contributor had a more distinct/leading role.")
+    print()
+    print("  * Team-Size Factor (10%): Inverse of contributor count (1 / num_contributors).")
+    print("    Smaller teams get slightly higher scores since individual influence per person is larger.")
+    print()
+    print("Contributor score (per-user view) uses the same formula for consistent ranking.")
 
 
 def human_ts(ts):
@@ -347,10 +365,17 @@ def rank_projects_by_importance(mode: str = "project", contributor_name: Optiona
             if not contributor_name:
                 return []
             # Fetch all contributor counts and canonicalize names, then filter by canonical contributor_name.
-            # Score is intentionally more robust than a raw "percent of files touched" metric by blending:
-            #   - coverage: fraction of files touched in the project
-            #   - dominance: lead over the next contributor (only if this contributor is tied for top)
-            #   - team factor: smaller teams get a slight boost since influence per person is larger
+            # Score is intentionally more robust than a raw "percent of files touched" metric by blending three factors:
+            #   - Coverage (60%): Fraction of files touched in the project by this contributor.
+            #     A contributor touching more files shows broader project engagement.
+            #   - Dominance Gap (30%): Lead over the next highest contributor, measured as
+            #     (this_contrib_files - second_highest_files) / total_files.
+            #     This measures how distinctly this person led compared to peers.
+            #     Only counts if this contributor is in the top position.
+            #   - Team Size Factor (10%): Computed as 1 / number_of_contributors.
+            #     Smaller teams give individuals more influence per capita, reflecting
+            #     the reality that one person's work matters more in a 2-person team
+            #     than in a 10-person team.
             cur.execute(
                 "SELECT s.project AS project, c.name AS contributor, COUNT(DISTINCT f.id) AS contrib_files "
                 "FROM scans s "
@@ -470,12 +495,25 @@ def main():
                     for i, contrib in enumerate(contributors, 1):
                         print(f"  {i}. {contrib}")
                     print()
-                
-                name = input('Enter a contributor name to show per-project importance (leave blank to skip): ').strip()
-                if name:
-                    print(f"\nRanking projects by contributor: {name}\n")
-                    user_projects = rank_projects_by_contributor(name, limit=args.limit)
-                    print_projects_by_contributor(user_projects, name)
+                    
+                    user_input = input('Enter a contributor name or number to show per-project importance (leave blank to skip): ').strip()
+                    if user_input:
+                        # Check if user entered a number
+                        name = None
+                        try:
+                            index = int(user_input) - 1
+                            if 0 <= index < len(contributors):
+                                name = contributors[index]
+                            else:
+                                print(f"Invalid number. Please enter a number between 1 and {len(contributors)}.")
+                        except ValueError:
+                            # User entered a name, not a number
+                            name = user_input
+                        
+                        if name:
+                            print(f"\nRanking projects by contributor: {name}\n")
+                            user_projects = rank_projects_by_contributor(name, limit=args.limit)
+                            print_projects_by_contributor(user_projects, name)
         except Exception:
             # If input isn't available (non-interactive), simply skip
             pass
