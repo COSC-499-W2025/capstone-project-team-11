@@ -52,19 +52,26 @@ from detect_roles import (
 def print_main_menu():
     """Display the main menu options."""
     print("\n=== MDA OPERATIONS MENU ===")
-    print("1. Run directory scan")
-    print("2. Inspect database (projects, scans, skills, etc.)")
-    print("3. Rank projects")
-    print("4. Summarize contributor projects")
-    print("5. Generate Project Summary Report")
-    print("6. Manage Project Evidence")
-    print("7. Generate Resume (User-centric)")
-    print("8. Generate Portfolio (Project-centric)")
-    print("9. View Resumes")
-    print("10. View Portfolios")
-    print("11. Analyze Contributor Roles")
-    print("12. Edit Project Resume Display Names") 
-    print("13. Exit")
+    print("")
+    print("SCANNING")
+    print("1. Scan Project")
+    print("")
+    print("RESUME & PORTFOLIO")
+    print("2. Generate Resume")
+    print("3. Generate Portfolio")
+    print("4. View/Manage Resumes")
+    print("5. View/Manage Portfolios")
+    print("")
+    print("ANALYSIS")
+    print("6. Rank Projects")
+    print("7. Summarize Contributor Projects")
+    print("8. Generate Project Summary Report")
+    print("9. Manage Project Evidence")
+    print("10. Analyze Contributor Roles")
+    print("")
+    print("ADMIN")
+    print("11. Inspect Database")
+    print("12. Exit")
 
 
 def handle_scan_directory():
@@ -92,16 +99,12 @@ def handle_scan_directory():
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
-            f"  Scan Nested Folders:        {current.get('recursive_choice')}\n"
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
-            f"  Show Collaboration Info:    {current.get('show_collaboration')}\n"
-            f"  Show Contribution Metrics:  {current.get('show_contribution_metrics')}\n"
-            f"  Show Contribution Summary:  {current.get('show_contribution_summary')}\n"
             "Proceed with these settings? (y/n): "
         )
     
     if use_saved and current.get("directory"):
-        save_db = ask_yes_no("Save scan results to database? (y/n): ", False)
+        save_db = True
         thumbnail_source = None
         if save_db:
             saved_dir = current.get("directory")
@@ -121,11 +124,11 @@ def handle_scan_directory():
                         break
         run_with_saved_settings(
             directory=current.get("directory"),
-            recursive_choice=current.get("recursive_choice"),
+            recursive_choice=True,
             file_type=current.get("file_type"),
-            show_collaboration=current.get("show_collaboration"),
-            show_contribution_metrics=current.get("show_contribution_metrics"),
-            show_contribution_summary=current.get("show_contribution_summary"),
+            show_collaboration=True,
+            show_contribution_metrics=True,
+            show_contribution_summary=True,
             save=False,
             save_to_db=save_db,
             thumbnail_source=thumbnail_source,
@@ -136,14 +139,14 @@ def handle_scan_directory():
             print("No directory provided. Returning to main menu.")
             return
         
-        recursive_choice = ask_yes_no("Scan subdirectories too? (y/n): ", False)
+        recursive_choice = True
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
-        show_collab = ask_yes_no("Show collaboration info? (y/n): ")
-        show_metrics = ask_yes_no("Show contribution metrics? (y/n): ")
-        show_summary = ask_yes_no("Show contribution summary? (y/n): ")
+        show_collab = True
+        show_metrics = True
+        show_summary = True
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
-        save_db = ask_yes_no("Save scan results to database? (y/n): ")
+        save_db = True
         thumbnail_source = None
         if save_db and not (os.path.isfile(directory) and directory.lower().endswith('.zip')):
             if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
@@ -1028,37 +1031,35 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-13): ").strip()
+        choice = input("\nSelect an option (1-12): ").strip()
 
         if choice == "1":
             handle_scan_directory()
         elif choice == "2":
-            handle_inspect_database()
-        elif choice == "3":
-            handle_rank_projects()
-        elif choice == "4":
-            handle_summarize_contributor_projects()
-        elif choice == "5":
-            handle_generate_project_summary()
-        elif choice == "6":
-            handle_project_evidence()
-        elif choice == "7":
             handle_generate_resume()
-        elif choice == "8":
+        elif choice == "3":
             handle_generate_portfolio()
-        elif choice == "9":
+        elif choice == "4":
             handle_view_resumes()
-        elif choice == "10":
+        elif choice == "5":
             handle_view_portfolios()
-        elif choice == "11":
+        elif choice == "6":
+            handle_rank_projects()
+        elif choice == "7":
+            handle_summarize_contributor_projects()
+        elif choice == "8":
+            handle_generate_project_summary()
+        elif choice == "9":
+            handle_project_evidence()
+        elif choice == "10":
             handle_analyze_roles()
+        elif choice == "11":
+            handle_inspect_database()
         elif choice == "12":
-            handle_edit_project_display_name()
-        elif choice == "13":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-13.")
+            print("\nInvalid option. Please select a number between 1-12.")
 
         input("\nPress Enter to return to main menu...")
 

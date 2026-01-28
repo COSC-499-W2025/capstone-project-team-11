@@ -83,19 +83,18 @@ def test_print_main_menu_outputs_correct_text(capsys):
     output = capsys.readouterr().out
 
     assert "MDA OPERATIONS MENU" in output
-    assert "1. Run directory scan" in output
-    assert "2. Inspect database" in output
-    assert "3. Rank projects" in output
-    assert "4. Summarize contributor projects" in output
-    assert "5. Generate Project Summary Report" in output
-    assert "6. Manage Project Evidence" in output
-    assert "7. Generate Resume (User-centric)" in output
-    assert "8. Generate Portfolio (Project-centric)" in output
-    assert "9. View Resumes" in output
-    assert "10. View Portfolios" in output
-    assert "11. Analyze Contributor Roles" in output
-    assert "12. Edit Project Resume Display Names" in output
-    assert "13. Exit" in output
+    assert "1. Scan Project" in output
+    assert "2. Generate Resume" in output
+    assert "3. Generate Portfolio" in output
+    assert "4. View/Manage Resumes" in output
+    assert "5. View/Manage Portfolios" in output
+    assert "6. Rank Projects" in output
+    assert "7. Summarize Contributor Projects" in output
+    assert "8. Generate Project Summary Report" in output
+    assert "9. Manage Project Evidence" in output
+    assert "10. Analyze Contributor Roles" in output
+    assert "11. Inspect Database" in output
+    assert "12. Exit" in output
 
 
 
