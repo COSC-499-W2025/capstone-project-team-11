@@ -3,16 +3,17 @@
 This module analyzes contributor activity patterns across a project to categorize
 roles without using an LLM. It uses file extensions, content patterns, and activity
 metrics to infer roles such as:
-- Backend Developer
-- Frontend Developer
-- Full Stack Developer
-- Mobile Developer
-- Data Scientist / ML Engineer
-- Game Developer
-- DevOps / Infrastructure
-- QA / Tester
-- UI/UX Designer
-- Project Lead / Architect
+- Backend Developer: Server-side code, APIs, databases, core business logic
+- Frontend Developer: UI code, web clients, styling, component development
+- Full Stack Developer: Significant contributions across both frontend and backend
+- Mobile Developer: Mobile app development (iOS, Android, cross-platform)
+- Machine Learning Developer: Data processing, ML models, data pipelines
+- Game Developer: Game engines, game mechanics, graphics, physics
+- Infrastructure Developer: DevOps, containerization, deployment, cloud config
+- Quality Assurance Developer: Testing frameworks, test suites, quality metrics
+- UI/UX Designer: Design files, prototypes, visual assets, mockups
+- Documentation Specialist: Technical docs, guides, wiki content, API documentation
+- Project Steward: High activity levels indicating leadership/coordination role
 """
 
 from typing import Dict, List, Optional
@@ -21,44 +22,242 @@ import os
 from contrib_metrics import classify_file, canonical_username
 
 
+def get_role_details(role_name: str) -> Dict:
+    """
+    Get detailed information about a specific role.
+    
+    Args:
+        role_name: Name of the role (e.g., 'Backend Engineer')
+    
+    Returns:
+        Dict containing role information including title, description, and responsibilities
+    """
+    return ROLE_DESCRIPTIONS.get(role_name, {
+        'title': role_name,
+        'description': 'Role information not available',
+        'responsibilities': []
+    })
+
+
+def list_all_roles() -> List[str]:
+    """Return a list of all recognized roles."""
+    return list(ROLE_DESCRIPTIONS.keys())
+
+
+def display_all_roles() -> str:
+    """
+    Generate a formatted display of all available roles with their details.
+    
+    Returns:
+        A formatted string showing all roles and their information
+    """
+    report = []
+    report.append("\n" + "=" * 100)
+    report.append("AVAILABLE CONTRIBUTOR ROLES & DESCRIPTIONS")
+    report.append("=" * 100)
+    
+    for role_name in sorted(ROLE_DESCRIPTIONS.keys()):
+        role_info = ROLE_DESCRIPTIONS[role_name]
+        report.append(f"\n{'─' * 100}")
+        report.append(f"ROLE: {role_info.get('title', role_name).upper()}")
+        report.append(f"{'─' * 100}")
+        
+        report.append(f"\nDescription:")
+        report.append(f"  {role_info.get('description', 'N/A')}")
+        
+        responsibilities = role_info.get('responsibilities', [])
+        if responsibilities:
+            report.append(f"\nKey Responsibilities:")
+            for responsibility in responsibilities:
+                report.append(f"  • {responsibility}")
+    
+    report.append("\n" + "=" * 100 + "\n")
+    return "\n".join(report)
+
+
 # File extension patterns for role detection
 ROLE_PATTERNS = {
     'Backend Developer': {
         'extensions': {'.py', '.java', '.go', '.rs', '.c', '.cpp', '.php', '.rb', '.cs'},
-        'keywords': ['backend', 'server', 'api', 'database', 'model'],
+        'keywords': ['backend', 'server', 'api', 'database', 'model', 'service', 'controller'],
+        'description': 'Focuses on server-side code, APIs, databases, and business logic implementation'
     },
     'Frontend Developer': {
-        'extensions': {'.js', '.ts', '.jsx', '.tsx', '.vue', '.html', '.css', '.scss'},
-        'keywords': ['frontend', 'react', 'vue', 'angular', 'ui', 'component'],
+        'extensions': {'.js', '.ts', '.jsx', '.tsx', '.vue', '.html', '.css', '.scss', '.less'},
+        'keywords': ['frontend', 'react', 'vue', 'angular', 'ui', 'component', 'view'],
+        'description': 'Specializes in user interfaces, web components, styling, and client-side logic'
     },
     'Mobile Developer': {
-        'extensions': {'.swift', '.kt', '.dart', '.m', '.mm'},
-        'keywords': ['mobile', 'android', 'ios', 'flutter', 'xcode'],
+        'extensions': {'.swift', '.kt', '.dart', '.m', '.mm', '.java'},
+        'keywords': ['mobile', 'android', 'ios', 'flutter', 'xcode', 'gradle'],
+        'description': 'Develops native or cross-platform mobile applications and related SDKs'
     },
-    'Data Scientist / ML Engineer': {
-        'extensions': {'.py', '.r', '.sql', '.ipynb'},
-        'keywords': ['data', 'ml', 'machine learning', 'numpy', 'pandas', 'tensorflow', 'keras'],
+    'Machine Learning Developer': {
+        'extensions': {'.py', '.r', '.sql', '.ipynb', '.jl'},
+        'keywords': ['data', 'ml', 'machine learning', 'numpy', 'pandas', 'tensorflow', 'keras', 'sklearn', 'pytorch'],
+        'description': 'Works on data pipelines, model training, ML research, and data analysis'
     },
     'Game Developer': {
-        'extensions': {'.cs', '.cpp', '.shader'},
-        'keywords': ['game', 'unity', 'unreal', 'godot', 'engine'],
+        'extensions': {'.cs', '.cpp', '.shader', '.unity', '.unreal'},
+        'keywords': ['game', 'unity', 'unreal', 'godot', 'engine', 'physics', 'graphics'],
+        'description': 'Develops game mechanics, engines, graphics, and interactive entertainment systems'
     },
-    'DevOps / Infrastructure': {
-        'extensions': {'.yml', '.yaml', '.tf', '.json', '.dockerfile', '.sh', '.bash'},
-        'keywords': ['docker', 'kubernetes', 'terraform', 'ansible', 'devops', 'infrastructure'],
+    'Infrastructure Developer': {
+        'extensions': {'.yml', '.yaml', '.tf', '.json', '.dockerfile', '.sh', '.bash', '.hcl'},
+        'keywords': ['docker', 'kubernetes', 'terraform', 'ansible', 'devops', 'infrastructure', 'cloud', 'deploy'],
+        'description': 'Manages deployment pipelines, containerization, cloud infrastructure, and system configuration'
     },
-    'QA / Tester': {
-        'extensions': {'.py', '.js', '.java', '.ts'},
-        'keywords': ['test', 'spec', 'pytest', 'jest', 'junit'],
+    'Quality Assurance Developer': {
+        'extensions': {'.py', '.js', '.java', '.ts', '.go'},
+        'keywords': ['test', 'spec', 'pytest', 'jest', 'junit', 'mocha', 'testing', 'qa', 'quality'],
+        'description': 'Creates and maintains test frameworks, ensures code quality, and validates functionality'
     },
     'UI/UX Designer': {
-        'extensions': {'.png', '.jpg', '.svg', '.psd', '.sketch', '.xd', '.figma'},
-        'keywords': ['design', 'ui', 'ux', 'mockup'],
+        'extensions': {'.png', '.jpg', '.svg', '.psd', '.sketch', '.xd', '.figma', '.pdf'},
+        'keywords': ['design', 'ui', 'ux', 'mockup', 'prototype', 'visual'],
+        'description': 'Creates visual designs, prototypes, mockups, and user experience assets'
+    },
+    'Documentation Specialist': {
+        'extensions': {'.md', '.rst', '.txt', '.adoc'},
+        'keywords': ['documentation', 'guide', 'tutorial', 'readme', 'docs', 'api doc'],
+        'description': 'Writes technical documentation, guides, API references, and knowledge resources'
     },
 }
 
 # Minimum contribution levels to assign a role
 MIN_TOTAL_FILES = 3        # Must have at least 3 file contributions
+
+# Thresholds for specialized role detection
+ROLE_THRESHOLDS = {
+    'code': 0.30,      # 30% code contributions
+    'test': 0.30,      # 30% test contributions
+    'docs': 0.20,      # 20% documentation
+    'design': 0.50,    # 50% design assets
+}
+
+# Detailed role descriptions with guidance
+ROLE_DESCRIPTIONS = {
+    'Backend Developer': {
+        'title': 'Backend Developer',
+        'description': 'Develops and maintains server-side systems, APIs, and business logic',
+        'responsibilities': [
+            'Server-side code and API development',
+            'Database design and management',
+            'Business logic implementation',
+            'Service architecture',
+            'Performance optimization'
+        ]
+    },
+    'Frontend Developer': {
+        'title': 'Frontend Developer',
+        'description': 'Creates user interfaces, interactive components, and client-side functionality',
+        'responsibilities': [
+            'UI component development',
+            'User interaction implementation',
+            'CSS and styling',
+            'Browser compatibility',
+            'Client-side state management'
+        ]
+    },
+    'Full Stack Developer': {
+        'title': 'Full Stack Developer',
+        'description': 'Contributes significantly to both frontend and backend systems',
+        'responsibilities': [
+            'End-to-end feature implementation',
+            'API and UI coordination',
+            'Database to interface integration',
+            'Full-stack architectural decisions'
+        ]
+    },
+    'Mobile Developer': {
+        'title': 'Mobile Developer',
+        'description': 'Develops mobile applications for various platforms',
+        'responsibilities': [
+            'Mobile app development (iOS/Android)',
+            'Cross-platform solutions',
+            'Mobile UI/UX implementation',
+            'Mobile performance optimization',
+            'App store integration'
+        ]
+    },
+    'Machine Learning Developer': {
+        'title': 'Machine Learning Developer',
+        'description': 'Builds, trains, and deploys machine learning models and data pipelines',
+        'responsibilities': [
+            'ML model development and training',
+            'Data pipeline construction',
+            'Data preprocessing and analysis',
+            'Statistical analysis',
+            'Model evaluation and optimization'
+        ]
+    },
+    'Game Developer': {
+        'title': 'Game Developer',
+        'description': 'Develops game mechanics, engines, and interactive systems',
+        'responsibilities': [
+            'Game engine development',
+            'Physics and graphics implementation',
+            'Game mechanics design',
+            'Performance optimization for gaming',
+            'Interactive system architecture'
+        ]
+    },
+    'Infrastructure Developer': {
+        'title': 'Infrastructure Developer',
+        'description': 'Manages deployment, containerization, and cloud infrastructure',
+        'responsibilities': [
+            'CI/CD pipeline development',
+            'Docker/Kubernetes orchestration',
+            'Cloud infrastructure setup',
+            'Deployment automation',
+            'System monitoring and scaling'
+        ]
+    },
+    'Quality Assurance Developer': {
+        'title': 'Quality Assurance Developer',
+        'description': 'Develops testing frameworks and ensures code quality standards',
+        'responsibilities': [
+            'Test framework development',
+            'Unit and integration testing',
+            'Quality metrics tracking',
+            'Bug identification and reporting',
+            'Test automation'
+        ]
+    },
+    'UI/UX Designer': {
+        'title': 'UI/UX Designer',
+        'description': 'Creates visual designs, prototypes, and user experience assets',
+        'responsibilities': [
+            'Visual design creation',
+            'Prototype development',
+            'Mockup creation',
+            'User experience design',
+            'Design asset management'
+        ]
+    },
+    'Documentation Specialist': {
+        'title': 'Documentation Specialist',
+        'description': 'Creates and maintains technical documentation and knowledge resources',
+        'responsibilities': [
+            'Technical documentation writing',
+            'API documentation',
+            'User guide creation',
+            'Knowledge base development',
+            'Tutorial creation'
+        ]
+    },
+    'Project Steward': {
+        'title': 'Project Steward',
+        'description': 'High-activity contributor showing leadership and coordination across the project',
+        'responsibilities': [
+            'Cross-functional coordination',
+            'Architecture decisions',
+            'Code review and guidance',
+            'Project planning and direction',
+            'Team mentoring'
+        ]
+    },
+}
 
 
 def categorize_contributor_role(
@@ -85,6 +284,8 @@ def categorize_contributor_role(
         Dict with keys:
             - name: contributor name
             - primary_role: Main categorized role
+            - role_title: Human-readable title for the primary role
+            - role_description: Detailed description of the role
             - secondary_roles: List of additional roles detected
             - confidence: Score 0.0-1.0 indicating role certainty
             - contribution_breakdown: Dict with percentages per category
@@ -94,6 +295,8 @@ def categorize_contributor_role(
         return {
             "name": canonical_username(contributor_name),
             "primary_role": "Contributor",
+            "role_title": "Contributor",
+            "role_description": "Occasional contributor with limited activity",
             "secondary_roles": [],
             "confidence": 0.0,
             "contribution_breakdown": {},
@@ -123,18 +326,17 @@ def categorize_contributor_role(
     roles = [role for role, score in sorted_roles if score > 0]
     
     # Detect Full Stack if multiple major roles detected with significant scores
-    if len(roles) >= 3 and len(files_changed) > 10:
-        # Check if roles have balanced scores (not just one dominating)
+    if len(roles) >= 2:
+        # Check if roles have balanced scores
         top_score = sorted_roles[0][1] if sorted_roles else 1
         second_score = sorted_roles[1][1] if len(sorted_roles) > 1 else 0
-        third_score = sorted_roles[2][1] if len(sorted_roles) > 2 else 0
-        # Full Stack only if roles are reasonably balanced (not >5x difference)
+        # Full Stack if contributions are reasonably balanced (not >5x difference)
         if top_score > 0 and second_score > top_score * 0.3:
             roles.insert(0, 'Full Stack Developer')
     
-    # Detect Project Lead if very high activity
+    # Detect Project Steward if very high activity
     if commits > 20 and len(files_changed) > 15:
-        roles.insert(0, 'Project Lead / Architect')
+        roles.insert(0, 'Project Steward')
     
     # Fallback if no roles detected
     if not roles:
@@ -146,9 +348,14 @@ def categorize_contributor_role(
     # Calculate confidence
     confidence = _calculate_role_confidence(primary_role, sorted_roles)
     
+    # Get role metadata
+    role_info = ROLE_DESCRIPTIONS.get(primary_role, {})
+    
     return {
         "name": canonical_username(contributor_name),
         "primary_role": primary_role,
+        "role_title": role_info.get('title', primary_role),
+        "role_description": role_info.get('description', ''),
         "secondary_roles": secondary_roles,
         "confidence": confidence,
         "contribution_breakdown": {
@@ -186,8 +393,12 @@ def _calculate_role_scores(files_changed: List[str], breakdown: Dict[str, float]
             if ext in patterns['extensions']:
                 score += count
         
-        # Boost score for QA/Tester if test activity is high
-        if role == 'QA / Tester' and breakdown.get('test', 0) > 30:
+        # Boost score for Quality Assurance Developer if test activity is high
+        if role == 'Quality Assurance Developer' and breakdown.get('test', 0) > 30:
+            score += 5
+        
+        # Boost score for Documentation Specialist if docs activity is high
+        if role == 'Documentation Specialist' and breakdown.get('docs', 0) > 30:
             score += 5
         
         if score > 0:
@@ -200,43 +411,6 @@ def _calculate_role_scores(files_changed: List[str], breakdown: Dict[str, float]
     return role_scores
 
 
-def _detect_roles(breakdown: Dict[str, float], commits: int, total_files: int, total_activity: int) -> List[str]:
-    """
-    Detect roles based on contribution breakdown percentages.
-    
-    Returns a list of roles ordered by primary to secondary.
-    """
-    roles = []
-    
-    # Check specialized roles
-    if breakdown.get('code', 0) >= ROLE_THRESHOLDS['code'] * 100:
-        roles.append("Developer")
-    
-    if breakdown.get('test', 0) >= ROLE_THRESHOLDS['test'] * 100:
-        roles.append("Tester")
-    
-    if breakdown.get('docs', 0) >= ROLE_THRESHOLDS['docs'] * 100:
-        roles.append("Documentarian")
-    
-    if breakdown.get('design', 0) >= ROLE_THRESHOLDS['design'] * 100:
-        roles.append("Designer")
-    
-    # Check for full-stack contributor (balanced across multiple areas)
-    if len(roles) >= 3:
-        roles = ["Full-Stack Contributor"] + roles[1:]
-    elif len(roles) == 0:
-        # Default fallback for small/balanced contributors
-        roles.append("General Contributor")
-    
-    # Add leadership indicators based on high activity levels
-    if commits > 20 and total_activity > 15:
-        roles.insert(0, "Lead Developer")
-    elif commits > 10 and total_activity > 10:
-        roles.insert(0, "Senior Contributor")
-    
-    return roles
-
-
 def _calculate_role_confidence(primary_role: str, role_scores: List[tuple]) -> float:
     """
     Calculate confidence score (0.0-1.0) for the primary role assignment.
@@ -246,8 +420,8 @@ def _calculate_role_confidence(primary_role: str, role_scores: List[tuple]) -> f
     if not role_scores:
         return 0.0
     
-    if primary_role == 'Project Lead / Architect':
-        return 0.95  # Very high confidence for leads
+    if primary_role == 'Project Steward':
+        return 0.95  # Very high confidence for stewards
     
     if primary_role == 'Full Stack Developer':
         # For full stack, confidence based on balance
@@ -312,7 +486,7 @@ def analyze_project_roles(contributors_data: Dict) -> Dict:
         for role, count in sorted(role_counts.items(), key=lambda x: -x[1])
     }
     
-    leads = [r for r in deduped_roles if "Lead" in r["primary_role"]]
+    leads = [r for r in deduped_roles if "Steward" in r["primary_role"]]
     developers = [r for r in deduped_roles if "Developer" in r["primary_role"]]
     
     summary = {
@@ -355,9 +529,9 @@ def format_roles_report(analysis_result: Dict, per_project_data: Dict[str, Dict]
         per_project_data: Optional dict of per-project contributor analyses
     """
     report = []
-    report.append("\n" + "=" * 70)
+    report.append("\n" + "=" * 80)
     report.append("PROJECT ROLE ANALYSIS REPORT")
-    report.append("=" * 70)
+    report.append("=" * 80)
     
     summary = analysis_result.get("summary", {})
     report.append(f"\nTotal Contributors: {summary.get('total_contributors', 0)}")
@@ -370,13 +544,15 @@ def format_roles_report(analysis_result: Dict, per_project_data: Dict[str, Dict]
         for role, count in summary['role_distribution'].items():
             report.append(f"  - {role}: {count}")
     
-    report.append("\n" + "-" * 70)
+    report.append("\n" + "-" * 80)
     report.append("CONTRIBUTOR ROLES (OVERALL)")
-    report.append("-" * 70)
+    report.append("-" * 80)
     
     for contributor in analysis_result.get("contributors", []):
-        report.append(f"\n{contributor['name']}:")
+        report.append(f"\n{contributor['name'].upper()}")
         report.append(f"  Primary Role: {contributor['primary_role']}")
+        report.append(f"  Title: {contributor.get('role_title', contributor['primary_role'])}")
+        report.append(f"  Description: {contributor.get('role_description', 'N/A')}")
         
         if contributor['secondary_roles']:
             report.append(f"  Secondary Roles: {', '.join(contributor['secondary_roles'])}")
@@ -400,18 +576,19 @@ def format_roles_report(analysis_result: Dict, per_project_data: Dict[str, Dict]
     
     # Add per-project breakdown if available
     if per_project_data:
-        report.append("\n" + "=" * 70)
+        report.append("\n" + "=" * 80)
         report.append("PER-PROJECT CONTRIBUTIONS")
-        report.append("=" * 70)
+        report.append("=" * 80)
         
         for project_name, project_analysis in sorted(per_project_data.items()):
-            report.append(f"\n{'-' * 70}")
+            report.append(f"\n{'-' * 80}")
             report.append(f"Project: {project_name}")
-            report.append(f"{'-' * 70}")
+            report.append(f"{'-' * 80}")
             
             for contributor in project_analysis.get("contributors", []):
                 report.append(f"\n  {contributor['name']}:")
                 report.append(f"    Primary Role: {contributor['primary_role']}")
+                report.append(f"    Description: {contributor.get('role_description', 'N/A')}")
                 
                 if contributor['secondary_roles']:
                     report.append(f"    Secondary Roles: {', '.join(contributor['secondary_roles'])}")
@@ -430,7 +607,7 @@ def format_roles_report(analysis_result: Dict, per_project_data: Dict[str, Dict]
                     )
                     report.append(f"    Breakdown: {breakdown_str}")
     
-    report.append("\n" + "=" * 70)
+    report.append("\n" + "=" * 80)
     
     return "\n".join(report)
 
@@ -638,6 +815,16 @@ def load_contributors_from_db() -> Dict:
 
 
 if __name__ == "__main__":
+    # Ask user if they want to see all available roles
+    print("\n" + "=" * 100)
+    print("CONTRIBUTOR ROLE ANALYSIS SYSTEM")
+    print("=" * 100)
+    
+    show_roles = input("\nWould you like to see all available contributor roles and their descriptions? (yes/no): ").strip().lower()
+    
+    if show_roles in ['yes', 'y']:
+        print(display_all_roles())
+    
     # Load actual contributors from database
     print("Loading contributors from database...")
     contributors_data = load_contributors_from_db()

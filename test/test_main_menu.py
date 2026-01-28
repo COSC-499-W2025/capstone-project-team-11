@@ -83,19 +83,18 @@ def test_print_main_menu_outputs_correct_text(capsys):
     output = capsys.readouterr().out
 
     assert "MDA OPERATIONS MENU" in output
-    assert "1. Run directory scan" in output
-    assert "2. Inspect database" in output
-    assert "3. Rank projects" in output
-    assert "4. Summarize contributor projects" in output
-    assert "5. Generate Project Summary Report" in output
-    assert "6. Manage Project Evidence" in output
-    assert "7. Generate Resume (User-centric)" in output
-    assert "8. Generate Portfolio (Project-centric)" in output
-    assert "9. View Resumes" in output
-    assert "10. View Portfolios" in output
-    assert "11. Analyze Contributor Roles" in output
-    assert "12. Edit Project Resume Display Names" in output
-    assert "13. Exit" in output
+    assert "1. Scan Project" in output
+    assert "2. Generate Resume" in output
+    assert "3. Generate Portfolio" in output
+    assert "4. View/Manage Resumes" in output
+    assert "5. View/Manage Portfolios" in output
+    assert "6. Rank Projects" in output
+    assert "7. Summarize Contributor Projects" in output
+    assert "8. Generate Project Summary Report" in output
+    assert "9. Manage Project Evidence" in output
+    assert "10. Analyze Contributor Roles" in output
+    assert "11. Inspect Database" in output
+    assert "12. Exit" in output
 
 
 
@@ -244,6 +243,7 @@ def test_handle_analyze_roles_with_no_data(monkeypatch, capsys):
     """Test that handle_analyze_roles handles empty database gracefully."""
     # Mock load_contributors_from_db to return empty dict
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: {})
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)  # Mock input
     
     handle_analyze_roles()
     
@@ -275,7 +275,7 @@ def test_handle_analyze_roles_with_data_no_per_project(monkeypatch, capsys):
     assert "Analyze Contributor Roles" in out
     assert "Found 1 contributors" in out
     assert "PROJECT ROLE ANALYSIS REPORT" in out
-    assert "alice" in out
+    assert "ALICE" in out
     # Should NOT have per-project section
     assert "PER-PROJECT CONTRIBUTIONS" not in out
 
@@ -356,7 +356,7 @@ def test_handle_analyze_roles_per_project_empty(monkeypatch, capsys):
     assert "No per-project data found" in out
     assert "PROJECT ROLE ANALYSIS REPORT" in out
     # Should still show overall analysis
-    assert "bob" in out
+    assert "BOB" in out
 
 
 def test_handle_analyze_roles_multiple_contributors(monkeypatch, capsys):
@@ -392,9 +392,9 @@ def test_handle_analyze_roles_multiple_contributors(monkeypatch, capsys):
     
     out = capsys.readouterr().out
     assert "Found 3 contributors" in out
-    assert "alice" in out
-    assert "bob" in out
-    assert "charlie" in out
+    assert "ALICE" in out
+    assert "BOB" in out
+    assert "CHARLIE" in out
     assert "Total Contributors: 3" in out
 
 
@@ -416,7 +416,7 @@ def test_handle_analyze_roles_displays_metrics(monkeypatch, capsys):
     handle_analyze_roles()
     
     out = capsys.readouterr().out
-    assert "developer" in out
+    assert "DEVELOPER" in out
     assert "Primary Role:" in out
     assert "Metrics:" in out or "Files:" in out
     assert "Contribution Breakdown:" in out or "Breakdown:" in out
