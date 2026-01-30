@@ -246,12 +246,14 @@ def handle_project_evidence():
             projects = cur.fetchall()
         except sqlite3.OperationalError as e:
             if "no such table" in str(e):
-                print("No projects found. Please scan a project first before managing evidence.")
+                print("\nError: No projects found in the database.")
+                print("  Hint: Scan a project first (Option 1) to populate the database.")
                 return
             raise
 
         if not projects:
-            print("No projects found in the database. Please scan a project first.")
+            print("\nError: No projects found in the database.")
+            print("  Hint: Scan a project first (Option 1) to populate the database.")
             return
 
         # Display projects
@@ -262,7 +264,8 @@ def handle_project_evidence():
         # Prompt for project ID
         project_id = input("\nEnter the project ID to manage evidence: ").strip()
         if not project_id.isdigit() or int(project_id) not in [p['id'] for p in projects]:
-            print("Invalid project ID.")
+            print("\nError: Invalid project ID.")
+            print("  Hint: Enter a project ID number from the list above.")
             return
         project_id = int(project_id)
 
@@ -306,18 +309,21 @@ def handle_project_evidence():
                     # Refresh evidence list
                     evidence = get_evidence_for_project(project_id)
                 except ValueError as e:
-                    print(f"Error: {e}")
+                    print(f"\nError: {e}")
+                    print(f"  Hint: Valid types are: {', '.join(EVIDENCE_TYPES)}")
                 except Exception as e:
-                    print(f"Failed to add evidence: {e}")
+                    print(f"\nError: Failed to add evidence: {e}")
 
             elif choice == "2":
                 # Edit existing evidence
                 if not evidence:
-                    print("No evidence to edit.")
+                    print("\nError: No evidence to edit.")
+                    print("  Hint: Add evidence first using option 1.")
                     continue
                 ev_idx = input("Enter the number of the evidence to edit: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
-                    print("Invalid selection.")
+                    print(f"\nError: Invalid selection.")
+                    print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
                     continue
                 ev_record = evidence[int(ev_idx) - 1]
                 ev_id = ev_record['id']
@@ -332,7 +338,8 @@ def handle_project_evidence():
                     try:
                         updates["type"] = validate_evidence_type(new_type)
                     except ValueError as e:
-                        print(f"Error: {e}")
+                        print(f"\nError: {e}")
+                        print(f"  Hint: Valid types are: {', '.join(EVIDENCE_TYPES)}")
                         continue
                 
                 new_statement = input(f"Statement [{current_statement}]: ").strip()
@@ -351,16 +358,18 @@ def handle_project_evidence():
                     else:
                         print("No changes made.")
                 except Exception as e:
-                    print(f"Failed to update evidence: {e}")
+                    print(f"\nError: Failed to update evidence: {e}")
 
             elif choice == "3":
                 # Delete evidence
                 if not evidence:
-                    print("No evidence to delete.")
+                    print("\nError: No evidence to delete.")
+                    print("  Hint: Add evidence first using option 1.")
                     continue
                 ev_idx = input("Enter the number of the evidence to delete: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
-                    print("Invalid selection.")
+                    print(f"\nError: Invalid selection.")
+                    print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
                     continue
                 ev_id = evidence[int(ev_idx) - 1]['id']
                 try:
@@ -368,16 +377,18 @@ def handle_project_evidence():
                         print("Evidence deleted successfully.")
                         evidence = [ev for ev in evidence if ev['id'] != ev_id]
                     else:
-                        print("Failed to delete evidence.")
+                        print("\nError: Failed to delete evidence.")
+                        print("  Hint: The evidence may have already been deleted.")
                 except Exception as e:
-                    print(f"Failed to delete evidence: {e}")
+                    print(f"\nError: Failed to delete evidence: {e}")
 
             elif choice == "4":
                 # Back to main menu
                 break
 
             else:
-                print("Invalid option. Please select a valid number.")
+                print("\nError: Invalid option.")
+                print("  Hint: Enter a number between 1 and 4.")
     finally:
         conn.close()
 
