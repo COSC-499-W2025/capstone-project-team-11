@@ -4,7 +4,6 @@ summarize_projects.py
 Generate detailed summaries for top-ranked projects by contributor.
 
 This module provides functionality to:
-- Retrieve project paths from the database
 - Generate summaries for a contributor's top-ranked projects
 """
 
@@ -12,6 +11,7 @@ import os
 import sys
 import json
 import argparse
+import sqlite3
 from typing import List, Dict, Optional, Set
 from datetime import datetime
 from collections import defaultdict
@@ -23,111 +23,117 @@ if src_dir not in sys.path:
 
 from db import get_connection
 from rank_projects import rank_projects_by_contributor
+from contrib_metrics import canonical_username
+def gather_project_info_from_db(project_name: str) -> dict:
+    """Load project metadata from the database in the same shape as gather_project_info."""
+    if not project_name:
+        raise ValueError("project_name is required")
 
-
-def get_project_path(project_name: str) -> Optional[str]:
-    """Get the project root path from the database for a given project name.
-    
-    Attempts to infer the project root by:
-    1. Getting a file path from the most recent scan for this project
-    2. Extracting the project root directory from the file path
-    
-    Returns None if the project path cannot be determined.
-    """
     conn = get_connection()
     cur = conn.cursor()
     try:
-        # Get a file path from the most recent scan for this project
         cur.execute(
-            "SELECT f.file_path FROM files f "
-            "JOIN scans s ON f.scan_id = s.id "
-            "WHERE s.project = ? "
-            "ORDER BY s.scanned_at DESC, f.id ASC "
-            "LIMIT 1",
-            (project_name,)
+            "SELECT id, git_metrics_json, tech_json FROM projects WHERE name = ?",
+            (project_name,),
         )
         row = cur.fetchone()
-        if not row:
-            return None
-        
-        file_path = row[0]
-        if not file_path:
-            return None
+        project_id = row["id"] if row else None
 
-        # Resolve project root directly from file path if project name is in the path
-        path_components = os.path.abspath(file_path).split(os.sep)
-        if project_name in path_components:
-            project_root_index = path_components.index(project_name)
-            project_root = os.sep.join(path_components[:project_root_index + 1])
-            if os.path.exists(project_root) and os.path.basename(project_root) == project_name:
-                return project_root
+        git_metrics = {}
+        if row and row["git_metrics_json"]:
+            try:
+                git_metrics = json.loads(row["git_metrics_json"]) or {}
+            except Exception:
+                git_metrics = {}
 
-        # Handle zip file paths (format: "/path/to.zip:inner/path/file.py")
-        zip_sep_index = file_path.lower().find(".zip:")
-        if zip_sep_index != -1:
-            # Extract the zip path portion (including the .zip file itself)
-            zip_part = file_path[:zip_sep_index + len(".zip")]
-            # Try to find the project root by going up from the zip location
-            # For zip files, we'll use the directory containing the zip
-            potential_root = os.path.dirname(zip_part)
-            if os.path.exists(potential_root):
-                return potential_root
-            return None
-        
-        # For regular file paths, find the project root
-        # Start from the file path and go up until we find a directory that looks like a project root
-        current = os.path.abspath(file_path)
-        
-        # If it's a file, start from its directory
-        if os.path.isfile(current):
-            current = os.path.dirname(current)
-        elif not os.path.isdir(current):
-            # If the path doesn't exist, try to infer from the path structure
-            # Assume the project root is the directory containing this file
-            current = os.path.dirname(current)
-        
-        # Try to find a reasonable project root by going up directories
-        # Stop at common project root indicators or after a reasonable depth
-        max_depth = 10
-        depth = 0
-        while depth < max_depth:
-            if os.path.exists(current) and os.path.isdir(current):
-                # Check if this looks like a project root (has common project files)
-                common_files = ['.git', 'package.json', 'requirements.txt', 'pom.xml', 
-                              'Cargo.toml', 'setup.py', 'Makefile', 'README.md']
-                if any(os.path.exists(os.path.join(current, f)) for f in common_files):
-                    return current
-                # Also check if the directory name matches the project name
-                if os.path.basename(current) == project_name:
-                    return current
-            
-            parent = os.path.dirname(current)
-            if parent == current:  # Reached filesystem root
-                break
-            current = parent
-            depth += 1
-        
-        # If we couldn't find a clear project root, return None
-        return None
-    except Exception as e:
-        print(f"[WARNING] Could not determine path for project '{project_name}': {e}")
-        return None
+        tech_data = {}
+        if row and row["tech_json"]:
+            try:
+                tech_data = json.loads(row["tech_json"]) or {}
+            except Exception:
+                tech_data = {}
+
+        frameworks = tech_data.get("frameworks") or []
+
+        cur.execute(
+            """
+            SELECT DISTINCT l.name
+            FROM languages l
+            JOIN file_languages fl ON fl.language_id = l.id
+            JOIN files f ON f.id = fl.file_id
+            JOIN scans s ON s.id = f.scan_id
+            WHERE s.project = ?
+            ORDER BY l.name COLLATE NOCASE
+            """,
+            (project_name,),
+        )
+        languages = [r["name"] for r in cur.fetchall()]
+
+        skills: List[str] = []
+        if project_id:
+            cur.execute(
+                """
+                SELECT sk.name
+                FROM project_skills ps
+                JOIN skills sk ON sk.id = ps.skill_id
+                WHERE ps.project_id = ?
+                ORDER BY sk.name COLLATE NOCASE
+                """,
+                (project_id,),
+            )
+            skills = [r["name"] for r in cur.fetchall()]
+
+        cur.execute(
+            """
+            SELECT c.name AS contributor, COUNT(DISTINCT f.id) AS file_count
+            FROM contributors c
+            JOIN file_contributors fc ON fc.contributor_id = c.id
+            JOIN files f ON f.id = fc.file_id
+            JOIN scans s ON s.id = f.scan_id
+            WHERE s.project = ?
+            GROUP BY c.name
+            """,
+            (project_name,),
+        )
+        contributions: Dict[str, Dict] = {}
+        for r in cur.fetchall():
+            key = canonical_username(r["contributor"] or "")
+            contributions[key] = {
+                "commits": 0,
+                "files": [],
+                "file_count": r["file_count"] or 0,
+            }
+
+        commits_per_author = {}
+        files_changed_per_author = {}
+        if isinstance(git_metrics, dict):
+            commits_per_author = git_metrics.get("commits_per_author") or {}
+            files_changed_per_author = git_metrics.get("files_changed_per_author") or {}
+
+        for author, commits in commits_per_author.items():
+            key = canonical_username(author or "")
+            entry = contributions.setdefault(key, {"commits": 0, "files": [], "file_count": 0})
+            entry["commits"] = commits or 0
+
+        for author, files_changed in files_changed_per_author.items():
+            key = canonical_username(author or "")
+            entry = contributions.setdefault(key, {"commits": 0, "files": [], "file_count": 0})
+            if isinstance(files_changed, (list, set, tuple)):
+                entry["files"] = list(files_changed)
+            if entry.get("file_count", 0) == 0:
+                entry["file_count"] = len(entry.get("files", []))
+
+        return {
+            "project_name": project_name,
+            "languages": languages,
+            "frameworks": frameworks,
+            "skills": skills,
+            "contributions": contributions,
+            "git_metrics": git_metrics or {},
+            "projects_detected": 1,
+        }
     finally:
-        # Do not close the connection here for the same reason as in rank_projects.py
-        pass
-
-
-def find_unzipped_project_root(base_path: str, project_name: str) -> Optional[str]:
-    """Search for directories matching '<base_path>/<project_name>__unzipped/<project_name>'."""
-    if not base_path or not os.path.exists(base_path):
-        return None
-    for root, dirs, _ in os.walk(base_path):
-        for dir_name in dirs:
-            if dir_name == f"{project_name}__unzipped":
-                potential_path = os.path.join(root, dir_name, project_name)
-                if os.path.exists(potential_path):
-                    return potential_path
-    return None
+        conn.close()
 
 
 def generate_combined_summary(
@@ -141,7 +147,7 @@ def generate_combined_summary(
     Args:
         contributor_name: Name of the contributor
         ranked_projects: List of ranked project dicts from rank_projects_by_contributor
-        project_data_list: List of dicts with keys: project, project_path, project_info (dict from gather_project_info)
+        project_data_list: List of dicts with keys: project, project_info (dict from gather_project_info_from_db)
         output_dir: Directory where the combined summary should be saved
     
     Returns:
@@ -199,7 +205,6 @@ def generate_combined_summary(
         
         project_details.append({
             "name": project_name,
-            "path": result.get("project_path", "N/A"),
             "languages": project_data.get("languages", []),
             "frameworks": project_data.get("frameworks", []),
             "skills": project_data.get("skills", []),
@@ -275,8 +280,7 @@ def generate_combined_summary(
         for i, proj in enumerate(sorted(project_details, key=lambda x: (-x["score"], -x["contrib_files"], x["name"])), 1):
             f.write(f"{i}. {proj['name']}\n")
             f.write(f"   Score: {proj['score']:.2%} ({proj['contrib_files']}/{proj['total_files']} files)\n")
-            f.write(f"   Commits: {proj['commits']}\n")
-            f.write(f"   Path: {proj['path']}\n\n")
+            f.write(f"   Commits: {proj['commits']}\n\n")
         
         # Individual Project Sections
         f.write("=" * 60 + "\n")
@@ -288,8 +292,7 @@ def generate_combined_summary(
             f.write(f"PROJECT {i}: {proj['name']}\n")
             f.write(f"{'=' * 60}\n\n")
             f.write(f"Ranking Score: {proj['score']:.2%} ({proj['contrib_files']}/{proj['total_files']} files)\n")
-            f.write(f"Commits: {proj['commits']}\n")
-            f.write(f"Path: {proj['path']}\n\n")
+            f.write(f"Commits: {proj['commits']}\n\n")
             
             if proj['languages']:
                 f.write(f"Languages: {', '.join(proj['languages'])}\n")
@@ -314,6 +317,27 @@ def generate_combined_summary(
     return summary_path
 
 
+def db_is_initialized() -> bool:
+    """Return True if the database contains the projects table."""
+    try:
+        conn = sqlite3.connect(os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
+        ))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='projects' LIMIT 1"
+        )
+        row = cur.fetchone()
+        return row is not None
+    except Exception:
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = None) -> List[Dict]:
     """Generate a combined summary for a contributor's top-ranked projects.
     
@@ -322,18 +346,14 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
         limit: Maximum number of top projects to summarize (None for all)
     
     Returns:
-        List of dicts with keys: project, project_path, project_info (dict from gather_project_info),
+        List of dicts with keys: project, project_info (dict from gather_project_info_from_db),
         and error (if summary generation failed).
     """
-    # Try to import project_info_output function
-    try:
-        from project_info_output import gather_project_info
-    except ImportError:
-        try:
-            from .project_info_output import gather_project_info
-        except ImportError:
-            print("[ERROR] Could not import project_info_output module. Summaries cannot be generated.")
-            return []
+    contributor_name = canonical_username(contributor_name or "")
+
+    if not db_is_initialized():
+        print("Database not initialized. Run scan before generating summaries.")
+        return []
     
     # Get top-ranked projects for the contributor (reuse existing ranking logic)
     top_projects = rank_projects_by_contributor(contributor_name, limit=limit)
@@ -349,40 +369,12 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
         project_name = project_info["project"]
         print(f"[{i}/{len(top_projects)}] Processing: {project_name}")
         
-        # Get the project path
-        project_path = get_project_path(project_name)
-        
-        # Attempt to resolve extracted zip project root
-        resolved_path = find_unzipped_project_root(project_path, project_name)
-        if resolved_path:
-            project_path = resolved_path
-        
-        if not project_path or not os.path.exists(project_path):
-            print(f"  [SKIP] Could not find project path for '{project_name}'")
-            results.append({
-                "project": project_name,
-                "project_path": None,
-                "project_info": None,
-                "error": "Project path not found"
-            })
-            continue
-        
-        print(f"  [INFO] Project path: {project_path}")
-        
-        # Gather project info (but don't output individual files)
+        # Gather project info from DB
         try:
-            info = gather_project_info(project_path)
-            
-            # Enforce single-project invariant
-            if info.get("projects_detected", 1) > 1:
-                raise ValueError(
-                    f"Refusing to summarize multi-project directory: {project_path}"
-                )
-            
+            info = gather_project_info_from_db(project_name)
             print(f"  [SUCCESS] Project info gathered\n")
             results.append({
                 "project": project_name,
-                "project_path": project_path,
                 "project_info": info,
                 "error": None
             })
@@ -390,7 +382,6 @@ def summarize_top_ranked_projects(contributor_name: str, limit: Optional[int] = 
             print(f"  [ERROR] Failed to gather project info: {e}\n")
             results.append({
                 "project": project_name,
-                "project_path": project_path,
                 "project_info": None,
                 "error": str(e)
             })

@@ -36,7 +36,7 @@ from rank_projects import (
     print_projects_by_contributor,
     _get_all_contributors
 )
-from summarize_projects import summarize_top_ranked_projects
+from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from file_utils import is_image_file
@@ -457,6 +457,10 @@ def handle_summarize_contributor_projects():
     """Handle generating summary for top-ranked projects by contributor."""
     print("\n=== Summarize Contributor Projects ===")
     
+    if not db_is_initialized():
+        print("Database not initialized. Run scan before generating summaries.")
+        return
+    
     BLACKLIST = {"githubclassroombot", "unknown"}
     
     # Query contributors from the database
@@ -478,6 +482,11 @@ def handle_summarize_contributor_projects():
     canonical_usernames = sorted(
         set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
     )
+    
+    if not canonical_usernames:
+        print("No contributors found in database.")
+        input("\nPress Enter to return to main menu...")
+        return
     
     # Display canonical usernames
     if canonical_usernames:
