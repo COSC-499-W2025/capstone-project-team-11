@@ -50,7 +50,8 @@ def create_temp_db():
             id INTEGER PRIMARY KEY,
             name TEXT,
             repo_url TEXT,
-            created_at TEXT
+            created_at TEXT,
+            thumbnail_path TEXT
         );
 
         CREATE TABLE files(
@@ -93,8 +94,9 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "8. Generate Project Summary Report" in output
     assert "9. Manage Project Evidence" in output
     assert "10. Analyze Contributor Roles" in output
-    assert "11. Inspect Database" in output
-    assert "12. Exit" in output
+    assert "11. Edit Thumbnail for a Project" in output
+    assert "12. Inspect Database" in output
+    assert "13. Exit" in output
 
 
 
@@ -159,6 +161,7 @@ def test_handle_inspect_database_works(monkeypatch, capsys):
     assert "Tables in database" in out
     assert "Recent scans" in out
     assert "Projects and skills" in out
+    assert "Project thumbnails" in out
     assert "Top languages" in out
     assert "Contributors" in out
 

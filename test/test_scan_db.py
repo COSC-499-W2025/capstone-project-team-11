@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 import db as dbmod
 from db import get_connection, init_db
-from scan import list_files_in_directory, _prepare_project_thumbnail
+from scan import list_files_in_directory
 
 
 class TestScanDbPersistence(unittest.TestCase):
@@ -226,14 +226,10 @@ class TestProjectThumbnailPersistence(unittest.TestCase):
             pass
         shutil.rmtree(self.tmp_dir)
         shutil.rmtree(self.thumb_dir)
-        out_dir = os.path.join("output", os.path.basename(os.path.abspath(self.tmp_dir)))
-        if os.path.isdir(out_dir):
-            shutil.rmtree(out_dir)
 
     def test_thumbnail_path_saved_on_project(self):
         project_name = os.path.basename(os.path.abspath(self.tmp_dir))
-        expected_path = _prepare_project_thumbnail(self.thumb_path, project_name)
-        self.assertIsNotNone(expected_path)
+        expected_path = self.thumb_path
         list_files_in_directory(
             self.tmp_dir,
             recursive=False,
