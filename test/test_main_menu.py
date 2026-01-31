@@ -244,12 +244,12 @@ def test_handle_analyze_roles_with_no_data(monkeypatch, capsys):
     # Mock load_contributors_from_db to return empty dict
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: {})
     monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)  # Mock input
-    
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
-    assert "No contributor data found in database" in out
-    assert "Please run a directory scan first" in out
+    assert "Error: No contributor data found in the database" in out
+    assert "Run a directory scan first" in out
 
 
 def test_handle_analyze_roles_with_data_no_per_project(monkeypatch, capsys):
