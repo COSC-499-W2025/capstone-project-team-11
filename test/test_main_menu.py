@@ -93,7 +93,7 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "8. Generate Project Summary Report" in output
     assert "9. Manage Project Evidence" in output
     assert "10. Analyze Contributor Roles" in output
-    assert "11. Inspect Database" in output
+    assert "11. Manage Database" in output
     assert "12. Exit" in output
 
 
