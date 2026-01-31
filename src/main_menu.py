@@ -39,6 +39,7 @@ from rank_projects import (
 from summarize_projects import summarize_top_ranked_projects
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
+from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
 from detect_roles import (
@@ -69,9 +70,12 @@ def print_main_menu():
     print("9. Manage Project Evidence")
     print("10. Analyze Contributor Roles")
     print("")
+    print("EXTRA")
+    print("11. Edit Thumbnail for a Project")
+    print("")
     print("ADMIN")
-    print("11. Inspect Database")
-    print("12. Exit")
+    print("12. Inspect Database")
+    print("13. Exit")
 
 
 def handle_scan_directory():
@@ -106,22 +110,6 @@ def handle_scan_directory():
     if use_saved and current.get("directory"):
         save_db = True
         thumbnail_source = None
-        if save_db:
-            saved_dir = current.get("directory")
-            if saved_dir and not (os.path.isfile(saved_dir) and saved_dir.lower().endswith('.zip')):
-                if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
-                    while True:
-                        path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
-                        if not path:
-                            break
-                        if not os.path.isfile(path):
-                            print("Thumbnail path does not point to a file.")
-                            continue
-                        if not is_image_file(path):
-                            print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
-                            continue
-                        thumbnail_source = path
-                        break
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=True,
@@ -148,20 +136,6 @@ def handle_scan_directory():
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
         save_db = True
         thumbnail_source = None
-        if save_db and not (os.path.isfile(directory) and directory.lower().endswith('.zip')):
-            if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
-                while True:
-                    path = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
-                    if not path:
-                        break
-                    if not os.path.isfile(path):
-                        print("Thumbnail path does not point to a file.")
-                        continue
-                    if not is_image_file(path):
-                        print("Unsupported image type. Please use a common image format (e.g., .png, .jpg).")
-                        continue
-                    thumbnail_source = path
-                    break
         
         run_with_saved_settings(
             directory=directory,
@@ -313,6 +287,27 @@ def handle_inspect_database():
                     print('  skills: (none)')
         else:
             print(' No projects recorded')
+
+        # Thumbnails
+        print('\n' + '=' * 80)
+        print('Project thumbnails (path + file check)')
+        print('=' * 80)
+        thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
+        if not thumb_rows:
+            print(' No projects recorded')
+        else:
+            for row in thumb_rows:
+                thumb_path = row['thumbnail_path']
+                if not thumb_path:
+                    status = 'empty'
+                elif not os.path.isfile(thumb_path):
+                    status = 'missing file'
+                elif not is_image_file(thumb_path):
+                    status = 'not an image'
+                else:
+                    status = 'ok'
+                display_path = thumb_path or '<none>'
+                print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
 
         # Languages top summary
         print('\n' + '=' * 80)
@@ -1031,7 +1026,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-12): ").strip()
+        choice = input("\nSelect an option (1-13): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -1054,12 +1049,14 @@ def main():
         elif choice == "10":
             handle_analyze_roles()
         elif choice == "11":
-            handle_inspect_database()
+            handle_edit_project_thumbnail()
         elif choice == "12":
+            handle_inspect_database()
+        elif choice == "13":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-12.")
+            print("\nInvalid option. Please select a number between 1-13.")
 
         input("\nPress Enter to return to main menu...")
 
