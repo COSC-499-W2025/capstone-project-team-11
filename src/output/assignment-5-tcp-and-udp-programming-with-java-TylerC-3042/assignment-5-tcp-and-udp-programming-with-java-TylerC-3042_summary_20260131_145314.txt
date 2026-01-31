@@ -1,0 +1,30 @@
+=============================================
+         PROJECT INFORMATION SUMMARY         
+=============================================
+
+Generated at: 2026-01-31T14:53:14
+Project Name: assignment-5-tcp-and-udp-programming-with-java-TylerC-3042
+Project Path: C:\Users\tyler\assignment-5-tcp-and-udp-programming-with-java-TylerC-3042
+
+Languages Detected:
+C#, Go, Java, Kotlin, Python, Ruby, Swift
+
+Frameworks Detected:
+React, Streamlit
+
+Skills Detected:
+Asynchronous Programming, Creative Writing, Database / SQL, Object-Oriented Programming, Strong Communication Skills
+
+=== Contribution Summary ===
+- tylercummings: 1 commits, 3 files changed
+- githubclassroombot: 2 commits, 15 files changed
+
+=== Git Metrics ===
+Project duration: 20 days
+Total commits: 3
+Activity by category:
+  code: 2
+  docs: 3
+  other: 1
+
+=============================================

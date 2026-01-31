@@ -1,0 +1,139 @@
+{
+    "project_name": "assignment-5-tcp-and-udp-programming-with-java-TylerC-3042",
+    "project_path": "C:\\Users\\tyler\\assignment-5-tcp-and-udp-programming-with-java-TylerC-3042",
+    "detected_type": "coding_project",
+    "languages": [
+        "C#",
+        "Go",
+        "Java",
+        "Kotlin",
+        "Python",
+        "Ruby",
+        "Swift"
+    ],
+    "frameworks": [
+        "React",
+        "Streamlit"
+    ],
+    "skills": [
+        "Asynchronous Programming",
+        "Creative Writing",
+        "Database / SQL",
+        "Object-Oriented Programming",
+        "Strong Communication Skills"
+    ],
+    "high_confidence_languages": [
+        "Java"
+    ],
+    "medium_confidence_languages": [
+        "C#",
+        "Go",
+        "Kotlin",
+        "Python",
+        "Swift"
+    ],
+    "low_confidence_languages": [
+        "Ruby"
+    ],
+    "high_confidence_frameworks": [],
+    "medium_confidence_frameworks": [
+        "React",
+        "Streamlit"
+    ],
+    "low_confidence_frameworks": [],
+    "contributions": {
+        "type": "git",
+        "repo_root": "C:\\Users\\tyler\\assignment-5-tcp-and-udp-programming-with-java-TylerC-3042",
+        "contributions": {
+            "tylercummings": {
+                "commits": 1,
+                "files": [
+                    "src/IMClient/IMClient.java",
+                    "tyler1.txt",
+                    "tyler2.txt"
+                ],
+                "file_count": 3
+            },
+            "githubclassroombot": {
+                "commits": 2,
+                "files": [
+                    ".gitignore",
+                    "README.md",
+                    "exampleOutput1.txt",
+                    "exampleOutput2.txt",
+                    "src/IMClient/IMClient.java",
+                    "src/IMServer/IMServer.java",
+                    "src/tcp_client_server/TCPClient.java",
+                    "src/tcp_client_server/TCPClient2.java",
+                    "src/tcp_client_server/TCPServer.java",
+                    "src/tcp_client_server/TCPServer2.java",
+                    "src/tcp_client_server/TCPServerThread.java",
+                    "src/udp_client_server/UDPClient.java",
+                    "src/udp_client_server/UDPClient2.java",
+                    "src/udp_client_server/UDPServer.java",
+                    "src/udp_client_server/UDPServer2.java"
+                ],
+                "file_count": 15
+            }
+        }
+    },
+    "git_metrics": {
+        "repo_root": "C:\\Users\\tyler\\assignment-5-tcp-and-udp-programming-with-java-TylerC-3042",
+        "project_start": "2025-10-06 16:29:00+00:00",
+        "project_end": "2025-10-26 21:10:56-07:00",
+        "duration_days": 20,
+        "total_commits": 3,
+        "commits_per_author": {
+            "tylercummings": 1,
+            "githubclassroombot": 2
+        },
+        "lines_added_per_author": {
+            "tylercummings": 530,
+            "githubclassroombot": 1490
+        },
+        "lines_removed_per_author": {
+            "tylercummings": 2,
+            "githubclassroombot": 0
+        },
+        "activity_counts_per_category": {
+            "code": 2,
+            "docs": 3,
+            "other": 1
+        },
+        "commits_per_week": {
+            "2025-W43": 2,
+            "2025-W41": 1
+        },
+        "files_changed_per_author": {
+            "tylercummings": [
+                "src/IMClient/IMClient.java",
+                "tyler1.txt",
+                "tyler2.txt"
+            ],
+            "githubclassroombot": [
+                ".gitignore",
+                "README.md",
+                "exampleOutput1.txt",
+                "exampleOutput2.txt",
+                "src/IMClient/IMClient.java",
+                "src/IMServer/IMServer.java",
+                "src/tcp_client_server/TCPClient.java",
+                "src/tcp_client_server/TCPClient2.java",
+                "src/tcp_client_server/TCPServer.java",
+                "src/tcp_client_server/TCPServer2.java",
+                "src/tcp_client_server/TCPServerThread.java",
+                "src/udp_client_server/UDPClient.java",
+                "src/udp_client_server/UDPClient2.java",
+                "src/udp_client_server/UDPServer.java",
+                "src/udp_client_server/UDPServer2.java"
+            ]
+        }
+    },
+    "generated_at": "2026-01-31T14:48:18",
+    "duration_days": 20,
+    "activity_breakdown": {
+        "code": 2,
+        "docs": 3,
+        "other": 1
+    }
+}
