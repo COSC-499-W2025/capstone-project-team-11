@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Optional
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{3,32}$")
 
@@ -44,7 +45,7 @@ def validate_project_path(raw: str, *, allow_zip: bool = True) -> str:
     raise ValueError("Invalid path. Use a folder path or a .zip file.")
 
 
-def prompt_project_path(prompt: str, *, allow_zip: bool = True) -> str | None:
+def prompt_project_path(prompt: str, *, allow_zip: bool = True) -> Optional[str]:
     """
     Prompt until valid. Returns None if user presses Enter on empty input.
     """
