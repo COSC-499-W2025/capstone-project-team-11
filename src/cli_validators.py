@@ -28,10 +28,17 @@ def validate_project_path(raw: str, *, allow_zip: bool = True) -> str:
     if raw is None or not raw.strip():
         raise ValueError("Please enter a directory path or a .zip file path.")
 
+    # "Display" version for error messages (don't turn into absolute path)
+    display = raw.strip()
+    if len(display) >= 2 and display[0] == display[-1] and display[0] in ("'", '"'):
+        display = display[1:-1].strip()
+    display = os.path.expanduser(display)  # keep ~ friendly
+
+    # Normalized version for actual checks + returns
     path = normalize_path(raw)
 
     if not os.path.exists(path):
-        raise ValueError(f"Path does not exist: {path}")
+        raise ValueError(f"Path does not exist: {display}")
 
     if allow_zip and os.path.isfile(path) and path.lower().endswith(".zip"):
         return path
@@ -43,6 +50,7 @@ def validate_project_path(raw: str, *, allow_zip: bool = True) -> str:
         raise ValueError("That path points to a file (not a folder). Use a folder path or a .zip file.")
 
     raise ValueError("Invalid path. Use a folder path or a .zip file.")
+
 
 
 def prompt_project_path(prompt: str, *, allow_zip: bool = True) -> Optional[str]:
