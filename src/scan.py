@@ -9,7 +9,6 @@ import contextlib
 import tempfile
 import json
 import sqlite3
-import shutil
 
 
 
@@ -224,38 +223,6 @@ def _safe_join_extract_root(root: str, relative_path: str) -> str:
     if os.path.commonpath([root_abs, combined_abs]) != root_abs:
         return root
     return combined
-
-
-def _prepare_project_thumbnail(source_path: str, project_name: str) -> str:
-    """Copy a project thumbnail into output/<project> and return its relative path."""
-    if not source_path or not project_name:
-        return None
-    if not os.path.exists(source_path) or not os.path.isfile(source_path):
-        print("Warning: thumbnail file not found; skipping.")
-        return None
-
-    if not is_image_file(source_path):
-        print("Warning: unsupported thumbnail type; skipping.")
-        return None
-
-    _, ext = os.path.splitext(source_path)
-    ext = ext.lower()
-    if not ext:
-        print("Warning: thumbnail file has no extension; skipping.")
-        return None
-
-    dest_dir = os.path.join("output", project_name)
-    os.makedirs(dest_dir, exist_ok=True)
-    dest_path = os.path.join(dest_dir, os.path.basename(source_path))
-
-    try:
-        if os.path.abspath(source_path) != os.path.abspath(dest_path):
-            shutil.copy2(source_path, dest_path)
-    except Exception as e:
-        print(f"Warning: failed to copy thumbnail: {e}")
-        return None
-
-    return dest_path
 
 
 def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_type: str, files_found: list,
@@ -1266,8 +1233,12 @@ def run_with_saved_settings(
         zip_extract_path = zip_extract_ctx.name
     project_thumbnail_path = None
     if save_to_db and thumbnail_source and scan_path_input and not zip_extract_path:
-        project_name = os.path.basename(os.path.abspath(scan_path_input))
-        project_thumbnail_path = _prepare_project_thumbnail(thumbnail_source, project_name)
+        if not os.path.isfile(thumbnail_source):
+            print("Warning: thumbnail path does not point to a file; skipping.")
+        elif not is_image_file(thumbnail_source):
+            print("Warning: unsupported thumbnail type; skipping.")
+        else:
+            project_thumbnail_path = thumbnail_source
 
     # Run scan
     try:
