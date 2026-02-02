@@ -320,7 +320,13 @@ def handle_project_evidence():
                     print("\nError: No evidence to edit.")
                     print("  Hint: Add evidence first using option 1.")
                     continue
-                ev_idx = input("Enter the number of the evidence to edit: ").strip()
+                # Display numbered list of evidence
+                print("\nExisting evidence:")
+                for idx, ev in enumerate(evidence, start=1):
+                    statement = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
+                    source_str = f" ({ev['source']})" if ev.get('source') else ""
+                    print(f"  {idx}. [{ev['type']}] {statement}{source_str}")
+                ev_idx = input("\nEnter the number of the evidence to edit: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
                     print(f"\nError: Invalid selection.")
                     print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
@@ -366,7 +372,13 @@ def handle_project_evidence():
                     print("\nError: No evidence to delete.")
                     print("  Hint: Add evidence first using option 1.")
                     continue
-                ev_idx = input("Enter the number of the evidence to delete: ").strip()
+                # Display numbered list of evidence
+                print("\nExisting evidence:")
+                for idx, ev in enumerate(evidence, start=1):
+                    statement = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
+                    source_str = f" ({ev['source']})" if ev.get('source') else ""
+                    print(f"  {idx}. [{ev['type']}] {statement}{source_str}")
+                ev_idx = input("\nEnter the number of the evidence to delete: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
                     print(f"\nError: Invalid selection.")
                     print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
