@@ -246,7 +246,7 @@ def test_handle_analyze_roles_with_no_data(monkeypatch, capsys):
     """Test that handle_analyze_roles handles empty database gracefully."""
     # Mock load_contributors_from_db to return empty dict
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: {})
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)  # Mock input
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: False)  # Mock input
 
     handle_analyze_roles()
 
@@ -270,10 +270,10 @@ def test_handle_analyze_roles_with_data_no_per_project(monkeypatch, capsys):
     
     # Mock functions
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: mock_contributors)
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)  # No per-project
-    
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: False)  # No per-project
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "Analyze Contributor Roles" in out
     assert "Found 1 contributors" in out
@@ -321,10 +321,10 @@ def test_handle_analyze_roles_with_per_project_data(monkeypatch, capsys):
     # Mock functions - return True for per-project question
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: mock_contributors)
     monkeypatch.setattr("main_menu.load_contributors_per_project_from_db", lambda: mock_per_project)
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: True)
-    
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: True)
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "Analyze Contributor Roles" in out
     assert "Found 1 contributors" in out
@@ -351,10 +351,10 @@ def test_handle_analyze_roles_per_project_empty(monkeypatch, capsys):
     # Mock functions - return True for per-project but empty data
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: mock_contributors)
     monkeypatch.setattr("main_menu.load_contributors_per_project_from_db", lambda: {})
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: True)
-    
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: True)
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "No per-project data found" in out
     assert "PROJECT ROLE ANALYSIS REPORT" in out
@@ -389,10 +389,10 @@ def test_handle_analyze_roles_multiple_contributors(monkeypatch, capsys):
     }
     
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: mock_contributors)
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)
-    
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: False)
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "Found 3 contributors" in out
     assert "ALICE" in out
@@ -414,10 +414,10 @@ def test_handle_analyze_roles_displays_metrics(monkeypatch, capsys):
     }
     
     monkeypatch.setattr("main_menu.load_contributors_from_db", lambda: mock_contributors)
-    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt, default: False)
-    
+    monkeypatch.setattr("main_menu.ask_yes_no", lambda prompt: False)
+
     handle_analyze_roles()
-    
+
     out = capsys.readouterr().out
     assert "DEVELOPER" in out
     assert "Primary Role:" in out

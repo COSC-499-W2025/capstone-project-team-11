@@ -308,39 +308,44 @@ def main():
 
         if not candidates:
             print('No candidate usernames detected in the database.')
-            try:
-                user_in = input('Enter username to generate resume for: ').strip()
-            except EOFError:
-                print('No username provided and input not available.')
-                return 1
-            if not user_in:
-                print('No username entered; aborting.')
-                return 1
-            username = user_in
+            while True:
+                try:
+                    user_in = input('Enter username to generate resume for: ').strip()
+                except EOFError:
+                    print('No username provided and input not available.')
+                    return 1
+                if not user_in:
+                    print('Error: No username entered. Please enter a username.')
+                    continue
+                username = user_in
+                break
         else:
             # Print a clean numbered list of candidates for the user to choose from
             print('\nDetected candidate usernames:')
             for i, c in enumerate(candidates, start=1):
                 print(f"  {i}. {c}")
             print('\nYou may enter the number (e.g. 1) or the exact username.')
-            try:
-                user_in = input('Select username (number or name, leave blank to abort): ').strip()
-            except EOFError:
-                print('No username provided and input not available.')
-                return 1
-            if not user_in:
-                print('No username entered; aborting.')
-                return 1
-            # If the user entered a number, map it to the username
-            if user_in.isdigit():
-                idx = int(user_in) - 1
-                if 0 <= idx < len(candidates):
-                    username = candidates[idx]
-                else:
-                    print('Selection out of range; aborting.')
+            while True:
+                try:
+                    user_in = input('Select username (number or name): ').strip()
+                except EOFError:
+                    print('No username provided and input not available.')
                     return 1
-            else:
-                username = user_in
+                if not user_in:
+                    print('Error: No username entered. Please enter a number or username.')
+                    continue
+                # If the user entered a number, map it to the username
+                if user_in.isdigit():
+                    idx = int(user_in) - 1
+                    if 0 <= idx < len(candidates):
+                        username = candidates[idx]
+                        break
+                    else:
+                        print(f'Error: Selection out of range. Please enter a number between 1 and {len(candidates)}.')
+                        continue
+                else:
+                    username = user_in
+                    break
     else:
         username = username.strip()
 

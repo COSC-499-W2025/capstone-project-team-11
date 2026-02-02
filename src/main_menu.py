@@ -91,7 +91,7 @@ def handle_scan_directory():
     # Check data consent first
     current = load_config(None)
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): "):
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
                 print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
@@ -129,10 +129,12 @@ def handle_scan_directory():
         )
         selected_dir = current.get("directory")
     else:
-        directory = input("Enter directory path or zip file path: ").strip()
-        if not directory:
-            print_error("No directory path provided.", "Enter a valid directory or zip file path to scan.")
-            return
+        while True:
+            directory = input("Enter directory path or zip file path: ").strip()
+            if not directory:
+                print_error("No directory path provided.", "Enter a valid directory or zip file path to scan.")
+                continue
+            break
 
         recursive_choice = True
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
@@ -627,7 +629,7 @@ def handle_generate_resume():
             print_error(f"Resume generator exited with code {result.returncode}.", "Check the output above for details on what went wrong.")
             return
 
-        print("\nResume generated. (Tip: use option 12 to edit project display names.)")
+        print("\nResume generated successfully.")
 
     except Exception as e:
         print_error(f"Failed to run resume generator: {e}", "Check that Python is configured correctly and try again.")
@@ -1127,29 +1129,29 @@ def remove_project_menu():
 def handle_analyze_roles():
     """Handle contributor role analysis."""
     print("\n=== Analyze Contributor Roles ===")
-    
+
     # Ask if user wants to see all available roles first
-    show_roles = ask_yes_no("\nWould you like to see all available contributor roles and their descriptions? (y/n): ", False)
-    
+    show_roles = ask_yes_no("\nWould you like to see all available contributor roles and their descriptions? (y/n): ")
+
     if show_roles:
         print(display_all_roles())
-    
+
     # Load overall contributor data
     print("Loading contributors from database...")
     contributors_data = load_contributors_from_db()
-    
+
     if not contributors_data:
         print_error("No contributor data found in the database.", "Run a directory scan first (Option 1) to populate the database.")
         return
-    
+
     print(f"Found {len(contributors_data)} contributors")
-    
+
     # Analyze overall roles
     print("Analyzing overall contributor roles...")
     overall_analysis = analyze_project_roles(contributors_data)
-    
+
     # Ask if user wants per-project breakdown
-    show_per_project = ask_yes_no("\nInclude per-project breakdown? (y/n): ", True)
+    show_per_project = ask_yes_no("\nInclude per-project breakdown? (y/n): ")
     
     per_project_analysis = None
     if show_per_project:

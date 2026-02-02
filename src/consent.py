@@ -65,7 +65,7 @@ def ask_for_data_consent(config_path: Optional[str] = None) -> bool:
     consent = ask_yes_no("Do you consent to the scanner accessing the data listed above? (y/n): ")
 
     # Ask whether user wants to save this preference in the config for future runs.
-    save_pref = ask_yes_no("Save this preference for future scans? (y/n): ", default=False)
+    save_pref = ask_yes_no("Save this preference for future scans? (y/n): ")
     if save_pref:
         # Save the user's preference using config.save_config().
         save_config({"data_consent": consent}, path=config_path)
