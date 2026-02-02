@@ -412,29 +412,6 @@ def handle_inspect_database():
     except Exception as e:
         print(f"Error inspecting database: {e}")
 
-def clear_database(db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Disable FK checks so deletes don't fail
-    cursor.execute("PRAGMA foreign_keys = OFF;")
-
-    # List your tables here
-    tables = [
-        "projects",
-        "contributors",
-        "skills",
-        "files",
-        "evidence"
-    ]
-
-    for table in tables:
-        cursor.execute(f"DELETE FROM {table};")
-
-    cursor.execute("PRAGMA foreign_keys = ON;")
-    conn.commit()
-    conn.close()
-
 def remove_project_flow(db_path):
     import sqlite3
 
@@ -1070,7 +1047,7 @@ def database_management_menu():
                 "**This will DELETE ALL DATA. Type 'CLEAR' to confirm**: "
             )
             if confirm == "CLEAR":
-                clear_database(DB_PATH)
+                clear_database()
                 print("✔ Database cleared.")
             else:
                 print("Cancelled.")
