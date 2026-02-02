@@ -22,7 +22,7 @@ from datetime import datetime
 import re
 
 from db import list_projects_for_display, set_project_display_name
-
+from cli_validators import prompt_project_path, validate_project_path
 # Import all feature modules
 from scan import run_with_saved_settings
 from config import load_config, is_default_config, config_path as default_config_path
@@ -87,8 +87,8 @@ def print_main_menu():
 def handle_scan_directory():
     """Handle directory/archive scanning."""
     print("\n=== Scan Directory/Archive ===")
-    
-    # Check data consent first
+
+    # 1) Consent gate
     current = load_config(None)
     if current.get("data_consent") is True:
         if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
@@ -101,32 +101,33 @@ def handle_scan_directory():
         if not consent:
             print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
             return
-    
-    # Check if user wants to use saved settings
+
+    # 2) Ask about saved settings (if any)
     current = load_config(None)
     use_saved = False
-    if not is_default_config(current):
+    if not is_default_config(current) and current.get("directory"):
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             "Proceed with these settings? (y/n): "
         )
-    
+    save_db = True
+    thumbnail_source = None
+
+    # 3) Choose + validate scan path
     if use_saved and current.get("directory"):
-        save_db = True
-        thumbnail_source = None
-        run_with_saved_settings(
-            directory=current.get("directory"),
-            recursive_choice=True,
-            file_type=current.get("file_type"),
-            show_collaboration=True,
-            show_contribution_metrics=True,
-            show_contribution_summary=True,
-            save=False,
-            save_to_db=save_db,
-            thumbnail_source=thumbnail_source,
-        )
+        try:
+            scan_path = validate_project_path(current.get("directory"), allow_zip=True)
+        except ValueError as e:
+            print(f"[ERROR] Saved scan directory is invalid: {e}")
+            scan_path = prompt_project_path(
+                "Enter directory path or zip file path (blank to cancel): ",
+                allow_zip=True
+            )
+            if not scan_path:
+                print("Cancelled. Returning to main menu.")
+                return
     else:
         directory = input("Enter directory path or zip file path: ").strip()
         if not directory:
@@ -154,8 +155,42 @@ def handle_scan_directory():
             save_to_db=save_db,
             thumbnail_source=thumbnail_source,
         )
+        if not scan_path:
+            print("Cancelled. Returning to main menu.")
+            return
+
+    # 4) Thumbnail only for folders (not zips)
+    if save_db and not (os.path.isfile(scan_path) and scan_path.lower().endswith(".zip")):
+        if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
+            while True:
+                p = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
+                if not p:
+                    break
+                if not os.path.isfile(p):
+                    print("Thumbnail path does not point to a file.")
+                    continue
+                if not is_image_file(p):
+                    print("Unsupported image type. Please use .png/.jpg/.jpeg/.webp.")
+                    continue
+                thumbnail_source = p
+                break
+
+    # 5) Run scan using validated scan_path
+    run_with_saved_settings(
+        directory=scan_path,
+        recursive_choice=True,
+        file_type=current.get("file_type") if use_saved else None,
+        show_collaboration=True,
+        show_contribution_metrics=True,
+        show_contribution_summary=True,
+        save=False,
+        save_to_db=save_db,
+        thumbnail_source=thumbnail_source,
+    )
+
+
     
-    selected_dir = current.get("directory") if use_saved else directory
+    selected_dir = scan_path
     try:
         info = gather_project_info(selected_dir)
         project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
@@ -564,6 +599,7 @@ def handle_generate_project_summary():
     except Exception as e:
         print_error(f"Failed to generate project summary: {e}", "Check that the directory contains valid project files.")
 
+
 def handle_generate_resume():
     """Run the resume generator script for a specified username.
 
@@ -748,30 +784,28 @@ def _delete_resume(conn, resume_row):
 def handle_view_resumes():
     """List resumes from the DB and allow viewing content."""
     print("\n=== View Resumes ===")
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
+
         resumes = _list_resumes(cur)
         _print_resume_list(resumes)
         if not resumes:
-            conn.close()
             return
 
         choice = input("\nEnter number to view/delete (blank to cancel): ").strip()
         if not choice:
-            conn.close()
             return
         if not choice.isdigit() or not (1 <= int(choice) <= len(resumes)):
             print_error("Invalid selection.", f"Enter a number between 1 and {len(resumes)}.")
             conn.close()
             return
+
         selected = resumes[int(choice) - 1]
-        path = selected['resume_path']
-        uname = selected['username'] or selected['contributor_name'] or '<unknown>'
+        path = selected["resume_path"]
+        uname = selected["username"] or selected["contributor_name"] or "<unknown>"
         print(f"\nSelected resume for {uname}: {path}")
-        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
-        if action == 'a':
-            path = input("\nEnter directory or .zip to add to this resume: ").strip()
 
             if not path:
                 print_error("No directory path provided.", "Enter a valid directory or zip file path.")
@@ -781,41 +815,44 @@ def handle_view_resumes():
                 print_error("Path does not exist.", "Check the path and try again.")
                 return
 
-            handle_add_to_resume(selected, path)
+            handle_add_to_resume(selected, add_path)
             return
-        if action == 'c':
-            conn.close()
+
+        if action == "c":
             return
-        if action == 'd':
+
+        if action == "d":
             confirm = input("Are you sure you want to delete this resume? (y/n): ").strip().lower()
-            if confirm != 'y':
-                conn.close()
+            if confirm != "y":
                 return
             ok, msg = _delete_resume(conn, selected)
             print(msg)
-            conn.close()
             return
 
+        # Default: view
         print(f"\nOpening resume for {uname}: {path}")
         preview, truncated_or_error = _preview_resume(path)
         if preview is None:
             print(truncated_or_error)
-            conn.close()
             return
-        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
+
+        truncated = truncated_or_error is True
         print("\n--- Preview ---\n")
         print(preview)
         if truncated:
             print(f"\n... [Preview truncated - full file at: {path}]")
+
     except sqlite3.OperationalError as e:
         print_error(f"Resumes table not available: {e}", "Run a scan first to initialize the database.")
     except Exception as e:
         print_error(f"Failed to view resumes: {e}")
     finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
 
 def _list_portfolios(cur):
     """Return list of portfolios rows ordered by recent generated_at."""
@@ -887,18 +924,23 @@ def handle_view_portfolios():
         action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
 
         if action == "a":
-            add_path = input("Enter directory or zip to add to this portfolio: ").strip()
+            add_path = prompt_project_path(
+                "Enter directory or zip to add to this portfolio (blank to cancel): ",
+                allow_zip=True
+            )
             if not add_path:
                 print_error("No directory path provided.", "Enter a valid directory or zip file path.")
                 return
             if not os.path.exists(add_path):
                 print_error("Path does not exist.", "Check the path and try again.")
                 return
+
             try:
                 handle_add_to_portfolio(selected, add_path)
             except Exception as e:
                 print_error(f"Failed to update portfolio: {e}")
             return
+
 
         if action == "d":
             confirm = input("Are you sure you want to delete this portfolio? (y/n): ").strip().lower()
@@ -943,14 +985,16 @@ def handle_add_to_portfolio(portfolio_row, path):
     portfolio_row is the DB row for the currently selected portfolio
     path is directory or zip to scan
     """
+    scan_path = validate_project_path(path, allow_zip=True)
+
     print("\n=== Scanning new directory ===")
-    # Scan project and optionally save to DB
-    portfolio_scan(path, save_to_db=True)
+    portfolio_scan(scan_path, save_to_db=True)
+
 
     # --- Add project summary output to output/<project_name>/ ---
     try:
-        info = gather_project_info(path)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(path))
+        info = gather_project_info(scan_path)
+        project_name = info.get("project_name") or os.path.basename(os.path.abspath(scan_path))
         out_dir = os.path.join("output", project_name)
         os.makedirs(out_dir, exist_ok=True)
         json_path, txt_path = output_project_info(info, output_dir=out_dir)
@@ -979,8 +1023,10 @@ def handle_add_to_resume(resume_row, path):
     resume_row is the DB row for the currently selected resume
     path is directory or zip to scan
     """
+    scan_path = validate_project_path(path, allow_zip=True)
+
     print("\n=== Scanning new directory ===")
-    resume_scan(path, save_to_db=True)
+    resume_scan(scan_path, save_to_db=True)
 
     print("\n=== Regenerating resume ===")
     regenerate_resume(
@@ -989,6 +1035,7 @@ def handle_add_to_resume(resume_row, path):
     )
 
     print("\nResume successfully updated.")
+
 
 
 def handle_analyze_roles():
