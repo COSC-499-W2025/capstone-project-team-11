@@ -80,15 +80,15 @@ def print_main_menu():
     print("11. Edit Thumbnail for a Project")
     print("")
     print("ADMIN")
-    print("11. Manage Database")
-    print("12. Exit")
+    print("12. Manage Database")
+    print("0. Exit")
 
 
 def handle_scan_directory():
     """Handle directory/archive scanning."""
     print("\n=== Scan Directory/Archive ===")
 
-    # 1) Consent gate
+    # Check data consent first
     current = load_config(None)
     if current.get("data_consent") is True:
         if ask_yes_no("Would you like to review our data access policy? (y/n): ", False):
@@ -102,38 +102,38 @@ def handle_scan_directory():
             print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
             return
 
-    # 2) Ask about saved settings (if any)
+    # Check if user wants to use saved settings
     current = load_config(None)
     use_saved = False
-    if not is_default_config(current) and current.get("directory"):
+    if not is_default_config(current):
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             "Proceed with these settings? (y/n): "
         )
-    save_db = True
-    thumbnail_source = None
 
-    # 3) Choose + validate scan path
     if use_saved and current.get("directory"):
-        try:
-            scan_path = validate_project_path(current.get("directory"), allow_zip=True)
-        except ValueError as e:
-            print(f"[ERROR] Saved scan directory is invalid: {e}")
-            scan_path = prompt_project_path(
-                "Enter directory path or zip file path (blank to cancel): ",
-                allow_zip=True
-            )
-            if not scan_path:
-                print("Cancelled. Returning to main menu.")
-                return
+        save_db = True
+        thumbnail_source = None
+        run_with_saved_settings(
+            directory=current.get("directory"),
+            recursive_choice=True,
+            file_type=current.get("file_type"),
+            show_collaboration=True,
+            show_contribution_metrics=True,
+            show_contribution_summary=True,
+            save=False,
+            save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
+        )
+        selected_dir = current.get("directory")
     else:
         directory = input("Enter directory path or zip file path: ").strip()
         if not directory:
             print_error("No directory path provided.", "Enter a valid directory or zip file path to scan.")
             return
-        
+
         recursive_choice = True
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
@@ -143,7 +143,7 @@ def handle_scan_directory():
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
         save_db = True
         thumbnail_source = None
-        
+
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
@@ -155,42 +155,8 @@ def handle_scan_directory():
             save_to_db=save_db,
             thumbnail_source=thumbnail_source,
         )
-        if not scan_path:
-            print("Cancelled. Returning to main menu.")
-            return
+        selected_dir = directory
 
-    # 4) Thumbnail only for folders (not zips)
-    if save_db and not (os.path.isfile(scan_path) and scan_path.lower().endswith(".zip")):
-        if ask_yes_no("Add a thumbnail image for this project? (y/n): ", False):
-            while True:
-                p = input("Enter path to thumbnail image (or leave blank to skip): ").strip()
-                if not p:
-                    break
-                if not os.path.isfile(p):
-                    print("Thumbnail path does not point to a file.")
-                    continue
-                if not is_image_file(p):
-                    print("Unsupported image type. Please use .png/.jpg/.jpeg/.webp.")
-                    continue
-                thumbnail_source = p
-                break
-
-    # 5) Run scan using validated scan_path
-    run_with_saved_settings(
-        directory=scan_path,
-        recursive_choice=True,
-        file_type=current.get("file_type") if use_saved else None,
-        show_collaboration=True,
-        show_contribution_metrics=True,
-        show_contribution_summary=True,
-        save=False,
-        save_to_db=save_db,
-        thumbnail_source=thumbnail_source,
-    )
-
-
-    
-    selected_dir = scan_path
     try:
         info = gather_project_info(selected_dir)
         project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
@@ -847,15 +813,24 @@ def handle_view_resumes():
         uname = selected["username"] or selected["contributor_name"] or "<unknown>"
         print(f"\nSelected resume for {uname}: {path}")
 
-            if not path:
+        action = input("Choose action: (v)iew, (a)dd, (d)elete, (c)ancel [v]: ").strip().lower() or 'v'
+
+        if action == "a":
+            add_path = prompt_project_path(
+                "Enter directory or zip to add to this resume (blank to cancel): ",
+                allow_zip=True
+            )
+            if not add_path:
                 print_error("No directory path provided.", "Enter a valid directory or zip file path.")
                 return
-
-            if not os.path.exists(path):
+            if not os.path.exists(add_path):
                 print_error("Path does not exist.", "Check the path and try again.")
                 return
 
-            handle_add_to_resume(selected, add_path)
+            try:
+                handle_add_to_resume(selected, add_path)
+            except Exception as e:
+                print_error(f"Failed to update resume: {e}")
             return
 
         if action == "c":
@@ -1200,7 +1175,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-13): ").strip()
+        choice = input("\nSelect an option (0-12): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -1223,14 +1198,14 @@ def main():
         elif choice == "10":
             handle_analyze_roles()
         elif choice == "11":
-            database_management_menu()
+            handle_edit_project_thumbnail()
         elif choice == "12":
-            handle_inspect_database()
-        elif choice == "13":
+            database_management_menu()
+        elif choice == "0":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-13.")
+            print("\nInvalid option. Please select 0-12.")
 
         input("\nPress Enter to return to main menu...")
 
