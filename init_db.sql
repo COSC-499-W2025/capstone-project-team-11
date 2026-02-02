@@ -1,10 +1,14 @@
--- Drop old tables if they exist
-DROP TABLE IF EXISTS files;
-DROP TABLE IF EXISTS scans;
-DROP TABLE IF EXISTS resumes;
-DROP TABLE IF EXISTS project_skills;
-DROP TABLE IF EXISTS file_languages;
+-- Drop dependent tables first
 DROP TABLE IF EXISTS file_contributors;
+DROP TABLE IF EXISTS file_languages;
+DROP TABLE IF EXISTS project_skills;
+DROP TABLE IF EXISTS project_evidence;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS resumes;
+DROP TABLE IF EXISTS portfolios;
+DROP TABLE IF EXISTS scans;
+
+-- Then the parent tables
 DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS contributors;
 DROP TABLE IF EXISTS languages;

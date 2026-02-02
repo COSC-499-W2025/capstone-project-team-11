@@ -80,8 +80,8 @@ def print_main_menu():
     print("11. Edit Thumbnail for a Project")
     print("")
     print("ADMIN")
-    print("12. Inspect Database")
-    print("13. Exit")
+    print("11. Manage Database")
+    print("12. Exit")
 
 
 def handle_scan_directory():
@@ -447,6 +447,46 @@ def handle_inspect_database():
         conn.close()
     except Exception as e:
         print_error(f"Failed to inspect database: {e}", "Check that the database file exists and is accessible.")
+
+def remove_project_flow(db_path):
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name FROM projects;")
+    projects = cursor.fetchall()
+
+    if not projects:
+        print("No projects found.")
+        conn.close()
+        return
+
+    print("\nProjects:")
+    for pid, name in projects:
+        print(f"{pid}: {name}")
+
+    project_id = input("Enter the project ID to delete (or 'q' to cancel): ").strip()
+
+    if project_id.lower() == "q":
+        conn.close()
+        return
+
+    confirm = input(
+        f"⚠️ This will permanently delete project {project_id}. Type 'DELETE' to confirm: "
+    )
+
+    if confirm != "DELETE":
+        print("Cancelled.")
+        conn.close()
+        return
+
+    # Delete project (FK cascade should handle related rows)
+    cursor.execute("DELETE FROM projects WHERE id = ?;", (project_id,))
+    conn.commit()
+    conn.close()
+
+    print("✔ Project deleted.")
 
 
 def handle_rank_projects():
@@ -1036,6 +1076,77 @@ def handle_add_to_resume(resume_row, path):
 
     print("\nResume successfully updated.")
 
+from db import clear_database, delete_project_by_id
+
+def database_management_menu():
+    while True:
+        print("\n=== DATABASE MANAGEMENT ===")
+        print("1. Inspect database")
+        print("2. Clear database (REMOVE ALL DATA)")
+        print("3. Remove a project")
+        print("4. Go back")
+
+        choice = input("Select an option (1-4): ").strip()
+
+        if choice == "1":
+            handle_inspect_database()
+
+        elif choice == "2":
+            confirm = input(
+                "**This will DELETE ALL DATA. Type 'CLEAR' to confirm**: "
+            )
+            if confirm == "CLEAR":
+                clear_database()
+                print("✔ Database cleared.")
+            else:
+                print("Cancelled.")
+
+        elif choice == "3":
+            remove_project_menu()
+
+        elif choice == "4":
+            return
+
+        else:
+            print("Invalid selection.")
+
+def remove_project_menu():
+    """
+    Show projects, prompt user to select one, then delete it.
+    """
+
+    projects = list_projects_for_display()
+    if not projects:
+        print("No projects found.")
+        return
+
+    print("\nSelect the project you wish to remove:")
+    for idx, p in enumerate(projects, start=1):
+        name = p["custom_name"] or p["name"]
+        print(f"{idx}. {name}")
+
+    choice = input("\nEnter project number (or 'q' to cancel): ").strip()
+    if choice.lower() == "q":
+        return
+
+    if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
+        print("Invalid selection.")
+        return
+
+    project = projects[int(choice) - 1]
+
+    confirm = input(
+        f"⚠️ Permanently delete '{project['name']}'? Type 'DELETE' to confirm ⚠️: "
+    )
+
+    if confirm != "DELETE":
+        print("Cancelled.")
+        return
+
+    delete_project_by_id(project["id"])
+    print("✔ Project removed.")
+
+
 
 
 def handle_analyze_roles():
@@ -1112,7 +1223,7 @@ def main():
         elif choice == "10":
             handle_analyze_roles()
         elif choice == "11":
-            handle_edit_project_thumbnail()
+            database_management_menu()
         elif choice == "12":
             handle_inspect_database()
         elif choice == "13":
