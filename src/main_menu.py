@@ -39,6 +39,7 @@ from rank_projects import (
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
+from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
 from detect_roles import (
@@ -69,9 +70,12 @@ def print_main_menu():
     print("9. Manage Project Evidence")
     print("10. Analyze Contributor Roles")
     print("")
+    print("EXTRA")
+    print("11. Edit Thumbnail for a Project")
+    print("")
     print("ADMIN")
-    print("11. Inspect Database")
-    print("12. Exit")
+    print("12. Inspect Database")
+    print("13. Exit")
 
 
 def handle_scan_directory():
@@ -102,12 +106,11 @@ def handle_scan_directory():
             f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             "Proceed with these settings? (y/n): "
         )
-
     save_db = True
     thumbnail_source = None
 
     # 3) Choose + validate scan path
-    if use_saved:
+    if use_saved and current.get("directory"):
         try:
             scan_path = validate_project_path(current.get("directory"), allow_zip=True)
         except ValueError as e:
@@ -297,6 +300,27 @@ def handle_inspect_database():
                     print('  skills: (none)')
         else:
             print(' No projects recorded')
+
+        # Thumbnails
+        print('\n' + '=' * 80)
+        print('Project thumbnails (path + file check)')
+        print('=' * 80)
+        thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
+        if not thumb_rows:
+            print(' No projects recorded')
+        else:
+            for row in thumb_rows:
+                thumb_path = row['thumbnail_path']
+                if not thumb_path:
+                    status = 'empty'
+                elif not os.path.isfile(thumb_path):
+                    status = 'missing file'
+                elif not is_image_file(thumb_path):
+                    status = 'not an image'
+                else:
+                    status = 'ok'
+                display_path = thumb_path or '<none>'
+                print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
 
         # Languages top summary
         print('\n' + '=' * 80)
@@ -1040,7 +1064,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (1-12): ").strip()
+        choice = input("\nSelect an option (1-13): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -1063,12 +1087,14 @@ def main():
         elif choice == "10":
             handle_analyze_roles()
         elif choice == "11":
-            handle_inspect_database()
+            handle_edit_project_thumbnail()
         elif choice == "12":
+            handle_inspect_database()
+        elif choice == "13":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select a number between 1-12.")
+            print("\nInvalid option. Please select a number between 1-13.")
 
         input("\nPress Enter to return to main menu...")
 

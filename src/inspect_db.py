@@ -20,6 +20,7 @@ sys.path.insert(
 
 # Project imports (from src/)
 from skill_timeline import print_grouped_skill_timeline
+from file_utils import is_image_file
 
 try:
     # Allow overriding DB for inspecting temporary DBs used in tests
@@ -134,6 +135,25 @@ def main():
                 print('  skills: (none)')
     else:
         print(' No projects recorded')
+
+    # Thumbnail verification
+    print_header('Project thumbnails (path + file check)')
+    thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
+    if not thumb_rows:
+        print(' No projects recorded')
+    else:
+        for row in thumb_rows:
+            thumb_path = row['thumbnail_path']
+            if not thumb_path:
+                status = 'empty'
+            elif not os.path.isfile(thumb_path):
+                status = 'missing file'
+            elif not is_image_file(thumb_path):
+                status = 'not an image'
+            else:
+                status = 'ok'
+            display_path = thumb_path or '<none>'
+            print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
 
     # Languages top summary
     print_header('Top languages (by files)')
