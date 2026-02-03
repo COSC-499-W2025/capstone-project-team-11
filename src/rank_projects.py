@@ -43,7 +43,10 @@ def _get_project_collaboration_status(project_name: str) -> str:
 
 
 def _get_all_contributors() -> List[str]:
-    """Get a sorted list of all unique contributor names from the database, normalized."""
+    """Get a sorted list of all unique contributor names from the database, normalized.
+    
+    Filters out non-human contributors like the GitHub Classroom bot.
+    """
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -52,7 +55,10 @@ def _get_all_contributors() -> List[str]:
         normalized = [canonical_username(row['name']) for row in rows]
         # Remove duplicates while preserving order
         seen = set()
-        return [x for x in normalized if not (x in seen or seen.add(x))]
+        contributors = [x for x in normalized if not (x in seen or seen.add(x))]
+        # Filter out GitHub Classroom bot and other non-human contributors
+        filtered = [c for c in contributors if c and 'classroom' not in c.lower() and 'bot' not in c.lower()]
+        return filtered
     except Exception:
         return []
 
@@ -151,7 +157,7 @@ def print_projects(projects: List[Dict]):
 def rank_projects_contribution_summary(limit: Optional[int] = None) -> List[Dict]:
     """Return a summary list of projects with contribution stats.
 
-    Each item: {project, total_files, contributors_count, top_contributor, top_contrib_files, top_fraction}
+    Each item: {project, total_files, contributors_count, top_contributor, top_contrib_files, top_fraction, top_score}
     """
     # Deprecated wrapper: use unified rank_projects_by_importance
     return rank_projects_by_importance(mode="project", limit=limit)
@@ -161,7 +167,7 @@ def print_projects_contribution_summary(projects: List[Dict]):
     if not projects:
         print("No contribution summary available.")
         return
-    headers = ["Project", "Type", "TotalFiles", "Contributors", "TopContributor", "TopFiles", "TopFraction"]
+    headers = ["Project", "Type", "TotalFiles", "Contributors", "TopContributor", "TopFiles", "TopFraction", "TopScore"]
     col_widths = [len(h) for h in headers]
     for p in projects:
         col_widths[0] = max(col_widths[0], len(str(p["project"])))
@@ -172,13 +178,14 @@ def print_projects_contribution_summary(projects: List[Dict]):
         col_widths[4] = max(col_widths[4], len(str(p.get("top_contributor") or "")))
         col_widths[5] = max(col_widths[5], len(str(p.get("top_contrib_files", 0))))
         col_widths[6] = max(col_widths[6], len("0.00"))
+        col_widths[7] = max(col_widths[7], len("0.00"))
 
     fmt = (
         f"{{:<{col_widths[0]}}}  {{:<{col_widths[1]}}}  {{:>{col_widths[2]}}}  {{:>{col_widths[3]}}}  {{:<{col_widths[4]}}}  "
-        f"{{:>{col_widths[5]}}}  {{:>{col_widths[6]}}}"
+        f"{{:>{col_widths[5]}}}  {{:>{col_widths[6]}}}  {{:>{col_widths[7]}}}"
     )
     print(fmt.format(*headers))
-    print("-" * (sum(col_widths) + 14))
+    print("-" * (sum(col_widths) + 16))
     for p in projects:
         collab_status = _get_project_collaboration_status(p["project"])
         print(fmt.format(
@@ -189,7 +196,25 @@ def print_projects_contribution_summary(projects: List[Dict]):
             p.get("top_contributor") or "",
             p.get("top_contrib_files", 0),
             f"{p.get('top_fraction', 0.0):.2f}",
+            f"{p.get('top_score', 0.0):.2f}",
         ))
+
+    # Briefly explain the metric so CLI output is self-documenting.
+    print("\n=== Scoring Explanation ===")
+    print("TopFraction = fraction of files contributed by the top contributor.")
+    print()
+    print("TopScore (project-level) = 60% coverage + 30% dominance gap + 10% team-size factor")
+    print("  * Coverage (60%): Percentage of project files touched by the top contributor.")
+    print("    Higher coverage indicates a more central role in the project.")
+    print()
+    print("  * Dominance Gap (30%): Lead of the top contributor over the next highest.")
+    print("    Measured as (top_files - second_files) / total_files.")
+    print("    Higher gap indicates the top contributor had a more distinct/leading role.")
+    print()
+    print("  * Team-Size Factor (10%): Inverse of contributor count (1 / num_contributors).")
+    print("    Smaller teams get slightly higher scores since individual influence per person is larger.")
+    print()
+    print("Contributor score (per-user view) uses the same formula for consistent ranking.")
 
 
 def human_ts(ts):
@@ -238,9 +263,9 @@ def human_ts(ts):
 def rank_projects_by_contributor(contributor_name: str, limit: Optional[int] = None) -> List[Dict]:
     """Return projects ranked by how important they are to `contributor_name`.
 
-    Importance is measured as the fraction of files in the project that the
-    contributor is recorded for (contrib_files / total_files). The returned
-    list contains dicts with keys: project, contrib_files, total_files, score.
+    Importance uses a composite score (coverage, dominance gap, team size)
+    rather than a simple "percent of files touched" so that small sample sizes
+    and uneven team splits are handled more robustly.
     """
     # Deprecated wrapper: use unified rank_projects_by_importance
     return rank_projects_by_importance(mode="contributor", contributor_name=contributor_name, limit=limit)
@@ -319,11 +344,19 @@ def rank_projects_by_importance(mode: str = "project", contributor_name: Optiona
                     info["top_contributor"] = top_name
                     info["top_contrib_files"] = top_files
                     total = info.get("total_files") or 0
-                    info["top_fraction"] = float(top_files) / float(total) if total > 0 else 0.0
+                    second_count = sorted(contribs.values(), reverse=True)[1] if len(contribs) > 1 else 0
+                    coverage = float(top_files) / float(total) if total > 0 else 0.0
+                    dominance_gap = (top_files - second_count) / float(total) if total > 0 else 0.0
+                    team_factor = 1.0 / float(info["contributors_count"]) if info["contributors_count"] > 0 else 0.0
+                    info["top_fraction"] = coverage
+                    info["top_score"] = (0.6 * coverage) + (0.3 * dominance_gap) + (0.1 * team_factor)
+                else:
+                    info["top_fraction"] = 0.0
+                    info["top_score"] = 0.0
                 result.append(info)
 
-            # sort by total_files desc, then top_fraction desc
-            result.sort(key=lambda x: (-x["total_files"], -x["top_fraction"], x["project"]))
+            # sort by composite score, then coverage, then size
+            result.sort(key=lambda x: (-x.get("top_score", 0.0), -x.get("top_fraction", 0.0), -x.get("total_files", 0), x["project"]))
             if limit is not None and isinstance(limit, int) and limit > 0:
                 return result[:limit]
             return result
@@ -331,7 +364,18 @@ def rank_projects_by_importance(mode: str = "project", contributor_name: Optiona
         elif mode == "contributor":
             if not contributor_name:
                 return []
-            # Fetch all contributor counts and canonicalize names, then filter by canonical contributor_name
+            # Fetch all contributor counts and canonicalize names, then filter by canonical contributor_name.
+            # Score is intentionally more robust than a raw "percent of files touched" metric by blending three factors:
+            #   - Coverage (60%): Fraction of files touched in the project by this contributor.
+            #     A contributor touching more files shows broader project engagement.
+            #   - Dominance Gap (30%): Lead over the next highest contributor, measured as
+            #     (this_contrib_files - second_highest_files) / total_files.
+            #     This measures how distinctly this person led compared to peers.
+            #     Only counts if this contributor is in the top position.
+            #   - Team Size Factor (10%): Computed as 1 / number_of_contributors.
+            #     Smaller teams give individuals more influence per capita, reflecting
+            #     the reality that one person's work matters more in a 2-person team
+            #     than in a 10-person team.
             cur.execute(
                 "SELECT s.project AS project, c.name AS contributor, COUNT(DISTINCT f.id) AS contrib_files "
                 "FROM scans s "
@@ -344,24 +388,42 @@ def rank_projects_by_importance(mode: str = "project", contributor_name: Optiona
 
             # canonicalize the input contributor name for matching
             target = canonical_username(contributor_name or "")
-            per_project = {}
+            per_project: Dict[str, Dict[str, int]] = {}
             for r in rows:
                 project = r[0]
                 raw_contrib = r[1]
                 contrib_files = r[2]
                 canon = canonical_username(raw_contrib or "")
-                if canon != target:
-                    continue
-                per_project[project] = per_project.get(project, 0) + contrib_files
+                per_project.setdefault(project, {})
+                per_project[project][canon] = per_project[project].get(canon, 0) + contrib_files
 
             result = []
-            for project, contrib_files in per_project.items():
+            for project, contribs in per_project.items():
+                if target not in contribs:
+                    continue
+
                 total = totals.get(project, 0)
-                score = float(contrib_files) / float(total) if total > 0 else 0.0
+                contrib_files = contribs.get(target, 0)
+                contributors_count = len(contribs)
+
+                coverage = float(contrib_files) / float(total) if total > 0 else 0.0
+
+                # dominance measures how far ahead the contributor is compared to the next highest contributor
+                sorted_counts = sorted(contribs.values(), reverse=True)
+                top_count = sorted_counts[0]
+                second_count = sorted_counts[1] if len(sorted_counts) > 1 else 0
+                dominance_gap = (contrib_files - second_count) / float(total) if total > 0 and contrib_files == top_count else 0.0
+
+                team_factor = 1.0 / float(contributors_count) if contributors_count > 0 else 0.0
+
+                # Weighted composite score for stability across different project sizes/team sizes
+                score = (0.6 * coverage) + (0.3 * dominance_gap) + (0.1 * team_factor)
+
                 result.append({
                     "project": project,
                     "contrib_files": contrib_files,
                     "total_files": total,
+                    "contributors_count": contributors_count,
                     "score": score,
                 })
 
@@ -433,12 +495,25 @@ def main():
                     for i, contrib in enumerate(contributors, 1):
                         print(f"  {i}. {contrib}")
                     print()
-                
-                name = input('Enter a contributor name to show per-project importance (leave blank to skip): ').strip()
-                if name:
-                    print(f"\nRanking projects by contributor: {name}\n")
-                    user_projects = rank_projects_by_contributor(name, limit=args.limit)
-                    print_projects_by_contributor(user_projects, name)
+                    
+                    user_input = input('Enter a contributor name or number to show per-project importance (leave blank to skip): ').strip()
+                    if user_input:
+                        # Check if user entered a number
+                        name = None
+                        try:
+                            index = int(user_input) - 1
+                            if 0 <= index < len(contributors):
+                                name = contributors[index]
+                            else:
+                                print(f"Invalid number. Please enter a number between 1 and {len(contributors)}.")
+                        except ValueError:
+                            # User entered a name, not a number
+                            name = user_input
+                        
+                        if name:
+                            print(f"\nRanking projects by contributor: {name}\n")
+                            user_projects = rank_projects_by_contributor(name, limit=args.limit)
+                            print_projects_by_contributor(user_projects, name)
         except Exception:
             # If input isn't available (non-interactive), simply skip
             pass

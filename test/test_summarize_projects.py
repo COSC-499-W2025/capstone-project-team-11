@@ -1,60 +1,76 @@
 import os
-import shutil
 import sqlite3
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import summarize_projects
 
 
-def _robust_rmtree(path: str) -> None:
-    """Remove directory tree robustly."""
-    def onerror(func, p, excinfo):
-        try:
-            os.chmod(p, 0o700)
-        except Exception:
-            pass
-        try:
-            func(p)
-        except Exception:
-            pass
-    if os.path.exists(path):
-        shutil.rmtree(path, onerror=onerror)
+def _setup_in_memory_db():
+    conn = sqlite3.connect(':memory:')
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    cur.executescript(
+        """
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            git_metrics_json TEXT,
+            tech_json TEXT
+        );
+        CREATE TABLE scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            project TEXT,
+            notes TEXT
+        );
+        CREATE TABLE files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL
+        );
+        CREATE TABLE contributors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        );
+        CREATE TABLE file_contributors (
+            file_id INTEGER NOT NULL,
+            contributor_id INTEGER NOT NULL,
+            PRIMARY KEY (file_id, contributor_id)
+        );
+        CREATE TABLE languages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        );
+        CREATE TABLE file_languages (
+            file_id INTEGER NOT NULL,
+            language_id INTEGER NOT NULL,
+            PRIMARY KEY (file_id, language_id)
+        );
+        CREATE TABLE skills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        );
+        CREATE TABLE project_skills (
+            project_id INTEGER NOT NULL,
+            skill_id INTEGER NOT NULL,
+            PRIMARY KEY (project_id, skill_id)
+        );
+        """
+    )
+    conn.commit()
+    return conn
 
 
-class TestGetProjectPath(unittest.TestCase):
+class TestGatherProjectInfoFromDB(unittest.TestCase):
     def setUp(self):
-        # Create an in-memory SQLite DB with required tables
-        self.conn = sqlite3.connect(':memory:')
-        self.conn.row_factory = sqlite3.Row
-        cur = self.conn.cursor()
-        cur.execute(
-            '''
-            CREATE TABLE scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                project TEXT,
-                notes TEXT
-            )
-            '''
-        )
-        cur.execute(
-            '''
-            CREATE TABLE files (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id INTEGER NOT NULL,
-                file_name TEXT NOT NULL,
-                file_path TEXT NOT NULL
-            )
-            '''
-        )
-        self.conn.commit()
+        self.conn = _setup_in_memory_db()
 
     def tearDown(self):
         try:
@@ -62,452 +78,147 @@ class TestGetProjectPath(unittest.TestCase):
         except Exception:
             pass
 
-    def test_get_project_path_returns_none_for_nonexistent_project(self):
-        """Test that get_project_path returns None for a project that doesn't exist."""
-        with patch('summarize_projects.get_connection', return_value=self.conn):
-            result = summarize_projects.get_project_path('nonexistent-project')
-            self.assertIsNone(result)
-
-    def test_get_project_path_returns_none_for_project_with_no_files(self):
-        """Test that get_project_path returns None when project has no files."""
+    def test_returns_languages_frameworks_skills_and_metrics(self):
         cur = self.conn.cursor()
-        cur.execute("INSERT INTO scans (project) VALUES (?)", ('empty-project',))
+        cur.execute(
+            "INSERT INTO projects (name, git_metrics_json, tech_json) VALUES (?, ?, ?)",
+            (
+                'proj1',
+                '{"commits_per_author": {"UserA": 3}, "files_changed_per_author": {"UserA": ["a.py"]}}',
+                '{"frameworks": ["Django"]}',
+            ),
+        )
+        project_id = cur.lastrowid
+        cur.execute("INSERT INTO scans (project) VALUES ('proj1')")
+        scan_id = cur.lastrowid
+        cur.execute("INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)", (scan_id, 'a.py', '/tmp/a.py'))
+        file_id = cur.lastrowid
+        cur.execute("INSERT OR IGNORE INTO languages (name) VALUES ('Python')")
+        cur.execute("SELECT id FROM languages WHERE name='Python'")
+        lang_id = cur.fetchone()['id']
+        cur.execute("INSERT INTO file_languages (file_id, language_id) VALUES (?, ?)", (file_id, lang_id))
+
+        cur.execute("INSERT OR IGNORE INTO skills (name) VALUES ('Data Analysis')")
+        cur.execute("SELECT id FROM skills WHERE name='Data Analysis'")
+        skill_id = cur.fetchone()['id']
+        cur.execute("INSERT INTO project_skills (project_id, skill_id) VALUES (?, ?)", (project_id, skill_id))
         self.conn.commit()
 
         with patch('summarize_projects.get_connection', return_value=self.conn):
-            result = summarize_projects.get_project_path('empty-project')
-            self.assertIsNone(result)
+            info = summarize_projects.gather_project_info_from_db('proj1')
 
-    def test_get_project_path_finds_project_root_with_git(self):
-        """Test that get_project_path finds project root when .git exists."""
-        # Create a temporary directory structure
-        temp_dir = tempfile.mkdtemp()
-        try:
-            project_dir = os.path.join(temp_dir, 'test-project')
-            os.makedirs(project_dir)
-            sub_dir = os.path.join(project_dir, 'src')
-            os.makedirs(sub_dir)
-            
-            # Create .git directory to mark as project root
-            git_dir = os.path.join(project_dir, '.git')
-            os.makedirs(git_dir)
-            
-            # Create a file in subdirectory
-            test_file = os.path.join(sub_dir, 'test.py')
-            with open(test_file, 'w') as f:
-                f.write('print("test")')
-            
-            # Insert scan and file into database
-            cur = self.conn.cursor()
-            cur.execute("INSERT INTO scans (project) VALUES (?)", ('test-project',))
-            scan_id = cur.lastrowid
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)",
-                (scan_id, 'test.py', test_file)
-            )
-            self.conn.commit()
+        self.assertIn('Python', info['languages'])
+        self.assertIn('Django', info['frameworks'])
+        self.assertIn('Data Analysis', info['skills'])
+        self.assertEqual(info['git_metrics']['commits_per_author']['UserA'], 3)
+        self.assertEqual(info['projects_detected'], 1)
 
-            with patch('summarize_projects.get_connection', return_value=self.conn):
-                result = summarize_projects.get_project_path('test-project')
-                # Should return the project root (directory with .git)
-                self.assertEqual(result, project_dir)
-        finally:
-            _robust_rmtree(temp_dir)
+    def test_contributions_merge_commits_and_file_counts(self):
+        cur = self.conn.cursor()
+        cur.execute(
+            "INSERT INTO projects (name, git_metrics_json, tech_json) VALUES (?, ?, ?)",
+            (
+                'proj2',
+                '{"commits_per_author": {"UserB": 5}}',
+                '{}',
+            ),
+        )
+        project_id = cur.lastrowid
+        cur.execute("INSERT INTO scans (project) VALUES ('proj2')")
+        scan_id = cur.lastrowid
+        cur.execute("INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)", (scan_id, 'b.py', '/tmp/b.py'))
+        file_id = cur.lastrowid
+        cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES ('UserB')")
+        cur.execute("SELECT id FROM contributors WHERE name='UserB'")
+        contrib_id = cur.fetchone()['id']
+        cur.execute("INSERT INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (file_id, contrib_id))
+        self.conn.commit()
 
-    def test_get_project_path_finds_project_root_with_readme(self):
-        """Test that get_project_path finds project root when README.md exists."""
-        temp_dir = tempfile.mkdtemp()
-        try:
-            project_dir = os.path.join(temp_dir, 'my-project')
-            os.makedirs(project_dir)
-            sub_dir = os.path.join(project_dir, 'lib')
-            os.makedirs(sub_dir)
-            
-            # Create README.md to mark as project root
-            readme = os.path.join(project_dir, 'README.md')
-            with open(readme, 'w') as f:
-                f.write('# My Project')
-            
-            # Create a file in subdirectory
-            test_file = os.path.join(sub_dir, 'module.py')
-            with open(test_file, 'w') as f:
-                f.write('def hello(): pass')
-            
-            cur = self.conn.cursor()
-            cur.execute("INSERT INTO scans (project) VALUES (?)", ('my-project',))
-            scan_id = cur.lastrowid
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)",
-                (scan_id, 'module.py', test_file)
-            )
-            self.conn.commit()
+        with patch('summarize_projects.get_connection', return_value=self.conn):
+            info = summarize_projects.gather_project_info_from_db('proj2')
 
-            with patch('summarize_projects.get_connection', return_value=self.conn):
-                result = summarize_projects.get_project_path('my-project')
-                self.assertEqual(result, project_dir)
-        finally:
-            _robust_rmtree(temp_dir)
-
-    def test_get_project_path_handles_zip_file_paths(self):
-        """Test that get_project_path handles zip file paths correctly."""
-        temp_dir = tempfile.mkdtemp()
-        try:
-            zip_file = os.path.join(temp_dir, 'archive.zip')
-            # Create a dummy zip file path (format: "/path/to.zip:inner/path/file.py")
-            zip_path = f"{zip_file}:inner/src/file.py"
-            
-            cur = self.conn.cursor()
-            cur.execute("INSERT INTO scans (project) VALUES (?)", ('zipped-project',))
-            scan_id = cur.lastrowid
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)",
-                (scan_id, 'file.py', zip_path)
-            )
-            self.conn.commit()
-
-            with patch('summarize_projects.get_connection', return_value=self.conn):
-                result = summarize_projects.get_project_path('zipped-project')
-                # Should return the directory containing the zip file
-                self.assertEqual(result, temp_dir)
-        finally:
-            _robust_rmtree(temp_dir)
-
-    def test_get_project_path_uses_most_recent_scan(self):
-        """Test that get_project_path uses the most recent scan's files."""
-        temp_dir = tempfile.mkdtemp()
-        try:
-            project_dir = os.path.join(temp_dir, 'versioned-project')
-            os.makedirs(project_dir)
-            
-            # Create README
-            readme = os.path.join(project_dir, 'README.md')
-            with open(readme, 'w') as f:
-                f.write('# Project')
-            
-            old_file = os.path.join(project_dir, 'old.py')
-            new_file = os.path.join(project_dir, 'new.py')
-            with open(old_file, 'w') as f:
-                f.write('old')
-            with open(new_file, 'w') as f:
-                f.write('new')
-            
-            cur = self.conn.cursor()
-            # Insert two scans with different timestamps
-            cur.execute(
-                "INSERT INTO scans (project, scanned_at) VALUES (?, ?)",
-                ('versioned-project', '2025-01-01 10:00:00')
-            )
-            old_scan_id = cur.lastrowid
-            cur.execute(
-                "INSERT INTO scans (project, scanned_at) VALUES (?, ?)",
-                ('versioned-project', '2025-01-02 10:00:00')
-            )
-            new_scan_id = cur.lastrowid
-            
-            # Add files to both scans
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)",
-                (old_scan_id, 'old.py', old_file)
-            )
-            cur.execute(
-                "INSERT INTO files (scan_id, file_name, file_path) VALUES (?, ?, ?)",
-                (new_scan_id, 'new.py', new_file)
-            )
-            self.conn.commit()
-
-            with patch('summarize_projects.get_connection', return_value=self.conn):
-                result = summarize_projects.get_project_path('versioned-project')
-                # Should find the project root regardless of which file is used
-                self.assertEqual(result, project_dir)
-        finally:
-            _robust_rmtree(temp_dir)
+        contrib = info['contributions']['userb']  # canonicalized
+        self.assertEqual(contrib['file_count'], 1)
+        self.assertEqual(contrib['commits'], 5)
 
 
 class TestSummarizeTopRankedProjects(unittest.TestCase):
     def setUp(self):
-        # Create an in-memory SQLite DB with required tables
-        self.conn = sqlite3.connect(':memory:')
-        self.conn.row_factory = sqlite3.Row
-        cur = self.conn.cursor()
-        cur.execute(
-            '''
-            CREATE TABLE scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scanned_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                project TEXT,
-                notes TEXT
-            )
-            '''
-        )
-        cur.execute(
-            '''
-            CREATE TABLE files (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id INTEGER NOT NULL,
-                file_name TEXT NOT NULL,
-                file_path TEXT NOT NULL
-            )
-            '''
-        )
-        cur.execute(
-            '''
-            CREATE TABLE contributors (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE
-            )
-            '''
-        )
-        cur.execute(
-            '''
-            CREATE TABLE file_contributors (
-                file_id INTEGER NOT NULL,
-                contributor_id INTEGER NOT NULL,
-                PRIMARY KEY (file_id, contributor_id)
-            )
-            '''
-        )
-        self.conn.commit()
         self.temp_dir = tempfile.mkdtemp()
 
     def tearDown(self):
         try:
-            self.conn.close()
+            os.rmdir(self.temp_dir)
         except Exception:
             pass
-        _robust_rmtree(self.temp_dir)
 
-    def test_summarize_returns_empty_list_for_nonexistent_contributor(self):
-        """Test that summarize_top_ranked_projects returns empty list for unknown contributor."""
-        with patch('summarize_projects.get_connection', return_value=self.conn):
+    def test_returns_empty_list_for_unknown_contributor(self):
+        with patch('summarize_projects.db_is_initialized', return_value=True):
             with patch('summarize_projects.rank_projects_by_contributor', return_value=[]):
                 result = summarize_projects.summarize_top_ranked_projects('UnknownUser')
                 self.assertEqual(result, [])
 
-    def test_summarize_skips_projects_without_paths(self):
-        """Test that summarize_top_ranked_projects skips projects when path cannot be found."""
-        # Mock rank_projects_by_contributor to return a project
-        mock_projects = [
-            {'project': 'missing-path-project', 'contrib_files': 5, 'total_files': 10, 'score': 0.5}
-        ]
-        
-        with patch('summarize_projects.get_connection', return_value=self.conn):
+    def test_handles_gather_errors(self):
+        mock_projects = [{'project': 'p1', 'contrib_files': 1, 'total_files': 1, 'score': 0.5}]
+        with patch('summarize_projects.db_is_initialized', return_value=True):
             with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-                with patch('summarize_projects.get_project_path', return_value=None):
-                    result = summarize_projects.summarize_top_ranked_projects('TestUser')
-                    
+                with patch('summarize_projects.gather_project_info_from_db', side_effect=Exception('boom')):
+                    result = summarize_projects.summarize_top_ranked_projects('UserX')
                     self.assertEqual(len(result), 1)
-                    self.assertEqual(result[0]['project'], 'missing-path-project')
-                    self.assertIsNone(result[0]['project_path']) 
-                    self.assertEqual(result[0]['error'], 'Project path not found') 
+                    self.assertEqual(result[0]['project'], 'p1')
+                    self.assertIsNone(result[0]['project_info'])
+                    self.assertIn('boom', result[0]['error'])
 
-    def test_summarize_generates_summaries_for_valid_projects(self):
-        """Test that summarize_top_ranked_projects generates summaries when project path exists."""
-        # Create a temporary project directory
-        project_dir = os.path.join(self.temp_dir, 'test-project')
-        os.makedirs(project_dir)
-        readme = os.path.join(project_dir, 'README.md')
-        with open(readme, 'w') as f:
-            f.write('# Test Project')
-        py_file = os.path.join(project_dir, 'main.py')
-        with open(py_file, 'w') as f:
-            f.write('print("hello")')
-        
-        # Mock rank_projects_by_contributor
-        mock_projects = [
-            {'project': 'test-project', 'contrib_files': 2, 'total_files': 2, 'score': 1.0}
-        ]
-        
-        # Mock gather_project_info
+    def test_successful_summary_path_flow(self):
+        mock_projects = [{'project': 'p2', 'contrib_files': 2, 'total_files': 4, 'score': 0.5}]
         mock_info = {
-            'project_name': 'test-project',
-            'project_path': project_dir,
             'languages': ['Python'],
+            'frameworks': [],
             'skills': [],
             'contributions': {},
-            'git_metrics': None
+            'git_metrics': {'commits_per_author': {'userx': 3}},
+            'projects_detected': 1,
         }
-        
-        with patch('summarize_projects.get_connection', return_value=self.conn):
+        with patch('summarize_projects.db_is_initialized', return_value=True):
             with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-                with patch('summarize_projects.get_project_path', return_value=project_dir):
-                    with patch('project_info_output.gather_project_info', return_value=mock_info):
-                        with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(self.temp_dir, 'combined_summary.txt')):
-                            result = summarize_projects.summarize_top_ranked_projects('TestUser')
-                            
-                            self.assertEqual(len(result), 1)
-                            self.assertEqual(result[0]['project'], 'test-project')
-                            self.assertEqual(result[0]['project_path'], project_dir)
-                            self.assertIsNone(result[0]['error'])  # No error expected
-
-    def test_summarize_handles_summary_generation_errors(self):
-        """Test that summarize_top_ranked_projects handles errors during summary generation."""
-        project_dir = os.path.join(self.temp_dir, 'error-project')
-        os.makedirs(project_dir)
-        
-        mock_projects = [
-            {'project': 'error-project', 'contrib_files': 1, 'total_files': 1, 'score': 1.0}
-        ]
-        
-        with patch('summarize_projects.get_connection', return_value=self.conn):
-            with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-                with patch('summarize_projects.get_project_path', return_value=project_dir):
-                    # Mock gather_project_info to raise an exception
-                    with patch('project_info_output.gather_project_info', side_effect=Exception('Test error')):
-                        result = summarize_projects.summarize_top_ranked_projects('TestUser')
-                        
+                with patch('summarize_projects.gather_project_info_from_db', return_value=mock_info):
+                    with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(self.temp_dir, 'out.txt')) as mock_gen:
+                        result = summarize_projects.summarize_top_ranked_projects('UserX')
                         self.assertEqual(len(result), 1)
-                        self.assertEqual(result[0]['project'], 'error-project')
-                        self.assertEqual(result[0]['project_path'], project_dir)
-                        self.assertIsNotNone(result[0]['error'])  # Error should be populated
-                        self.assertIn('Test error', result[0]['error'])
+                        self.assertIsNone(result[0]['error'])
+                        self.assertTrue(mock_gen.called)
 
-    def test_summarize_respects_limit_parameter(self):
-        """Test that summarize_top_ranked_projects respects the limit parameter."""
+    def test_limit_is_respected(self):
         mock_projects = [
-            {'project': 'project-1', 'contrib_files': 5, 'total_files': 10, 'score': 0.5},
-            {'project': 'project-2', 'contrib_files': 3, 'total_files': 10, 'score': 0.3},
-            {'project': 'project-3', 'contrib_files': 2, 'total_files': 10, 'score': 0.2}
+            {'project': 'p1', 'contrib_files': 1, 'total_files': 2, 'score': 0.4},
+            {'project': 'p2', 'contrib_files': 2, 'total_files': 3, 'score': 0.5},
         ]
-        
-        with patch('summarize_projects.get_connection', return_value=self.conn):
-            with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects[:2]):
-                # When limit=2, only first 2 projects should be processed
-                with patch('summarize_projects.get_project_path', return_value=None):
-                    result = summarize_projects.summarize_top_ranked_projects('TestUser', limit=2)
-                    
-                    # Should only process 2 projects (limited by rank_projects_by_contributor)
-                    # Since get_project_path returns None, both will be skipped
-                    self.assertEqual(len(result), 2)
+        with patch('summarize_projects.db_is_initialized', return_value=True):
+            with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects[:1]):
+                with patch('summarize_projects.gather_project_info_from_db', return_value={'projects_detected': 1}):
+                    with patch('summarize_projects.generate_combined_summary', return_value=os.path.join(self.temp_dir, 'out.txt')):
+                        result = summarize_projects.summarize_top_ranked_projects('UserY', limit=1)
+                        self.assertEqual(len(result), 1)
 
-    def test_contributor_commit_count_is_used(self):
-        """Test that per-contributor commit counts are used instead of defaulting to 0."""
-        project_dir = os.path.join(self.temp_dir, 'commit-project')
-        os.makedirs(project_dir)
-        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
-            f.write('# Commit Test')
-
-        mock_projects = [
-            {'project': 'commit-project', 'contrib_files': 3, 'total_files': 10, 'score': 0.3}
-        ]
-
+    def test_commit_count_falls_back_to_contributions(self):
+        mock_projects = [{'project': 'p3', 'contrib_files': 2, 'total_files': 5, 'score': 0.3}]
         mock_info = {
-            'project_name': 'commit-project',
-            'languages': ['Python'],
+            'languages': [],
+            'frameworks': [],
             'skills': [],
-            'contributions': {
-                'TestUser': {
-                    'commits': 7,
-                    'files': ['a.py', 'b.py'],
-                    'file_count': 2
-                }
-            },
-            'git_metrics': {
-                'total_commits': 42,
-                'commits_per_author': {
-                    'TestUser': 7
-                }
-            }
+            'contributions': {'userz': {'commits': 6, 'files': [], 'file_count': 0}},
+            'git_metrics': {'total_commits': 10},
+            'projects_detected': 1,
         }
-
-        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-            with patch('summarize_projects.get_project_path', return_value=project_dir):
-                with patch('project_info_output.gather_project_info', return_value=mock_info):
+        with patch('summarize_projects.db_is_initialized', return_value=True):
+            with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
+                with patch('summarize_projects.gather_project_info_from_db', return_value=mock_info):
                     with patch('summarize_projects.generate_combined_summary') as mock_gen:
-                        summarize_projects.summarize_top_ranked_projects('TestUser')
-
-                        # Ensure summary generator was called
-                        self.assertTrue(mock_gen.called)
-
-                        # Extract the project details passed to generate_combined_summary
+                        summarize_projects.summarize_top_ranked_projects('UserZ')
                         args, kwargs = mock_gen.call_args
-                        project_data_list = kwargs['project_data_list']
-
-                        # Verify that the contributor's commit count is correctly used
-                        commits = project_data_list[0]['project_info']['git_metrics']['commits_per_author']['TestUser']
-                        self.assertEqual(commits, 7)
-
-    def test_skills_are_populated_correctly(self):
-        """Test that skills are correctly aggregated and included in the summary."""
-        project_dir = os.path.join(self.temp_dir, 'skills-project')
-        os.makedirs(project_dir)
-        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
-            f.write('# Skills Test')
-
-        mock_projects = [
-            {'project': 'skills-project', 'contrib_files': 2, 'total_files': 5, 'score': 0.4}
-        ]
-
-        mock_info = {
-            'project_name': 'skills-project',
-            'languages': ['Python'],
-            'skills': ['Data Analysis', 'Machine Learning'],
-            'contributions': {},
-            'git_metrics': {}
-        }
-
-        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-            with patch('summarize_projects.get_project_path', return_value=project_dir):
-                with patch('project_info_output.gather_project_info', return_value=mock_info):
-                    with patch('summarize_projects.generate_combined_summary') as mock_gen:
-                        summarize_projects.summarize_top_ranked_projects('TestUser')
-
-                        # Ensure summary generator was called
-                        self.assertTrue(mock_gen.called)
-
-                        # Extract the project details passed to generate_combined_summary
-                        args, kwargs = mock_gen.call_args
-                        project_data_list = kwargs['project_data_list']
-
-                        # Verify that skills are correctly populated
-                        skills = project_data_list[0]['project_info']['skills']
-                        self.assertIn('Data Analysis', skills)
-                        self.assertIn('Machine Learning', skills)
-
-    def test_fallback_to_contributions_commits(self):
-        """Test that the fallback to contributions['commits'] is used when commits_per_author is missing."""
-        project_dir = os.path.join(self.temp_dir, 'fallback-project')
-        os.makedirs(project_dir)
-        with open(os.path.join(project_dir, 'README.md'), 'w') as f:
-            f.write('# Fallback Test')
-
-        mock_projects = [
-            {'project': 'fallback-project', 'contrib_files': 2, 'total_files': 5, 'score': 0.4}
-        ]
-
-        mock_info = {
-            'project_name': 'fallback-project',
-            'languages': ['Python'],
-            'skills': [],
-            'contributions': {
-                'TestUser': {
-                    'commits': 5,
-                    'files': ['file1.py', 'file2.py'],
-                    'file_count': 2
-                }
-            },
-            'git_metrics': {
-                'total_commits': 20
-            }
-        }
-
-        with patch('summarize_projects.rank_projects_by_contributor', return_value=mock_projects):
-            with patch('summarize_projects.get_project_path', return_value=project_dir):
-                with patch('project_info_output.gather_project_info', return_value=mock_info):
-                    with patch('summarize_projects.generate_combined_summary') as mock_gen:
-                        summarize_projects.summarize_top_ranked_projects('TestUser')
-
-                        # Ensure summary generator was called
-                        self.assertTrue(mock_gen.called)
-
-                        # Extract the project details passed to generate_combined_summary
-                        args, kwargs = mock_gen.call_args
-                        project_data_list = kwargs['project_data_list']
-
-                        # Verify that the fallback commit count is used
-                        commits = project_data_list[0]['project_info']['contributions']['TestUser']['commits']
-                        self.assertEqual(commits, 5)
+                        proj_info = kwargs['project_data_list'][0]['project_info']
+                        self.assertEqual(proj_info['contributions']['userz']['commits'], 6)
 
 
 if __name__ == '__main__':
     unittest.main()
-

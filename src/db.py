@@ -602,6 +602,110 @@ def delete_portfolio(portfolio_id: int):
     finally:
         conn.close()
 
+def clear_database():
+    """
+    Deletes ALL data from every table (schema remains).
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("PRAGMA foreign_keys = OFF;")
+
+    tables = cur.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name NOT LIKE 'sqlite_%';
+    """).fetchall()
+
+    for (table,) in tables:
+        cur.execute(f"DELETE FROM {table};")
+
+    # reset autoincrement counters
+    cur.execute("DELETE FROM sqlite_sequence;")
+
+    cur.execute("PRAGMA foreign_keys = ON;")
+    conn.commit()
+    conn.close()
+
+def delete_project_by_id(project_id):
+    if project_id is None:
+        raise ValueError("project_id cannot be None")
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        # Find project name (used by scans table)
+        cur.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
+        row = cur.fetchone()
+        if not row:
+            print("Project not found.")
+            return False  # return False if project doesn't exist
+
+        project_name = row["name"]
+
+        # --- DELETE IN DEPENDENCY ORDER ---
+
+        # Files → contributors / languages
+        cur.execute("""
+            DELETE FROM file_contributors
+            WHERE file_id IN (
+                SELECT f.id FROM files f
+                JOIN scans s ON f.scan_id = s.id
+                WHERE s.project = ?
+            )
+        """, (project_name,))
+
+        cur.execute("""
+            DELETE FROM file_languages
+            WHERE file_id IN (
+                SELECT f.id FROM files f
+                JOIN scans s ON f.scan_id = s.id
+                WHERE s.project = ?
+            )
+        """, (project_name,))
+
+        # Files
+        cur.execute("""
+            DELETE FROM files
+            WHERE scan_id IN (
+                SELECT id FROM scans WHERE project = ?
+            )
+        """, (project_name,))
+
+        # Project skills
+        cur.execute("""
+            DELETE FROM project_skills
+            WHERE project_id = ?
+        """, (project_id,))
+
+        # Project evidence
+        cur.execute("""
+            DELETE FROM project_evidence
+            WHERE project_id = ?
+        """, (project_id,))
+
+        # Scans
+        cur.execute("""
+            DELETE FROM scans
+            WHERE project = ?
+        """, (project_name,))
+
+        # Finally: project
+        cur.execute("""
+            DELETE FROM projects
+            WHERE id = ?
+        """, (project_id,))
+
+        conn.commit()
+        return True 
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+    finally:
+        conn.close()
+
 def _ensure_schema(conn):
     """Ensure the database schema exists and matches init_db.sql (non-destructive)."""
     cur = conn.cursor()

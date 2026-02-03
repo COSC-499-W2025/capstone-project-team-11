@@ -88,7 +88,9 @@ class TestRankByContributor(unittest.TestCase):
         self.assertEqual(res[0]['project'], 'proj-b')
         self.assertAlmostEqual(res[0]['score'], 1.0)
         self.assertEqual(res[1]['project'], 'proj-a')
-        self.assertAlmostEqual(res[1]['score'], 0.5)
+        # Composite scoring now blends coverage, dominance gap, and team size.
+        # For proj-a: coverage=0.5, dominance_gap=0, team_factor=0.5 -> score=0.35
+        self.assertAlmostEqual(res[1]['score'], 0.35, places=2)
 
     def test_contributor_with_no_files_returns_empty(self):
         cur = self.conn.cursor()
