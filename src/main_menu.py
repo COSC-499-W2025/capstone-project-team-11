@@ -62,25 +62,26 @@ def print_main_menu():
     print("")
     print("SCANNING")
     print("1. Scan Project")
+    print("2. View/Manage Scanned Projects")
     print("")
     print("RESUME & PORTFOLIO")
-    print("2. Generate Resume")
-    print("3. Generate Portfolio")
-    print("4. View/Manage Resumes")
-    print("5. View/Manage Portfolios")
+    print("3. Generate Resume")
+    print("4. Generate Portfolio")
+    print("5. View/Manage Resumes")
+    print("6. View/Manage Portfolios")
     print("")
     print("ANALYSIS")
-    print("6. Rank Projects")
-    print("7. Summarize Contributor Projects")
-    print("8. Generate Project Summary Report")
-    print("9. Manage Project Evidence")
-    print("10. Analyze Contributor Roles")
+    print("7. Rank Projects")
+    print("8. Summarize Contributor Projects")
+    print("9. Generate Project Summary Report")
+    print("10. Manage Project Evidence")
+    print("11. Analyze Contributor Roles")
     print("")
     print("EXTRA")
-    print("11. Edit Thumbnail for a Project")
+    print("12. Edit Thumbnail for a Project")
     print("")
     print("ADMIN")
-    print("12. Manage Database")
+    print("13. Manage Database")
     print("0. Exit")
 
 
@@ -1055,6 +1056,222 @@ def handle_add_to_resume(resume_row, path):
 
 from db import clear_database, delete_project_by_id
 
+# ============================================================
+# MANAGE SCANNED PROJECTS
+# ============================================================
+
+# Scan output/ directory and return list of project summary info (Returns list of dicts with keys: project_name, txt_path, json_path, folder_path)
+def _list_project_summaries():
+
+    output_root = os.path.join(os.path.dirname(__file__), '..', 'output')
+    output_root = os.path.abspath(output_root)
+
+    if not os.path.isdir(output_root):
+        return []
+
+    projects = []
+    for folder_name in sorted(os.listdir(output_root)):
+        folder_path = os.path.join(output_root, folder_name)
+        if not os.path.isdir(folder_path):
+            continue
+
+        # Find TXT and JSON files in the output/ folder
+        txt_files = []
+        json_files = []
+        for fname in os.listdir(folder_path):
+            fpath = os.path.join(folder_path, fname)
+            if fname.endswith('_summary_') or '_summary_' in fname and fname.endswith('.txt'):
+                txt_files.append(fpath)
+            elif fname.endswith('.txt') and '_summary_' in fname:
+                txt_files.append(fpath)
+            elif fname.endswith('.json') and '_info_' in fname:
+                json_files.append(fpath)
+
+        # Sort by modification time, most recent first
+        txt_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        json_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+        # Add the found files to the projects list to be returned and listed
+        projects.append({
+            'project_name': folder_name,
+            'folder_path': folder_path,
+            'txt_path': txt_files[0] if txt_files else None,
+            'json_path': json_files[0] if json_files else None,
+            'txt_files': txt_files,
+            'json_files': json_files,
+        })
+
+    return projects
+
+# Deletes all output files for a project (TXT, JSON, and project folder within output/ if empty)
+def _delete_project_output_files(project_name: str):
+
+    output_root = os.path.join(os.path.dirname(__file__), '..', 'output')
+    output_root = os.path.abspath(output_root)
+    folder_path = os.path.join(output_root, project_name)
+
+    # Delete all files in the project's output folder
+    deleted_files = []
+    if os.path.isdir(folder_path):
+        for fname in os.listdir(folder_path):
+            fpath = os.path.join(folder_path, fname)
+            if os.path.isfile(fpath):
+                try:
+                    os.remove(fpath)
+                    deleted_files.append(fpath)
+                except Exception as e:
+                    print(f"Warning: Could not delete {fpath}: {e}")
+
+        # Remove project's output folder if empty
+        try:
+            if not os.listdir(folder_path):
+                os.rmdir(folder_path)
+                deleted_files.append(folder_path)
+        except Exception as e:
+            print(f"Warning: Could not remove folder {folder_path}: {e}")
+
+    return deleted_files
+
+# List project summaries from output/ and allow viewing, name editing, and deletion
+def handle_manage_scanned_projects():
+    
+    print("\n=== Manage Scanned Projects ===")
+    projects = _list_project_summaries()
+
+    if not projects:
+        print("No project summaries found in output/ directory.")
+        print("Run a project scan first (Option 1) to generate summaries.")
+        return
+
+    # Get custom display names from database for showing status
+    db_projects = {}
+    try:
+        db_project_list = list_projects_for_display()
+        for p in db_project_list:
+            db_projects[p["name"]] = p
+    except Exception:
+        pass
+
+    print("\nAvailable project summaries:")
+    for idx, p in enumerate(projects, start=1):
+
+        # Check if project has custom name in database
+        db_entry = db_projects.get(p['project_name'])
+        custom_name = db_entry["custom_name"] if db_entry and "custom_name" in db_entry.keys() and db_entry["custom_name"] else None
+        if custom_name:
+            name_display = f"{custom_name} (was: {p['project_name']})"
+        else:
+            name_display = p['project_name']
+
+        print(f"  {idx}. {name_display}")
+
+    choice = input("\nEnter number to manage (blank to cancel): ").strip()
+    if not choice:
+        return
+
+    if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
+        print_error("Invalid selection.", f"Enter a number between 1 and {len(projects)}.")
+        return
+
+    selected = projects[int(choice) - 1]
+    project_name = selected['project_name']
+
+    # Get the current custom name (if any)
+    db_entry = db_projects.get(project_name)
+    current_custom_name = db_entry["custom_name"] if db_entry and "custom_name" in db_entry.keys() and db_entry["custom_name"] else None
+
+    print(f"\nSelected project: {project_name}")
+    if current_custom_name:
+        print(f"  Display name: {current_custom_name}")
+    print(f"  Folder: {selected['folder_path']}")
+    if selected['txt_path']:
+        print(f"  TXT summary: {os.path.basename(selected['txt_path'])}")
+
+    print("\nChoose an action:")
+    print("1. View summary")
+    print("2. Edit display name")
+    print("3. Delete project")
+    print("4. Cancel")
+
+    action = input("\nSelect an option (1-4): ").strip()
+
+    if action == '4' or not action:
+        return
+
+    if action == '2':
+        # Check if project exists in database
+        if not db_entry:
+            print_error(f"Project '{project_name}' not found in database.", "The project must be in the database to edit its display name. Consider rescanning the project first.")
+            return
+
+        print(f"\nCurrent display name: {current_custom_name or project_name} {'(custom)' if current_custom_name else '(default)'}")
+        print("Enter a new display name for resumes/portfolios.")
+        print("Leave blank to clear the custom name and use the default.")
+
+        new_name = input("New display name: ").strip()
+        set_project_display_name(project_name, new_name or None)
+
+        if new_name:
+            print(f"Success. Display name updated to: {new_name}")
+        else:
+            print("Success. Custom display name cleared (reverted to original).")
+        return
+
+    if action == '3':
+        print(f"\nThis will permanently delete:")
+        print(f"    - Project '{project_name}' from the database (if it exists)")
+        print(f"    - All summary files in {selected['folder_path']}")
+
+        confirm = input("\nType 'DELETE' to confirm: ").strip()
+        if confirm != 'DELETE':
+            print("Cancelled.")
+            return
+
+        # Delete from database
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM projects WHERE name = ?", (project_name,))
+            row = cur.fetchone()
+            conn.close()
+
+            if row:
+                project_id = row['id']
+                delete_project_by_id(project_id)
+                print(f"Success. Removed '{project_name}' from database.")
+            else:
+                print(f"  (Project '{project_name}' not found in database - skipping DB deletion)")
+        except Exception as e:
+            print(f"Warning: Database deletion error: {e}")
+
+        # Delete local output/ files
+        deleted = _delete_project_output_files(project_name)
+        if deleted:
+            print(f"Success. Deleted {len(deleted)} output file(s)/folder(s).")
+        else:
+            print("(No output files found to delete)")
+
+        print(f"Success. Project '{project_name}' has been removed.")
+        return
+
+    if action == '1':
+        # View project TXT summary
+        if not selected['txt_path']:
+            print_error("No TXT summary file found for this project.")
+            return
+
+        print(f"\n--- Viewing Summary for {project_name} ---\n")
+        try:
+            with open(selected['txt_path'], 'r', encoding='utf-8') as f:
+                content = f.read()
+            print(content)
+        except Exception as e:
+            print_error(f"Failed to read summary file: {e}")
+        return
+
+    print_error("Invalid selection.", "Enter a number between 1 and 4.")
+
+
 def database_management_menu():
     while True:
         print("\n=== DATABASE MANAGEMENT ===")
@@ -1120,8 +1337,14 @@ def remove_project_menu():
         print("Cancelled.")
         return
 
+    project_name = project["name"]
     delete_project_by_id(project["id"])
-    print("✔ Project removed.")
+    print("✔ Project removed from database.")
+
+    # Also delete output files
+    deleted = _delete_project_output_files(project_name)
+    if deleted:
+        print(f"✔ Deleted {len(deleted)} output file(s)/folder(s).")
 
 
 
@@ -1177,37 +1400,39 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (0-12): ").strip()
+        choice = input("\nSelect an option (0-13): ").strip()
 
         if choice == "1":
             handle_scan_directory()
         elif choice == "2":
-            handle_generate_resume()
+            handle_manage_scanned_projects()
         elif choice == "3":
-            handle_generate_portfolio()
+            handle_generate_resume()
         elif choice == "4":
-            handle_view_resumes()
+            handle_generate_portfolio()
         elif choice == "5":
-            handle_view_portfolios()
+            handle_view_resumes()
         elif choice == "6":
-            handle_rank_projects()
+            handle_view_portfolios()
         elif choice == "7":
-            handle_summarize_contributor_projects()
+            handle_rank_projects()
         elif choice == "8":
-            handle_generate_project_summary()
+            handle_summarize_contributor_projects()
         elif choice == "9":
-            handle_project_evidence()
+            handle_generate_project_summary()
         elif choice == "10":
-            handle_analyze_roles()
+            handle_project_evidence()
         elif choice == "11":
-            handle_edit_project_thumbnail()
+            handle_analyze_roles()
         elif choice == "12":
+            handle_edit_project_thumbnail()
+        elif choice == "13":
             database_management_menu()
         elif choice == "0":
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select 0-12.")
+            print("\nInvalid option. Please select 0-13.")
 
         input("\nPress Enter to return to main menu...")
 

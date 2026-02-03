@@ -85,17 +85,18 @@ def test_print_main_menu_outputs_correct_text(capsys):
 
     assert "=== MDA OPERATIONS MENU ===" in output
     assert "1. Scan Project" in output
-    assert "2. Generate Resume" in output
-    assert "3. Generate Portfolio" in output
-    assert "4. View/Manage Resumes" in output
-    assert "5. View/Manage Portfolios" in output
-    assert "6. Rank Projects" in output
-    assert "7. Summarize Contributor Projects" in output
-    assert "8. Generate Project Summary Report" in output
-    assert "9. Manage Project Evidence" in output
-    assert "10. Analyze Contributor Roles" in output
-    assert "11. Edit Thumbnail for a Project" in output
-    assert "12. Manage Database" in output
+    assert "2. View/Manage Scanned Projects" in output
+    assert "3. Generate Resume" in output
+    assert "4. Generate Portfolio" in output
+    assert "5. View/Manage Resumes" in output
+    assert "6. View/Manage Portfolios" in output
+    assert "7. Rank Projects" in output
+    assert "8. Summarize Contributor Projects" in output
+    assert "9. Generate Project Summary Report" in output
+    assert "10. Manage Project Evidence" in output
+    assert "11. Analyze Contributor Roles" in output
+    assert "12. Edit Thumbnail for a Project" in output
+    assert "13. Manage Database" in output
     assert "0. Exit" in output
 
 
