@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 import api as api_mod
-from config import config_path
+from config import config_path, load_config
 import db as db_mod
 
 
@@ -94,8 +94,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         cfg_path = config_path()
         self.assertTrue(os.path.isfile(cfg_path))
-        with open(cfg_path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
+        data = load_config(cfg_path)
         self.assertTrue(data.get("data_consent"))
 
     def test_projects_upload_and_list(self):
