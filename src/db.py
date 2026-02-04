@@ -167,6 +167,11 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
         _ensure_projects_column(conn, "project_path", "TEXT")
         _ensure_projects_column(conn, "git_metrics_json", "TEXT")
         _ensure_projects_column(conn, "tech_json", "TEXT")
+        _ensure_projects_column(conn, "llm_json", "TEXT")
+        _ensure_projects_column(conn, "llm_roles_json", "TEXT")
+        _ensure_projects_column(conn, "llm_model", "TEXT")
+        _ensure_projects_column(conn, "llm_updated_at", "TEXT")
+        _ensure_projects_column(conn, "llm_source_hash", "TEXT")
            
         cur.execute('BEGIN')
 
@@ -733,7 +738,12 @@ def _ensure_schema(conn):
             thumbnail_path TEXT,
             project_path TEXT,
             git_metrics_json TEXT,
-            tech_json TEXT
+            tech_json TEXT,
+            llm_json TEXT,
+            llm_roles_json TEXT,
+            llm_model TEXT,
+            llm_updated_at TEXT,
+            llm_source_hash TEXT
         )
     """)
 

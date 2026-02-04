@@ -52,7 +52,12 @@ CREATE TABLE IF NOT EXISTS projects (
     thumbnail_path TEXT,
     project_path TEXT,
     git_metrics_json TEXT,
-    tech_json TEXT
+    tech_json TEXT,
+    llm_json TEXT,
+    llm_roles_json TEXT,
+    llm_model TEXT,
+    llm_updated_at TEXT,
+    llm_source_hash TEXT
 );
 
 

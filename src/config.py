@@ -1,5 +1,4 @@
 import os
-import json
 
 # Default scan settings used when no config file is present or values are missing
 DEFAULTS = {
@@ -9,7 +8,15 @@ DEFAULTS = {
     "data_consent": False,
     "show_collaboration": False,
     "show_contribution_metrics": False,
-    "show_contribution_summary": False
+    "show_contribution_summary": False,
+    # LLM settings (opt-in)
+    "llm_enabled": False,
+    "llm_consent": False,
+    "llm_consent_asked": False,
+    "llm_provider": "ollama",
+    "llm_model": "llama3.2:3b",
+    "llm_base_url": "http://localhost:11434",
+    "llm_api_key": None
 }
 
 # Guards against invalid file_type inputs and normalizes/formats them properly
@@ -28,59 +35,105 @@ def normalize_file_type(file_type):
 # Generates a path to a hidden .mda (Mining Digital Artifacts) directory and config.json file in the user's home directory (directory/file are not created here)
 def config_path():
     home = os.path.expanduser("~")
-    return os.path.join(home, ".mda", "config.json")
+    return os.path.join(home, ".mda", ".env")
 
 # Handles logic around loading a config file from the user's local machine
+def _parse_env_value(value):
+    if value is None:
+        return None
+    v = str(value).strip()
+    if v.lower() in ("true", "1", "yes", "y"):
+        return True
+    if v.lower() in ("false", "0", "no", "n"):
+        return False
+    if v == "":
+        return None
+    return v
+
+
+def _format_env_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _read_env_file(path):
+    if not path or not os.path.exists(path):
+        return {}
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for raw in f.readlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                data[key.strip()] = _parse_env_value(val)
+    except Exception:
+        return {}
+    return data
+
+
+def _write_env_file(path, data):
+    lines = []
+    for key in sorted(data.keys()):
+        val = _format_env_value(data[key])
+        lines.append(f"{key}={val}")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 def load_config(path=None):
     config_file = path or config_path()
-    # If the file does not exist, return default settings to ensure predictable behavior 
-    if not os.path.exists(config_file):
-        return DEFAULTS.copy()
-    
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return DEFAULTS.copy()
-    
-    # Start from the default settings template, then overwrite using values from the local config file
+    # Start from defaults, then apply .env, then env vars.
     config = DEFAULTS.copy()
-    config.update(data or {})
+
+    env_file_data = _read_env_file(config_file)
+    for key in DEFAULTS:
+        env_key = f"MDA_{key.upper()}"
+        if env_key in env_file_data:
+            config[key] = env_file_data.get(env_key)
+
+    for key in DEFAULTS:
+        env_key = f"MDA_{key.upper()}"
+        if env_key in os.environ:
+            config[key] = _parse_env_value(os.environ.get(env_key))
+
     # Normalize the file_type value for consistent comparisons elsewhere.
     config["file_type"] = normalize_file_type(config.get("file_type"))
     return config
 
 # Saves the provided scan settings to a local JSON file on the user's machine
 def save_config(data, path=None):
-    # Save scan settings to a JSON config file
+    # Save scan settings to a .env config file
     config_file = path or config_path()
     config_dir = os.path.dirname(config_file)
     os.makedirs(config_dir, exist_ok=True)
-    
-    # Load existing config
+
+    # Load existing config (from .env + env vars)
     existing = load_config(config_file)
-    
+
     # Create new config with explicit updates from data
     to_save = {}
-    
-    # First, copy all DEFAULTS keys
+
     for key in DEFAULTS:
-        # If key exists in data (even if None), use that value
         if key in data:
             to_save[key] = data[key]
-        # Otherwise use existing value, falling back to DEFAULTS
         else:
             to_save[key] = existing.get(key, DEFAULTS[key])
-    
+
     # Only normalize file_type if it's a non-None string
     if isinstance(to_save.get("file_type"), str):
         to_save["file_type"] = normalize_file_type(to_save["file_type"])
 
-    # Write to file
-    with open(config_file, "w", encoding="utf-8") as f:
-        json.dump(to_save, f, indent=2)
+    env_out = {}
+    for key in DEFAULTS:
+        env_out[f"MDA_{key.upper()}"] = to_save.get(key)
 
-    # Set POSIX permissions if applicable
+    _write_env_file(config_file, env_out)
+
     try:
         if os.name == 'posix':
             os.chmod(config_file, 0o600)

@@ -24,7 +24,7 @@ def describe_data_access(items: Optional[Iterable[str]] = None) -> None:
             "",
             "LOCAL DATA STORAGE:",
             "  - All scan results are stored in unencrypted SQLite database (file_data.db)",
-            "  - User preferences are written to a file in a hidden folder in the user's home directory (~/.mda/config.json)",
+            "  - User preferences are written to a file in a hidden folder in the user's home directory (~/.mda/.env)",
             "  - Generated reports in output/ and resumes/ directories (JSON, TXT, Markdown)",
             "",
             "WHAT WE DO NOT ACCESS:",
@@ -74,4 +74,40 @@ def ask_for_data_consent(config_path: Optional[str] = None) -> bool:
         print("Preference not saved.")
 
     # Returns True if consent granted, False otherwise.
+    return consent
+
+
+def describe_llm_access(items: Optional[Iterable[str]] = None) -> None:
+    if items is None:
+        items = [
+            "LLM ANALYSIS (optional):",
+            "  - Full file contents may be sent to the configured LLM provider",
+            "  - Git metadata (contributors, commit history, ownership) may be used",
+            "  - Outputs are stored locally in the SQLite database",
+            "  - Provider may be local (e.g., Ollama) or remote if configured",
+        ]
+    print("The LLM analyzer can access the following data:")
+    print()
+    for item in items:
+        print(f"{item}")
+    print()
+
+
+def ask_for_llm_consent(config_path: Optional[str] = None) -> bool:
+    describe_llm_access()
+    consent = ask_yes_no("Do you consent to LLM-based analysis? (y/n): ")
+
+    save_pref = ask_yes_no("Save this preference for future scans? (y/n): ")
+    if save_pref:
+        save_config(
+            {
+                "llm_consent": consent,
+                "llm_enabled": consent,
+                "llm_consent_asked": True,
+            },
+            path=config_path,
+        )
+        print("Preference saved.")
+    else:
+        print("Preference not saved.")
     return consent

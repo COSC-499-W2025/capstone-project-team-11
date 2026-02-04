@@ -26,7 +26,7 @@ from cli_validators import prompt_project_path, validate_project_path
 # Import all feature modules
 from scan import run_with_saved_settings
 from config import load_config, is_default_config, config_path as default_config_path
-from consent import ask_for_data_consent, ask_yes_no
+from consent import ask_for_data_consent, ask_for_llm_consent, ask_yes_no
 from rank_projects import (
     rank_projects,
     print_projects,
@@ -102,6 +102,13 @@ def handle_scan_directory():
         if not consent:
             print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
             return
+
+    # LLM consent (asked only once unless user explicitly reviews later)
+    current = load_config(None)
+    if not current.get("llm_consent_asked"):
+        llm_ok = ask_for_llm_consent(config_path=default_config_path())
+        if not llm_ok:
+            print("LLM analysis disabled for this run.")
 
     # Check if user wants to use saved settings
     current = load_config(None)
