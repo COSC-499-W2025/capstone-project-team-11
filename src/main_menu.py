@@ -24,7 +24,7 @@ import re
 from db import list_projects_for_display, set_project_display_name
 from cli_validators import prompt_project_path, validate_project_path
 # Import all feature modules
-from scan import run_with_saved_settings
+from scan import scan_with_clean_output
 from config import load_config, is_default_config, config_path as default_config_path
 from consent import ask_for_data_consent, ask_yes_no
 from rank_projects import (
@@ -84,9 +84,46 @@ def print_main_menu():
     print("13. Manage Database")
     print("0. Exit")
 
+# Show post-scan action menu (View new summary, manage other projects, return to main menu)
+def _show_post_scan_menu() -> str:
+    print("\nWhat would you like to do? (1-3)")
+    print("1. View scanned project summary")
+    print("2. Manage scanned projects")
+    print("3. Return to main menu")
+    return input("\nSelect an option: ").strip()
+
+# Display the TXT summary for a project
+def _view_project_summary(project_name: str):
+    output_root = os.path.join(os.path.dirname(__file__), '..', 'output')
+    output_root = os.path.abspath(output_root)
+    folder_path = os.path.join(output_root, project_name)
+
+    if not os.path.isdir(folder_path):
+        print_error(f"No output folder found for project '{project_name}'.")
+        return
+
+    # Find the most recent TXT summary file
+    txt_files = []
+    for fname in os.listdir(folder_path):
+        if '_summary_' in fname and fname.endswith('.txt'):
+            txt_files.append(os.path.join(folder_path, fname))
+
+    if not txt_files:
+        print_error("No summary file found for this project.")
+        return
+
+    txt_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    txt_path = txt_files[0]
+
+    print(f"\n--- Summary for {project_name} ---\n")
+    try:
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            print(f.read())
+    except Exception as e:
+        print_error(f"Failed to read summary: {e}")
 
 def handle_scan_directory():
-    """Handle directory/archive scanning."""
+    """Handle directory/archive scanning with clean output."""
     print("\n=== Scan Directory/Archive ===")
 
     # Check data consent first
@@ -106,6 +143,9 @@ def handle_scan_directory():
     # Check if user wants to use saved settings
     current = load_config(None)
     use_saved = False
+    selected_dir = None
+    file_type = None
+
     if not is_default_config(current):
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
@@ -115,20 +155,8 @@ def handle_scan_directory():
         )
 
     if use_saved and current.get("directory"):
-        save_db = True
-        thumbnail_source = None
-        run_with_saved_settings(
-            directory=current.get("directory"),
-            recursive_choice=True,
-            file_type=current.get("file_type"),
-            show_collaboration=True,
-            show_contribution_metrics=True,
-            show_contribution_summary=True,
-            save=False,
-            save_to_db=save_db,
-            thumbnail_source=thumbnail_source,
-        )
         selected_dir = current.get("directory")
+        file_type = current.get("file_type")
     else:
         while True:
             directory = input("Enter directory path or zip file path: ").strip()
@@ -137,51 +165,49 @@ def handle_scan_directory():
                 continue
             break
 
-        recursive_choice = True
         file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
         file_type = file_type if file_type else None
-        show_collab = True
-        show_metrics = True
-        show_summary = True
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
-        save_db = True
-        thumbnail_source = None
-
-        run_with_saved_settings(
-            directory=directory,
-            recursive_choice=recursive_choice,
-            file_type=file_type,
-            show_collaboration=show_collab,
-            show_contribution_metrics=show_metrics,
-            show_contribution_summary=show_summary,
-            save=remember,
-            save_to_db=save_db,
-            thumbnail_source=thumbnail_source,
-        )
         selected_dir = directory
 
+        # Save settings if requested
+        if remember:
+            from config import save_config
+            save_config({
+                "directory": directory,
+                "recursive_choice": True,
+                "file_type": file_type,
+            }, None)
+
+    # Run the clean scan
+    result = scan_with_clean_output(
+        directory=selected_dir,
+        recursive=True,
+        file_type=file_type,
+        save_to_db=True,
+    )
+
+    if not result.get('success'):
+        return
+
+    project_name = result.get('project_name', os.path.basename(os.path.abspath(selected_dir)))
+    output_dir = result.get('output_dir', os.path.join("output", project_name))
+
+    # Generate the summary report
     try:
-        info = gather_project_info(selected_dir)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
-        out_dir = os.path.join("output", project_name)
-        os.makedirs(out_dir, exist_ok=True)
-        json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
-        # Display saved report files
-        try:
-            if isinstance(json_paths, list) and isinstance(txt_paths, list):
-                print(f"Summary reports saved to: {out_dir}")
-                for jp in json_paths:
-                    if jp:
-                        print(f"  JSON: {jp}")
-                for tp in txt_paths:
-                    if tp:
-                        print(f"  TXT : {tp}")
-            else:
-                print(f"Summary reports saved to: {out_dir}")
-        except Exception:
-            print(f"Summary reports saved to: {out_dir}")
-    except Exception as e:
-        print_error(f"Failed to generate summary report: {e}", "Check that the directory exists and contains valid project files.")
+        info = gather_project_info(selected_dir, quiet=True)
+        os.makedirs(output_dir, exist_ok=True)
+        output_project_info(info, output_dir=output_dir, quiet=True)
+    except Exception:
+        pass  # Summary generation is optional
+
+    # Show post-scan menu
+    choice = _show_post_scan_menu()
+
+    if choice == "1":
+        _view_project_summary(project_name)
+    elif choice == "2":
+        handle_manage_scanned_projects()
 
 
 

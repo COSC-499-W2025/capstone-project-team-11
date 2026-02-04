@@ -123,15 +123,17 @@ def _find_candidate_project_roots(base_path: str) -> list:
     return candidates
 
 
-def gather_project_info(project_path: str) -> dict:
+def gather_project_info(project_path: str, quiet: bool = False) -> dict:
     """Gather all key project information into a structured dictionary.
-    
+
     If multiple projects are detected, separates skills, languages, and frameworks per-project.
+    Set quiet=True to suppress progress messages.
     """
     if not os.path.exists(project_path):
         raise FileNotFoundError(f"Project path '{project_path}' not found")
 
-    print(f"[INFO] Gathering project info for: {project_path}")
+    if not quiet:
+        print(f"[INFO] Gathering project info for: {project_path}")
 
     work_path = project_path
     temp_dir = None
@@ -149,7 +151,8 @@ def gather_project_info(project_path: str) -> dict:
 
     try:
         # --- Step 1: Analyze contributions (collaborators, commits, etc.) ---
-        print("[STEP] Analyzing contributions...")
+        if not quiet:
+            print("[STEP] Analyzing contributions...")
         contributions = identify_contributions(work_path, output_dir=OUTPUT_DIR)
 
         # --- Step 2: Check if this is a multi-project structure based on contributions ---
@@ -162,7 +165,8 @@ def gather_project_info(project_path: str) -> dict:
         # --- Step 3: Handle single vs multiple projects ---
         if is_multi_project:
             # Multiple projects detected - gather info per project
-            print(f"[INFO] Found {len(multi_repos)} projects, gathering skills per project...")
+            if not quiet:
+                print(f"[INFO] Found {len(multi_repos)} projects, gathering skills per project...")
             projects = []
             
             # Try to match repo_roots to subdirectories in work_path and detect skills for each
@@ -170,7 +174,8 @@ def gather_project_info(project_path: str) -> dict:
                 repo_root = repo_info.get("repo_root", "")
                 repo_name = os.path.basename(repo_root) if repo_root else f"Project-{i}"
                 
-                print(f"[STEP] Processing project {i}/{len(multi_repos)}: {repo_name}")
+                if not quiet:
+                    print(f"[STEP] Processing project {i}/{len(multi_repos)}: {repo_name}")
                 
                 try:
                     # Try to find the repo subdirectory within work_path
@@ -194,18 +199,22 @@ def gather_project_info(project_path: str) -> dict:
                     project_git_metrics = {}
                     
                     if repo_subdir:
-                        print(f"[INFO] Found project at: {repo_subdir}")
+                        if not quiet:
+                            print(f"[INFO] Found project at: {repo_subdir}")
                         try:
                             project_skills_data = detect_skills(repo_subdir)
                             if is_git_repo(repo_subdir):
                                 try:
                                     project_git_metrics = analyze_repo(repo_subdir)
                                 except Exception as e:
-                                    print(f"[WARNING] Could not analyze repo metrics: {e}")
+                                    if not quiet:
+                                        print(f"[WARNING] Could not analyze repo metrics: {e}")
                         except Exception as e:
-                            print(f"[WARNING] Could not detect skills: {e}")
+                            if not quiet:
+                                print(f"[WARNING] Could not detect skills: {e}")
                     else:
-                        print(f"[WARNING] Could not locate project directory for {repo_name}")
+                        if not quiet:
+                            print(f"[WARNING] Could not locate project directory for {repo_name}")
                     
                     project_info = {
                         "project_name": repo_name,
@@ -225,7 +234,8 @@ def gather_project_info(project_path: str) -> dict:
                     
                     projects.append(project_info)
                 except Exception as e:
-                    print(f"[WARNING] Failed to gather info for project {repo_name}: {e}")
+                    if not quiet:
+                        print(f"[WARNING] Failed to gather info for project {repo_name}: {e}")
             
             # Construct multi-project info structure
             info = {
@@ -241,20 +251,24 @@ def gather_project_info(project_path: str) -> dict:
             }
         else:
             # Single project - gather info as before
-            print("[STEP] Single project detected, gathering full info...")
-            
+            if not quiet:
+                print("[STEP] Single project detected, gathering full info...")
+
             # Detect languages, frameworks, and skills
-            print("[STEP]  languages, frameworks, and skills...")
+            if not quiet:
+                print("[STEP]  languages, frameworks, and skills...")
             skills_data = detect_skills(work_path)
 
             # Git metrics if applicable
             git_metrics = {}
             if is_git_repo(work_path):
                 try:
-                    print("[STEP] Extracting detailed Git metrics...")
+                    if not quiet:
+                        print("[STEP] Extracting detailed Git metrics...")
                     git_metrics = analyze_repo(work_path)
                 except Exception as e:
-                    print(f"[WARNING] Could not analyze repo metrics: {e}")
+                    if not quiet:
+                        print(f"[WARNING] Could not analyze repo metrics: {e}")
 
             # Construct single project info structure
             info = {
@@ -290,21 +304,23 @@ def gather_project_info(project_path: str) -> dict:
             temp_dir.cleanup()
 
 
-def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
+def output_project_info(info: dict, output_dir: str = OUTPUT_DIR, quiet: bool = False):
     """Output project info in both JSON and TXT formats.
-    
+
     Returns a tuple of (json_paths, txt_paths), where each is a list of file paths.
     For multi-project outputs: one entry per project. For single project: one entry.
+    Set quiet=True to suppress progress messages.
     """
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     json_paths = []
     txt_paths = []
-    
+
     # Handle multi-project output - create separate files for each project
     if info.get("detected_type") == "multi_coding_project" and info.get("projects"):
-        print("\n[INFO] Generating separate files for each project...")
+        if not quiet:
+            print("\n[INFO] Generating separate files for each project...")
         
         for project in info["projects"]:
             project_name = project["project_name"]
@@ -313,7 +329,8 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
             json_path = os.path.join(output_dir, f"{project_name}_info_{timestamp}.json")
             with open(json_path, "w", encoding="utf-8") as jf:
                 json.dump(project, jf, indent=4, default=str)
-            print(f"[INFO] JSON data written to {json_path}")
+            if not quiet:
+                print(f"[INFO] JSON data written to {json_path}")
             json_paths.append(json_path)
             
             # Create separate TXT for this project
@@ -326,11 +343,37 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
                 tf.write(f"Project Name: {project_name}\n")
                 tf.write(f"Project Path: {project['project_path']}\n\n")
                 
+                # Languages by confidence
                 tf.write("Languages Detected:\n")
-                tf.write(", ".join(project.get("languages", [])) or "None found")
-                tf.write("\n\nFrameworks Detected:\n")
-                tf.write(", ".join(project.get("frameworks", [])) or "None found")
-                tf.write("\n\nSkills Detected:\n")
+                high_langs = project.get("high_confidence_languages", [])
+                med_langs = project.get("medium_confidence_languages", [])
+                low_langs = project.get("low_confidence_languages", [])
+                if high_langs or med_langs or low_langs:
+                    if high_langs:
+                        tf.write(f"  High Confidence: {', '.join(high_langs)}\n")
+                    if med_langs:
+                        tf.write(f"  Medium Confidence: {', '.join(med_langs)}\n")
+                    if low_langs:
+                        tf.write(f"  Low Confidence: {', '.join(low_langs)}\n")
+                else:
+                    tf.write("None found\n")
+
+                # Frameworks by confidence
+                tf.write("\nFrameworks Detected:\n")
+                high_fw = project.get("high_confidence_frameworks", [])
+                med_fw = project.get("medium_confidence_frameworks", [])
+                low_fw = project.get("low_confidence_frameworks", [])
+                if high_fw or med_fw or low_fw:
+                    if high_fw:
+                        tf.write(f"  High Confidence: {', '.join(high_fw)}\n")
+                    if med_fw:
+                        tf.write(f"  Medium Confidence: {', '.join(med_fw)}\n")
+                    if low_fw:
+                        tf.write(f"  Low Confidence: {', '.join(low_fw)}\n")
+                else:
+                    tf.write("None found\n")
+
+                tf.write("\nSkills Detected:\n")
                 tf.write(", ".join(project.get("skills", [])) or "None found")
                 
                 # Git metrics if available
@@ -361,14 +404,16 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
                 
                 tf.write("\n=============================================\n")
             
-            print(f"[INFO] Text summary written to {txt_path}")
+            if not quiet:
+                print(f"[INFO] Text summary written to {txt_path}")
             txt_paths.append(txt_path)
     else:
         # Single project output - create one JSON and one TXT
         json_path = os.path.join(output_dir, f"{info['project_name']}_info_{timestamp}.json")
         with open(json_path, "w", encoding="utf-8") as jf:
             json.dump(info, jf, indent=4, default=str)
-        print(f"[INFO] JSON data written to {json_path}")
+        if not quiet:
+            print(f"[INFO] JSON data written to {json_path}")
         json_paths.append(json_path)
 
         # --- TXT output (human-readable summary) ---
@@ -381,11 +426,35 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
             tf.write(f"Project Name: {info['project_name']}\n")
             tf.write(f"Project Path: {info['project_path']}\n\n")
 
-            # Single project output
+            # Single project output - Languages by confidence
             tf.write("Languages Detected:\n")
-            tf.write(", ".join(info.get("languages", [])) or "None found")
-            tf.write("\n\nFrameworks Detected:\n")
-            tf.write(", ".join(info.get("frameworks", [])) or "None found")
+            high_langs = info.get("high_confidence_languages", [])
+            med_langs = info.get("medium_confidence_languages", [])
+            low_langs = info.get("low_confidence_languages", [])
+            if high_langs or med_langs or low_langs:
+                if high_langs:
+                    tf.write(f"  High Confidence: {', '.join(high_langs)}\n")
+                if med_langs:
+                    tf.write(f"  Medium Confidence: {', '.join(med_langs)}\n")
+                if low_langs:
+                    tf.write(f"  Low Confidence: {', '.join(low_langs)}\n")
+            else:
+                tf.write("None found\n")
+
+            # Frameworks by confidence
+            tf.write("\nFrameworks Detected:\n")
+            high_fw = info.get("high_confidence_frameworks", [])
+            med_fw = info.get("medium_confidence_frameworks", [])
+            low_fw = info.get("low_confidence_frameworks", [])
+            if high_fw or med_fw or low_fw:
+                if high_fw:
+                    tf.write(f"  High Confidence: {', '.join(high_fw)}\n")
+                if med_fw:
+                    tf.write(f"  Medium Confidence: {', '.join(med_fw)}\n")
+                if low_fw:
+                    tf.write(f"  Low Confidence: {', '.join(low_fw)}\n")
+            else:
+                tf.write("None found\n")
             tf.write("\n\nSkills Detected:\n")
             tf.write(", ".join(info.get("skills", [])) or "None found")
 
@@ -445,7 +514,8 @@ def output_project_info(info: dict, output_dir: str = OUTPUT_DIR):
 
             tf.write("\n=============================================\n")
 
-        print(f"[INFO] Text summary written to {txt_path}")
+        if not quiet:
+            print(f"[INFO] Text summary written to {txt_path}")
         txt_paths.append(txt_path)
 
     return (json_paths, txt_paths)
