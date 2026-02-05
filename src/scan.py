@@ -155,60 +155,84 @@ def _prompt_manual_contributors(project_label: str) -> list:
         print("  0. Add a new contributor")
         print("You may enter numbers (e.g. 1) or exact usernames, comma-separated.")
 
-    raw_input = input(
-        "Select contributors (numbers or names, comma-separated): "
-    ).strip()
-    if not raw_input:
-        return []
+    existing_map = {_normalize_contributor_key(n): n for n in existing}
+    existing_keys = set(existing_map.keys())
+    while True:
+        raw_input = input(
+            "Select contributors (numbers or names, comma-separated): "
+        ).strip()
+        if not raw_input:
+            return []
 
-    tokens = [t.strip() for t in raw_input.split(",") if t.strip()]
-    existing_keys = {_normalize_contributor_key(n) for n in existing}
-    selected_keys = set()
-    results = []
+        tokens = [t.strip() for t in raw_input.split(",") if t.strip()]
+        needs_new = any(token in {"0", "new"} for token in tokens)
+        selected_keys = set()
+        results = []
+        invalid = False
 
-    needs_new = any(token in {"0", "new"} for token in tokens)
+        for token in tokens:
+            if token in {"0", "new"}:
+                continue
+            if token.isdigit():
+                i = int(token)
+                if 1 <= i <= len(existing):
+                    name = existing[i - 1]
+                    key = _normalize_contributor_key(name)
+                    if key in selected_keys:
+                        invalid = True
+                        print("  Duplicate selection detected. Try again.")
+                        break
+                    results.append(name)
+                    selected_keys.add(key)
+                else:
+                    invalid = True
+                    print(f"  Invalid selection: {token}")
+                continue
 
-    for token in tokens:
-        if token in {"0", "new"}:
+            name = _normalize_contributor_name(token)
+            key = _normalize_contributor_key(name)
+            if not key:
+                invalid = True
+                print("  Invalid name entry. Try again.")
+                break
+            if key in existing_keys or key in selected_keys:
+                invalid = True
+                print("  Contributor already exists. Select from the list instead.")
+                break
+            results.append(name)
+            selected_keys.add(key)
+
+        if invalid:
             continue
-        if token.isdigit():
-            i = int(token)
-            if 1 <= i <= len(existing):
-                name = existing[i - 1]
-                key = _normalize_contributor_key(name)
-                if key in selected_keys:
+
+        if needs_new:
+            while True:
+                new_raw = input("Enter new contributor names (comma-separated): ").strip()
+                if not new_raw:
+                    break
+                new_tokens = [t.strip() for t in new_raw.split(",") if t.strip()]
+                new_invalid = False
+                for token in new_tokens:
+                    name = _normalize_contributor_name(token)
+                    key = _normalize_contributor_key(name)
+                    if not key:
+                        new_invalid = True
+                        print("  Invalid name entry. Try again.")
+                        break
+                    if key in existing_keys or key in selected_keys:
+                        new_invalid = True
+                        print("  Contributor already exists. Select from the list instead.")
+                        break
+                if new_invalid:
                     continue
-                results.append(name)
-                selected_keys.add(key)
-            else:
-                print(f"  Skipping invalid selection: {token}")
-            continue
+                for token in new_tokens:
+                    name = _normalize_contributor_name(token)
+                    key = _normalize_contributor_key(name)
+                    results.append(name)
+                    selected_keys.add(key)
+                break
 
-        name = _normalize_contributor_name(token)
-        key = _normalize_contributor_key(name)
-        if not key:
-            continue
-        if key in existing_keys or key in selected_keys:
-            print(f"  Skipping duplicate contributor: {token}")
-            continue
-        results.append(name)
-        selected_keys.add(key)
-
-    if needs_new:
-        new_raw = input("Enter new contributor names (comma-separated): ").strip()
-        if new_raw:
-            for token in [t.strip() for t in new_raw.split(",") if t.strip()]:
-                name = _normalize_contributor_name(token)
-                key = _normalize_contributor_key(name)
-                if not key:
-                    continue
-                if key in existing_keys or key in selected_keys:
-                    print(f"  Skipping duplicate contributor: {token}")
-                    continue
-                results.append(name)
-                selected_keys.add(key)
-
-    return results
+        return results
 
 
 def _display_skipped_files_summary(skipped_files_list):

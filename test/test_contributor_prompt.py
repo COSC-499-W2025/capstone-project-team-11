@@ -42,21 +42,30 @@ class TestContributorPrompt(unittest.TestCase):
     def test_prompt_selects_existing_and_new(self):
         with patch.object(self.scan, "ask_yes_no", return_value=True), \
              patch("sys.stdin.isatty", return_value=True), \
-             patch("builtins.input", side_effect=["1,0,newuser", "Carol"]):
+             patch("builtins.input", side_effect=["1,0", "Carol"]):
             result = self.scan._prompt_manual_contributors("demo")
 
         self.assertIn("alice", result)
-        self.assertIn("newuser", result)
         self.assertIn("carol", result)
         self.assertEqual(len(set(result)), len(result))
 
-    def test_prompt_skips_duplicates(self):
+    def test_prompt_selects_existing_only(self):
         with patch.object(self.scan, "ask_yes_no", return_value=True), \
              patch("sys.stdin.isatty", return_value=True), \
-             patch("builtins.input", side_effect=["1,alice,0", "Alice"]):
+             patch("builtins.input", side_effect=["2"]):
             result = self.scan._prompt_manual_contributors("demo")
 
-        self.assertEqual(result, ["alice"])
+        self.assertEqual(result, ["bob"])
+
+    def test_prompt_adds_new_only(self):
+        with patch.object(self.scan, "ask_yes_no", return_value=True), \
+             patch("sys.stdin.isatty", return_value=True), \
+             patch("builtins.input", side_effect=["0", "New User"]):
+            result = self.scan._prompt_manual_contributors("demo")
+
+        self.assertEqual(result, ["newuser"])
+
+    
 
 
 if __name__ == '__main__':
