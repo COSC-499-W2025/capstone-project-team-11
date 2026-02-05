@@ -7,6 +7,7 @@ DEFAULTS = {
     "recursive_choice": False,
     "file_type": None,
     "data_consent": False,
+    "llm_summary_consent": False,
     "show_collaboration": False,
     "show_contribution_metrics": False,
     "show_contribution_summary": False
