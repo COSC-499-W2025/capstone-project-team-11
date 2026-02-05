@@ -6,6 +6,7 @@ import time
 import unittest
 
 import pytest
+from contrib_metrics import canonical_username
 
 # Ensure src is importable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
@@ -109,7 +110,7 @@ class TestDatabaseModule(unittest.TestCase):
             cur = conn.cursor()
             cur.execute("SELECT name FROM contributors")
             contribs = {r[0] for r in cur.fetchall()}
-            self.assertTrue({'Alice', 'Bob', 'Carol'} <= contribs)
+            self.assertTrue({'alice', 'bob', 'carol'} <= contribs)
 
             # file contributors
             cur.execute("SELECT f.file_name, c.name FROM files f JOIN file_contributors fc ON f.id = fc.file_id JOIN contributors c ON fc.contributor_id = c.id WHERE f.scan_id = ?", (scan_id,))
@@ -118,8 +119,8 @@ class TestDatabaseModule(unittest.TestCase):
             for fn, name in file_contribs:
                 fc_map.setdefault(fn, set()).add(name)
 
-            self.assertEqual(fc_map.get('a.py'), {'Alice'})
-            self.assertEqual(fc_map.get('inner'), {'Bob', 'Carol'})
+            self.assertEqual(fc_map.get('a.py'), {'alice'})
+            self.assertEqual(fc_map.get('inner'), {'bob', 'carol'})
 
         # Project and project_skills
         with self.db.get_connection() as conn:
@@ -162,7 +163,7 @@ class TestDatabaseModule(unittest.TestCase):
         # contributors table should only have a single 'X'
         with self.db.get_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM contributors WHERE name = ?", ('X',))
+            cur.execute("SELECT COUNT(*) FROM contributors WHERE name = ?", ('x',))
             self.assertEqual(cur.fetchone()[0], 1)
 
 
