@@ -92,7 +92,7 @@ def handle_scan_directory():
     # Check data consent first
     current = load_config(None)
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): "):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
                 print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
