@@ -13,6 +13,7 @@ import os
 import re
 import sqlite3
 from db import get_project_display_name, load_projects_for_generation
+from cli_username_selection import select_username_from_projects
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
@@ -139,6 +140,8 @@ def aggregate_for_user(username, projects, root_repo_jsons):
     # project-level
     for name, info in projects.items():
         contribs = info.get('contributions', {}) or {}
+        if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
+          contribs = contribs["contributions"]
         user_entry = contribs.get(username)
         if user_entry:
             pj = {
@@ -260,7 +263,7 @@ def render_markdown(agg, generated_ts=None):
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []
         if commits:
-         bullets.append("Contributed features and fixes across the codebase in collaboration with the team.")
+            bullets.append("Contributed features and fixes across the codebase in collaboration with the team.")
         if techs:
             bullets.append(f"Technologies: {techs}.")
         if skills:
@@ -299,69 +302,27 @@ def main():
     parser.add_argument('--save-to-db', action='store_true', help='Save generated resume metadata to the database')
     args = parser.parse_args()
 
-    # output_root is retained for CLI compatibility but is no longer used
-
-    # Blacklist of usernames to avoid suggesting or generating resumes for
+    
     BLACKLIST = {'githubclassroombot', 'Unknown'}
 
-    # If username not provided, attempt to list detected usernames and prompt the user
-    username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
-    
-    if not username:
-        # Discover possible usernames from project contributions
-        candidates = set()
-        for info in projects.values():
-            contribs = info.get('contributions') or {}
-            # Handle nested contributions structure
-            if isinstance(contribs.get('contributions'), dict):
-                contribs = contribs['contributions']
-            candidates.update(contribs.keys())
-        candidates = sorted([c for c in candidates if c not in BLACKLIST])
 
-        if not candidates:
-            print('No candidate usernames detected in the database.')
-            while True:
-                try:
-                    user_in = input('Enter username to generate resume for: ').strip()
-                except EOFError:
-                    print('No username provided and input not available.')
-                    return 1
-                if not user_in:
-                    print('Error: No username entered. Please enter a username.')
-                    continue
-                username = user_in
-                break
-        else:
-            # Print a clean numbered list of candidates for the user to choose from
-            print('\nDetected candidate usernames:')
-            for i, c in enumerate(candidates, start=1):
-                print(f"  {i}. {c}")
-            print('\nYou may enter the number (e.g. 1) or the exact username.')
-            while True:
-                try:
-                    user_in = input('Select username (number or name): ').strip()
-                except EOFError:
-                    print('No username provided and input not available.')
-                    return 1
-                if not user_in:
-                    print('Error: No username entered. Please enter a number or username.')
-                    continue
-                # If the user entered a number, map it to the username
-                if user_in.isdigit():
-                    idx = int(user_in) - 1
-                    if 0 <= idx < len(candidates):
-                        username = candidates[idx]
-                        break
-                    else:
-                        print(f'Error: Selection out of range. Please enter a number between 1 and {len(candidates)}.')
-                        continue
-                else:
-                    username = user_in
-                    break
+    username = args.username
+    if not username:
+        username = select_username_from_projects(
+            projects=projects,
+            root_repo_jsons=root_repo_jsons,
+            blacklist=BLACKLIST
+        )
+        if not username:
+            return 1
     else:
         username = username.strip()
+        if not username:
+            print("No username entered; aborting.")
+            return 1
 
+        
     # Prevent generating resumes for blacklisted accounts unless explicitly allowed
     if username in BLACKLIST and not args.allow_bots:
         print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
