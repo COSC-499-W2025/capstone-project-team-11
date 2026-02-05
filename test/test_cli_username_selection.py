@@ -8,6 +8,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cli_username_selection import select_username_from_projects
 
 
+def make_inputs(seq):
+    it = iter(seq)
+
+    def _fake_input(_prompt=""):
+        # If inputs run out, return blank -> should cancel
+        return next(it, "")
+
+    return _fake_input
+
+
 def test_valid_username_selection(monkeypatch):
     projects = {
         "ProjectA": {
@@ -18,12 +28,11 @@ def test_valid_username_selection(monkeypatch):
         }
     }
 
-    monkeypatch.setattr(builtins, "input", lambda _: "1")
-    username = select_username_from_projects(projects)
-    assert username == "alice"
+    monkeypatch.setattr(builtins, "input", make_inputs(["1"]))
+    assert select_username_from_projects(projects) == "alice"
 
 
-def test_invalid_input_rejected(monkeypatch):
+def test_invalid_input_then_cancel(monkeypatch):
     projects = {
         "ProjectA": {
             "contributions": {
@@ -32,9 +41,8 @@ def test_invalid_input_rejected(monkeypatch):
         }
     }
 
-    monkeypatch.setattr(builtins, "input", lambda _: "abc")
-    username = select_username_from_projects(projects)
-    assert username is None
+    monkeypatch.setattr(builtins, "input", make_inputs(["abc", ""]))
+    assert select_username_from_projects(projects) is None
 
 
 def test_blank_input_cancels(monkeypatch):
@@ -46,9 +54,8 @@ def test_blank_input_cancels(monkeypatch):
         }
     }
 
-    monkeypatch.setattr(builtins, "input", lambda _: "")
-    username = select_username_from_projects(projects)
-    assert username is None
+    monkeypatch.setattr(builtins, "input", make_inputs([""]))
+    assert select_username_from_projects(projects) is None
 
 
 def test_nested_contributions_unwrapped(monkeypatch):
@@ -65,6 +72,5 @@ def test_nested_contributions_unwrapped(monkeypatch):
         }
     }
 
-    monkeypatch.setattr(builtins, "input", lambda _: "2")
-    username = select_username_from_projects(projects)
-    assert username == "bob"
+    monkeypatch.setattr(builtins, "input", make_inputs(["2"]))
+    assert select_username_from_projects(projects) == "bob"

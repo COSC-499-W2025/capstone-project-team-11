@@ -65,18 +65,19 @@ def select_username_from_projects(projects: dict, root_repo_jsons: dict | None =
     for i, name in enumerate(candidates, start=1):
         print(f"  {i}. {name}")
 
-    choice = input("\nSelect a user by number (blank to cancel): ").strip()
-    if not choice:
-        print("No selection made. Aborting.")
-        return None
+    while True:
+        choice = input("\nSelect a user by number (blank to cancel): ").strip()
 
-    if not choice.isdigit():
-        print("Invalid input. Please enter a number.")
-        return None
+        if choice == "":
+            print("No selection made. Aborting.")
+            return None
 
-    idx = int(choice) - 1
-    if idx < 0 or idx >= len(candidates):
-        print("Selection out of range.")
-        return None
+        if not choice.isdigit():
+            print("Invalid input. Please enter a number.")
+            continue
 
-    return candidates[idx]
+        idx = int(choice)
+        if 1 <= idx <= len(candidates):
+            return candidates[idx - 1]
+
+        print(f"Invalid choice. Enter a number 1-{len(candidates)}.")
