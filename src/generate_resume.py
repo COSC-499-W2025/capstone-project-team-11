@@ -315,7 +315,7 @@ def main():
             print("No username entered; aborting.")
             return 1
 
-        # blacklist check FIRST (this fixes your failing test)
+        # blacklist check FIRST 
         if username in BLACKLIST and not args.allow_bots:
             print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
             return 1
