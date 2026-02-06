@@ -9,6 +9,44 @@ Used by:
 from __future__ import annotations
 
 
+
+def get_candidate_usernames(projects: dict, root_repo_jsons: dict | None = None, blacklist=None):
+    blacklist = set(blacklist or [])
+    candidates = set()
+
+    for info in (projects or {}).values():
+        if not isinstance(info, dict):
+            continue
+
+        contribs = info.get("contributions") or {}
+        if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
+            contribs = contribs["contributions"]
+
+        if isinstance(contribs, dict):
+            for uname, entry in contribs.items():
+                if isinstance(entry, dict):
+                    candidates.add(uname)
+
+    if root_repo_jsons:
+        for data in root_repo_jsons.values():
+            if not isinstance(data, dict):
+                continue
+            for key in (
+                "commits_per_author",
+                "lines_added_per_author",
+                "lines_removed_per_author",
+                "files_changed_per_author",
+            ):
+                per_author = data.get(key)
+                if isinstance(per_author, dict):
+                    candidates.update(per_author.keys())
+
+    return sorted(
+        c for c in candidates
+        if c and c not in blacklist and c.lower() not in {"unknown", "n/a", "none"}
+    )
+
+
 def select_username_from_projects(projects: dict, root_repo_jsons: dict | None = None, blacklist=None):
     blacklist = set(blacklist or [])
 
