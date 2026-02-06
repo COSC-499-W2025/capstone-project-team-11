@@ -126,6 +126,8 @@ def _run_ollama(prompt: str, model: str, timeout: int = 120) -> Optional[str]:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     except Exception:
