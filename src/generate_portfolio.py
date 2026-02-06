@@ -13,6 +13,7 @@ import os
 import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
+from cli_username_selection import select_username_from_projects
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
 # Import database functions
@@ -386,7 +387,9 @@ def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=Non
 
     for name, info in all_projects.items():
         contribs = info.get('contributions', {}) or {}
-        user_entry = contribs.get(username)
+        if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
+         contribs = contribs["contributions"]
+        user_entry = contribs.get(username) if isinstance(contribs, dict) else None
 
         # Include project if: Selected sername explicitly contributed to it, OR Project has valuable metadata (to include non-git projects, and solo projects)
         has_metadata = (
@@ -469,128 +472,64 @@ def build_portfolio(username, projects_data, generated_ts=None, confidence_level
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate portfolio Markdown from the database for a given username'
+        description="Generate portfolio Markdown from the database for a given username"
     )
+    parser.add_argument("--username", "-u", required=False)
+    parser.add_argument("--output-root", "-r", default="output")  # deprecated (DB is used)
+    parser.add_argument("--portfolio-dir", "-d", default="portfolios")
     parser.add_argument(
-        '--username', '-u',
-        required=False,
-        help='GitHub username (as found in output contributions). If omitted, will prompt.'
+        "--confidence", "-c",
+        default="high",
+        choices=["high", "medium", "low"],
     )
-    parser.add_argument(
-        '--output-root', '-r',
-        default='output',
-        help='Deprecated: output folder path is ignored (DB is used)'
-    )
-    parser.add_argument(
-        '--portfolio-dir', '-d',
-        default='portfolios',
-        help='Directory to write generated portfolios (default: portfolios)'
-    )
-    parser.add_argument(
-        '--confidence', '-c',
-        default='high',
-        choices=['high', 'medium', 'low'],
-        help='Confidence filter for languages/frameworks (default: high). '
-             'high=only high confidence, medium=high+medium, low=all levels'
-    )
-    parser.add_argument(
-        '--overwrite',
-        default=None,
-        help='If provided, overwrite the portfolio file at this path instead of creating a new timestamped file'
-    )
-    parser.add_argument(
-        '--save-to-db',
-        action='store_true',
-        help='Save portfolio metadata to the local database'
-    )
+    parser.add_argument("--overwrite", default=None)
+    parser.add_argument("--save-to-db", action="store_true")
     args = parser.parse_args()
 
-    # output_root retained for CLI compatibility but ignored
-
-    # Blacklist of usernames to exclude
     BLACKLIST = {'githubclassroombot', 'Unknown'}
 
-    # If username not provided, attempt to list detected usernames and prompt the user
-    username = args.username
     projects, root_repo_jsons = collect_projects(args.output_root)
 
+    username = args.username
     if not username:
-        # Discover possible usernames from project contributions
-        candidates = set()
-        for info in projects.values():
-            contribs = info.get('contributions') or {}
-            # Handle nested contributions structure
-            if isinstance(contribs.get('contributions'), dict):
-                contribs = contribs['contributions']
-            candidates.update(contribs.keys())
-        candidates = sorted([c for c in candidates if c not in BLACKLIST])
+        username = select_username_from_projects(
+            projects=projects,
+            root_repo_jsons=root_repo_jsons,
+            blacklist=BLACKLIST
+        )
+        if not username:
+            return 1
+    else:
+        username = username.strip()
+        if not username:
+            print("No username entered; aborting.")
+            return 1
 
-        if not candidates:
-            print('No candidate usernames detected in the database.')
-            while True:
-                try:
-                    username = input('Enter username to generate portfolio for: ').strip()
-                except EOFError:
-                    print('No username provided and input not available.')
-                    return 1
-                if not username:
-                    print('Error: No username entered. Please enter a username.')
-                    continue
-                break
-        else:
-            print('\nDetected candidate usernames:')
-            for i, c in enumerate(candidates, start=1):
-                print(f"  {i}. {c}")
-            print('\nYou may enter the number (e.g. 1) or the exact username.')
-            while True:
-                try:
-                    user_in = input('Select username (number or name): ').strip()
-                except EOFError:
-                    print('No username provided.')
-                    return 1
-                if not user_in:
-                    print('Error: No username entered. Please enter a number or username.')
-                    continue
+    if username in BLACKLIST:
+        print(f"Generation disabled for user '{username}'.")
+        return 1
 
-                # Handle numeric selection
-                if user_in.isdigit():
-                    idx = int(user_in) - 1
-                    if 0 <= idx < len(candidates):
-                        username = candidates[idx]
-                        break
-                    else:
-                        print(f'Error: Selection out of range. Please enter a number between 1 and {len(candidates)}.')
-                        continue
-                else:
-                    username = user_in
-                    break
 
-    username = username.strip()
-
-    # Create output directory
     os.makedirs(args.portfolio_dir, exist_ok=True)
 
-    # Aggregate project data for portfolio (includes non-git projects)
     portfolio_projects = aggregate_projects_for_portfolio(username, projects, root_repo_jsons)
-
     if not portfolio_projects:
         print(f"No projects found for user '{username}' in the database")
         return 1
 
-    # Build portfolio with timestamps and confidence filter
-    ts_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
-    ts_fname = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    ts_fname = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     portfolio = build_portfolio(username, portfolio_projects, ts_iso, args.confidence)
 
-    # Render and save to file
     md = portfolio.render_markdown()
     if args.overwrite:
-        out_path = args.overwrite  # <-- overwrite the given file
+      out_path = args.overwrite
     else:
-        out_path = os.path.join(args.portfolio_dir, f"portfolio_{username}_{ts_fname}.md")
+     out_path = os.path.join(args.portfolio_dir, f"portfolio_{username}_{ts_fname}.md")
 
-    with open(out_path, 'w', encoding='utf-8') as fh:
+
+    with open(out_path, "w", encoding="utf-8") as fh:
         fh.write(md)
 
     print(f"Portfolio written: {out_path}")
@@ -598,29 +537,29 @@ def main():
     print(f"  {len(portfolio.sections)} section(s) generated")
     print(f"  Confidence filter: {args.confidence}")
 
-    # Save to database if requested
     if args.save_to_db:
         try:
             portfolio_metadata = {
-                'username': username,
-                'project_count': len(portfolio_projects),
-                'sections': list(portfolio.sections.keys()),
-                'confidence_level': args.confidence,
-                'projects': [
+                "username": username,
+                "project_count": len(portfolio_projects),
+                "sections": list(portfolio.sections.keys()),
+                "confidence_level": args.confidence,
+                "projects": [
                     {
-                        'name': p.get('project_name'),
-                        'path': p.get('path'),
-                        'user_commits': p.get('user_commits', 0)
+                        "name": p.get("project_name"),
+                        "path": p.get("path"),
+                        "user_commits": p.get("user_commits", 0),
                     }
                     for p in portfolio_projects
-                ]
+                ],
             }
             portfolio_id = save_portfolio(username, out_path, portfolio_metadata, ts_iso)
             print(f"  Saved to database with ID: {portfolio_id}")
         except Exception as e:
-            print(f"  Warning: Failed to save to database: {e}")
-
+            print(f"  Warning: Failed to save to database: {e}") 
+  
     return 0
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())
+
