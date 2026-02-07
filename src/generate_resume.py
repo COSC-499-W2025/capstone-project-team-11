@@ -13,12 +13,17 @@ import os
 import re
 import sqlite3
 from db import get_project_display_name, load_projects_for_generation
-from cli_username_selection import select_username_from_projects, get_candidate_usernames
+from cli_username_selection import (
+    select_identity_from_projects,
+    get_candidate_usernames,
+)
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
 from db import save_resume
 from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_resume
+
+
 
 
 def find_json_and_txt(root):
@@ -130,64 +135,105 @@ def collect_projects(output_root=None):
     return load_projects_for_generation()
 
 
-def aggregate_for_user(username, projects, root_repo_jsons):
+def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=None):
+    selected_non_git = selected_non_git or []
+
     user_projects = []
     tech_set = set()
     skills_set = set()
     total_commits = 0
     total_lines = 0
 
-    # project-level
+   
     for name, info in projects.items():
-        contribs = info.get('contributions', {}) or {}
+        contribs = info.get("contributions") or {}
+
+        # unwrap nested structure
         if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
-          contribs = contribs["contributions"]
-        user_entry = contribs.get(username)
-        if user_entry:
-            pj = {
-                'project_name': name,
-                'path': info.get('project_path'),
-                'languages': info.get('languages', []),
-                'frameworks': info.get('frameworks', []),
-                'skills': info.get('skills', []),
-                'user_commits': user_entry.get('commits', 0),
-                'user_files': user_entry.get('files', []),
-                'git_metrics': info.get('git_metrics', {})
-            }
-            user_projects.append(pj)
-            tech_set.update(pj['languages'] or [])
-            tech_set.update(pj['frameworks'] or [])
-            skills_set.update(pj['skills'] or [])
-            total_commits += pj['user_commits'] or 0
-            # try lines added per author if available
-            gm = pj.get('git_metrics') or {}
-            laps = gm.get('lines_added_per_author', {})
-            if isinstance(laps, dict):
-                la = laps.get(username) or 0
-                total_lines += la
+            contribs = contribs["contributions"]
 
-    # root repo-level contributions (fallback / aggregate)
-    for fname, j in root_repo_jsons.items():
-        # some of these are overall contributions maps listing authors
-        if isinstance(j, dict):
-            # look for commits per author
-            cpa = j.get('commits_per_author') or j.get('commits_per_author')
-            if isinstance(cpa, dict) and username in cpa:
-                total_commits = max(total_commits, sum(v for v in cpa.values() if isinstance(v, int)))
-            # lines added at repo-level
-            laps = j.get('lines_added_per_author') or {}
-            if isinstance(laps, dict) and username in laps:
-                total_lines = max(total_lines, laps.get(username) or total_lines)
+        user_entry = contribs.get(username) if isinstance(contribs, dict) else None
+        if not user_entry:
+            continue
 
-    aggregated = {
-        'username': username,
-        'projects': sorted(user_projects, key=lambda x: x.get('git_metrics', {}).get('project_start') or '', reverse=True),
-        'technologies': sorted([t for t in tech_set if t]),
-        'skills': sorted([s for s in skills_set if s]),
-        'total_commits': total_commits,
-        'total_lines_added': total_lines,
+        pj = {
+            "project_name": name,
+            "path": info.get("project_path"),
+            "languages": info.get("languages", []),
+            "frameworks": info.get("frameworks", []),
+            "skills": info.get("skills", []),
+            "user_commits": user_entry.get("commits", 0),
+            "user_files": user_entry.get("files", []),
+            "git_metrics": info.get("git_metrics", {}),
+        }
+
+        user_projects.append(pj)
+        tech_set.update(pj["languages"] or [])
+        tech_set.update(pj["frameworks"] or [])
+        skills_set.update(pj["skills"] or [])
+        total_commits += pj["user_commits"] or 0
+
+        gm = pj.get("git_metrics") or {}
+        laps = gm.get("lines_added_per_author", {})
+        if isinstance(laps, dict):
+            total_lines += laps.get(username, 0) or 0
+
+    
+    for _, j in (root_repo_jsons or {}).items():
+        if not isinstance(j, dict):
+            continue
+
+        cpa = j.get("commits_per_author")
+        if isinstance(cpa, dict) and username in cpa:
+            total_commits = max(
+                total_commits,
+                sum(v for v in cpa.values() if isinstance(v, int)),
+            )
+
+        laps = j.get("lines_added_per_author")
+        if isinstance(laps, dict) and username in laps:
+            total_lines = max(total_lines, laps.get(username, 0) or 0)
+
+   
+    existing = {p["project_name"] for p in user_projects}
+
+    for proj_name in selected_non_git:
+        if proj_name in existing:
+            continue
+
+        info = projects.get(proj_name)
+        if not isinstance(info, dict):
+            continue
+
+        pj = {
+            "project_name": proj_name,
+            "path": info.get("project_path"),
+            "languages": info.get("languages", []),
+            "frameworks": info.get("frameworks", []),
+            "skills": info.get("skills", []),
+            "user_commits": 0,
+            "user_files": [],
+            "git_metrics": info.get("git_metrics", {}),
+        }
+
+        user_projects.append(pj)
+        tech_set.update(pj["languages"] or [])
+        tech_set.update(pj["frameworks"] or [])
+        skills_set.update(pj["skills"] or [])
+
+    return {
+        "username": username,
+        "projects": sorted(
+            user_projects,
+            key=lambda x: x.get("git_metrics", {}).get("project_start") or "",
+            reverse=True,
+        ),
+        "technologies": sorted(t for t in tech_set if t),
+        "skills": sorted(s for s in skills_set if s),
+        "total_commits": total_commits,
+        "total_lines_added": total_lines,
     }
-    return aggregated
+
 
 
 def render_markdown(agg, generated_ts=None):
@@ -308,33 +354,28 @@ def main():
     projects, root_repo_jsons = collect_projects(args.output_root)
 
     username = args.username
+    selected_non_git = []
 
     if username:
         username = username.strip()
         if not username:
             print("No username entered; aborting.")
-            return 1
-
-        # blacklist check FIRST 
-        if username in BLACKLIST and not args.allow_bots:
-            print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
-            return 1
-
-        candidate_blacklist = set() if args.allow_bots else BLACKLIST
-        candidates = set(get_candidate_usernames(projects, root_repo_jsons, candidate_blacklist))
-
-        if username not in candidates:
-            print(f"Unknown username '{username}'. Run without --username to pick from the list.")
-            return 1
-
+            return 0
     else:
-        username = select_username_from_projects(
+        username, selected_non_git = select_identity_from_projects(
             projects=projects,
             root_repo_jsons=root_repo_jsons,
-            blacklist=BLACKLIST
+            blacklist=BLACKLIST,
         )
-        if not username:
-            return 1
+
+        if username is None and not selected_non_git:
+            print("Cancelled.")
+            return 0
+
+        if username is None:
+            username = "local"
+
+
 
         
    
@@ -342,7 +383,7 @@ def main():
     os.makedirs(args.resume_dir, exist_ok=True)
 
     # (re)aggregate for the chosen username
-    agg = aggregate_for_user(username, projects, root_repo_jsons)
+    agg = aggregate_for_user(username, projects, root_repo_jsons, selected_non_git)
     # Use a single UTC timestamp for both content and filename
     ts_iso = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
     ts_fname = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')

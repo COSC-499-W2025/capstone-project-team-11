@@ -435,30 +435,30 @@ def handle_generate_project_summary():
 
 
 def handle_generate_resume():
-    """Run the resume generator script for a specified username.
-
-    Delegates username prompting and candidate listing entirely to the
-    generate_resume script.
-    """
     print("\n=== Generate Resume ===")
 
-    script_path = os.path.join(os.path.dirname(__file__), 'generate_resume.py')
+    script_path = os.path.join(os.path.dirname(__file__), "generate_resume.py")
     if not os.path.exists(script_path):
-        print_error(f"Resume generator script not found at: {script_path}", "Ensure the application is installed correctly.")
+        print_error(f"Resume generator script not found at: {script_path}")
         return
 
-    cmd = [sys.executable, script_path, '--save-to-db']
+    cmd = [sys.executable, script_path, "--save-to-db"]
 
     try:
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
-            print_error(f"Resume generator exited with code {result.returncode}.", "Check the output above for details on what went wrong.")
+            print_error(
+                f"Resume generator exited with code {result.returncode}.",
+                "Check the output above for details."
+            )
             return
 
-        print("\nResume generated successfully.")
+       
+       
 
     except Exception as e:
-        print_error(f"Failed to run resume generator: {e}", "Check that Python is configured correctly and try again.")
+        print_error(f"Failed to run resume generator: {e}")
 
 
         
@@ -516,19 +516,34 @@ def handle_edit_project_display_name():
 def handle_generate_portfolio():
     """Run the portfolio generator script."""
     print("\n=== Generate Portfolio ===")
-    script_path = os.path.join(os.path.dirname(__file__), 'generate_portfolio.py')
+
+    script_path = os.path.join(os.path.dirname(__file__), "generate_portfolio.py")
     if not os.path.exists(script_path):
-        print_error(f"Portfolio generator script not found at: {script_path}", "Ensure the application is installed correctly.")
+        print_error(
+            f"Portfolio generator script not found at: {script_path}",
+            "Ensure the application is installed correctly."
+        )
         return
 
-    cmd = [sys.executable, script_path, '--save-to-db']
+    cmd = [sys.executable, script_path, "--save-to-db"]
+
     try:
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
-            print_error(f"Portfolio generator exited with code {result.returncode}.", "Check the output above for details on what went wrong.")
+            print_error(
+                f"Portfolio generator exited with code {result.returncode}.",
+                "Check the output above for details."
+            )
             return
+
+    
     except Exception as e:
-        print_error(f"Failed to run portfolio generator: {e}", "Check that Python is configured correctly and try again.")
+        print_error(
+            f"Failed to run portfolio generator: {e}",
+            "Check that Python is configured correctly and try again."
+        )
+
 
 
 def _pager(text: str):
