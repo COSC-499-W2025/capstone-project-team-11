@@ -26,6 +26,7 @@ app = FastAPI(title="MDA API")
 
 class PrivacyConsentRequest(BaseModel):
     data_consent: bool
+    llm_summary_consent: Optional[bool] = None
 
 
 class ProjectUploadRequest(BaseModel):
@@ -37,6 +38,7 @@ class ProjectUploadRequest(BaseModel):
     show_contribution_summary: bool = False
     save_to_db: bool = True
     thumbnail_path: Optional[str] = None
+    llm_summary: bool = False
 
 
 class ResumeGenerateRequest(BaseModel):
@@ -112,9 +114,17 @@ def _portfolio_payload(row: Any) -> Dict[str, Any]:
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
-    save_config({"data_consent": payload.data_consent}, path=default_config_path())
+    current = load_config(default_config_path())
+    llm_value = payload.llm_summary_consent
+    if llm_value is None:
+        llm_value = current.get("llm_summary_consent", False)
+    save_config(
+        {"data_consent": payload.data_consent, "llm_summary_consent": llm_value},
+        path=default_config_path(),
+    )
     return {
         "data_consent": payload.data_consent,
+        "llm_summary_consent": llm_value,
         "config_path": default_config_path(),
     }
 
@@ -125,6 +135,8 @@ def upload_project(payload: ProjectUploadRequest):
     config = load_config(default_config_path())
     if not config.get("data_consent"):
         raise HTTPException(status_code=403, detail="Data consent not granted")
+    if payload.llm_summary and not config.get("llm_summary_consent"):
+        raise HTTPException(status_code=403, detail="LLM summary consent not granted")
 
     if not os.path.exists(payload.project_path):
         raise HTTPException(status_code=400, detail="project_path not found")
@@ -140,6 +152,7 @@ def upload_project(payload: ProjectUploadRequest):
         save=False,
         save_to_db=payload.save_to_db,
         thumbnail_source=payload.thumbnail_path,
+        generate_llm_summary=payload.llm_summary,
     )
 
     project_name = os.path.basename(os.path.abspath(payload.project_path))

@@ -151,7 +151,9 @@ def set_project_display_name(project_name: str, custom_name: Optional[str]):
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
               detected_languages: list = None, detected_skills: list = None, contributors: list = None,
               file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None,
-              project_thumbnail_path: str = None, git_metrics: dict = None, tech_summary: dict = None):
+              project_thumbnail_path: str = None, git_metrics: dict = None, tech_summary: dict = None,
+              summary_text: str = None, summary_input_hash: str = None, summary_model: str = None,
+              summary_updated_at: str = None):
     """Persist a scan and related metadata into the DB in a single transaction.
 
     - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
@@ -174,6 +176,10 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
         _ensure_projects_column(conn, "project_path", "TEXT")
         _ensure_projects_column(conn, "git_metrics_json", "TEXT")
         _ensure_projects_column(conn, "tech_json", "TEXT")
+        _ensure_projects_column(conn, "summary_text", "TEXT")
+        _ensure_projects_column(conn, "summary_model", "TEXT")
+        _ensure_projects_column(conn, "summary_input_hash", "TEXT")
+        _ensure_projects_column(conn, "summary_updated_at", "TEXT")
            
         cur.execute('BEGIN')
 
@@ -230,6 +236,15 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                 cur.execute(
                     "UPDATE projects SET tech_json = ? WHERE name = ?",
                     (json.dumps(tech_summary, default=str), project_key),
+                )
+            if summary_text is not None:
+                cur.execute(
+                    """
+                    UPDATE projects
+                    SET summary_text = ?, summary_model = ?, summary_input_hash = ?, summary_updated_at = ?
+                    WHERE name = ?
+                    """,
+                    (summary_text, summary_model, summary_input_hash, summary_updated_at, project_key),
                 )
 
             cur.execute("SELECT id FROM projects WHERE name = ?", (project_key,))
@@ -743,7 +758,11 @@ def _ensure_schema(conn):
             thumbnail_path TEXT,
             project_path TEXT,
             git_metrics_json TEXT,
-            tech_json TEXT
+            tech_json TEXT,
+            summary_text TEXT,
+            summary_model TEXT,
+            summary_input_hash TEXT,
+            summary_updated_at TEXT
         )
     """)
 

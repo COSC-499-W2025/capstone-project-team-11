@@ -22,6 +22,7 @@ from file_utils import is_valid_format, is_image_file
 from db import get_connection, init_db, save_scan
 from collab_summary import summarize_project_contributions
 from datetime import datetime
+from llm_summary import get_or_generate_summary, summary_timestamp
 
 # Try to import contribution metrics module; support running as package or standalone
 try:
@@ -455,7 +456,9 @@ def _scan_zip(zf: zipfile.ZipFile, display_prefix: str, recursive: bool, file_ty
 def _persist_scan(scan_source: str, files_found: list, project: str = None, notes: str = None, file_metadata: dict = None,
                   detected_languages: list = None, detected_skills: list = None, contributors: list = None,
                   project_created_at: str = None, project_repo_url: str = None, project_thumbnail_path: str = None,
-                  git_metrics: dict = None, tech_summary: dict = None):
+                  git_metrics: dict = None, tech_summary: dict = None,
+                  summary_text: str = None, summary_input_hash: str = None, summary_model: str = None,
+                  summary_updated_at: str = None):
     """Persist a scan and its file records to the database using db.save_scan.
 
     This now also attempts to persist detected languages, skills and contributors
@@ -477,6 +480,10 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
         project_thumbnail_path=project_thumbnail_path,
         git_metrics=git_metrics,
         tech_summary=tech_summary,
+        summary_text=summary_text,
+        summary_input_hash=summary_input_hash,
+        summary_model=summary_model,
+        summary_updated_at=summary_updated_at,
     )
 
 
@@ -516,7 +523,8 @@ def _run_with_progress(func, args=(), kwargs=None, label: str = "Working", total
     return result_container.get('result'), buf.getvalue(), result_container.get('error')
 
 
-def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False, extract_dir=None):
+def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False,
+                      extract_dir=None, generate_llm_summary=False):
     """Prints file names inside a zip archive."""
     if not os.path.exists(zip_path) or not zipfile.is_zipfile(zip_path):
         print("Directory does not exist.")
@@ -641,7 +649,8 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         repo_roots,
                         file_metadata=file_meta,
                         show_progress=True,
-                        extracted_locations=extracted_locations
+                        extracted_locations=extracted_locations,
+                        generate_llm_summary=generate_llm_summary,
                     )
                 else:
                     # No git repos - save as generic project
@@ -655,6 +664,26 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                             if isinstance(meta, dict):
                                 meta['owner'] = owner_val
                     project_created_at, project_repo_url = _get_repo_info(tmpdir)
+                    summary_text = None
+                    summary_input_hash = None
+                    summary_model = None
+                    summary_updated_at = None
+                    if generate_llm_summary:
+                        try:
+                            project_name = os.path.basename(os.path.abspath(zip_path))
+                            print(f"LLM summary: generating for {project_name}...")
+                            summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
+                                project_name=project_name,
+                                project_root=tmpdir,
+                                files_found=files_found,
+                                languages=tech_summary.get("languages", []),
+                                frameworks=tech_summary.get("frameworks", []),
+                                skills=skills,
+                            )
+                            if summary_text:
+                                summary_updated_at = summary_timestamp()
+                        except Exception:
+                            summary_text = None
                     _persist_scan(
                         zip_path,
                         files_found,
@@ -668,6 +697,10 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         project_repo_url=project_repo_url,
                         git_metrics=metrics,
                         tech_summary=tech_summary,
+                        summary_text=summary_text,
+                        summary_input_hash=summary_input_hash,
+                        summary_model=summary_model,
+                        summary_updated_at=summary_updated_at,
                     )
             except sqlite3.OperationalError:
                 try:
@@ -680,7 +713,8 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                     if repo_roots:
                         print("\n=== Saving Projects to Database ===")
                         _persist_multi_repo_scans(zip_path, files_found, repo_roots, file_metadata=file_meta,
-                                                 extracted_locations=extracted_locations)
+                                                 extracted_locations=extracted_locations,
+                                                 generate_llm_summary=generate_llm_summary)
                     else:
                         _persist_scan(
                             zip_path,
@@ -897,7 +931,8 @@ def _find_candidate_project_roots(base_path: str) -> list:
 def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: list,
                                detected_languages: list = None, detected_skills: list = None,
                                file_metadata: dict = None, show_progress: bool = True,
-                               extracted_locations: dict = None):
+                               extracted_locations: dict = None,
+                               generate_llm_summary: bool = False):
     """Persist scans for multiple git repositories, one scan per repo.
     
     Detects languages, frameworks, and skills per-project to avoid aggregating them.
@@ -957,6 +992,26 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
                     "low_confidence_frameworks": project_skills_res.get("low_confidence_frameworks", []),
                 }
             
+            summary_text = None
+            summary_input_hash = None
+            summary_model = None
+            summary_updated_at = None
+            if generate_llm_summary:
+                try:
+                    print(f"LLM summary: generating for {project_name}...")
+                    summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
+                        project_name=project_name,
+                        project_root=repo_root,
+                        files_found=files_for_repo,
+                        languages=tech_summary.get("languages", project_langs),
+                        frameworks=tech_summary.get("frameworks", []),
+                        skills=project_skills,
+                    )
+                    if summary_text:
+                        summary_updated_at = summary_timestamp()
+                except Exception:
+                    summary_text = None
+
             # Persist this repo's scan with its OWN detected languages and skills
             _persist_scan(
                 repo_root,
@@ -971,6 +1026,10 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
                 project_repo_url=repo_url,
                 git_metrics=metrics,
                 tech_summary=tech_summary,
+                summary_text=summary_text,
+                summary_input_hash=summary_input_hash,
+                summary_model=summary_model,
+                summary_updated_at=summary_updated_at,
             )
             if show_progress:
                 print(f"  Saved project: {project_name}")
@@ -1055,7 +1114,7 @@ def get_collaboration_info(file_path: str) -> str:
 
 
 def list_files_in_directory(path, recursive=False, file_type=None, show_collaboration=False, save_to_db=False,
-                            zip_extract_dir=None, project_thumbnail_path=None):
+                            zip_extract_dir=None, project_thumbnail_path=None, generate_llm_summary=False):
     """
     Prints file names in the given directory, or inside a .zip file.
     If recursive=True, it scans subdirectories (or all nested zip entries).
@@ -1074,6 +1133,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
             show_collaboration=show_collaboration,
             save_to_db=save_to_db,
             extract_dir=zip_extract_dir,
+            generate_llm_summary=generate_llm_summary,
         )
 
     if not os.path.exists(path) or not os.path.isdir(path):
@@ -1260,7 +1320,8 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     files_found,
                     repo_roots,
                     file_metadata=file_meta,
-                    show_progress=True
+                    show_progress=True,
+                    generate_llm_summary=generate_llm_summary,
                 )
             else:
                 # Single repo or no repo - save as before
@@ -1276,6 +1337,26 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                             meta['owner'] = owner_val
                 project_created_at, project_repo_url = _get_repo_info(path)
                 
+                summary_text = None
+                summary_input_hash = None
+                summary_model = None
+                summary_updated_at = None
+                if generate_llm_summary:
+                    try:
+                        print(f"LLM summary: generating for {project_name}...")
+                        summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
+                            project_name=project_name,
+                            project_root=path,
+                            files_found=files_found,
+                            languages=tech_summary.get("languages", []),
+                            frameworks=tech_summary.get("frameworks", []),
+                            skills=skills,
+                        )
+                        if summary_text:
+                            summary_updated_at = summary_timestamp()
+                    except Exception:
+                        summary_text = None
+
                 _persist_scan(
                     path,
                     files_found,
@@ -1290,6 +1371,10 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                     project_thumbnail_path=project_thumbnail_path,
                     git_metrics=metrics,
                     tech_summary=tech_summary,
+                    summary_text=summary_text,
+                    summary_input_hash=summary_input_hash,
+                    summary_model=summary_model,
+                    summary_updated_at=summary_updated_at,
                 )
         except sqlite3.OperationalError:
             # Try initializing DB and retry once
@@ -1297,7 +1382,8 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 init_db()
                 if repo_roots and len(repo_roots) > 1:
                     print("\n=== Saving Projects to Database ===")
-                    _persist_multi_repo_scans(path, files_found, repo_roots, file_metadata=file_meta)
+                    _persist_multi_repo_scans(path, files_found, repo_roots, file_metadata=file_meta,
+                                             generate_llm_summary=generate_llm_summary)
                 else:
                     project_name = os.path.basename(os.path.abspath(path))
                     _persist_scan(
@@ -1323,6 +1409,7 @@ def run_headless_scan(
     file_type: str = None,
     save_to_db: bool = True,
     zip_extract_dir: str = None,
+    generate_llm_summary: bool = False,
 ):
     """
     Headless, programmatic scan entrypoint.
@@ -1340,6 +1427,7 @@ def run_headless_scan(
         show_collaboration=False,
         save_to_db=save_to_db,
         zip_extract_dir=zip_extract_dir,
+        generate_llm_summary=generate_llm_summary,
     )
 
 
@@ -1354,6 +1442,7 @@ def run_with_saved_settings(
     save=False,
     save_to_db=False,
     thumbnail_source=None,
+    generate_llm_summary=False,
     config_path=None,
 ):
     config = load_config(config_path)
@@ -1400,6 +1489,7 @@ def run_with_saved_settings(
             save_to_db=save_to_db,
             zip_extract_dir=zip_extract_path,
             project_thumbnail_path=project_thumbnail_path,
+            generate_llm_summary=generate_llm_summary,
         )
 
         scan_target = _resolve_extracted_root(zip_extract_path) if zip_extract_path else scan_path_input
