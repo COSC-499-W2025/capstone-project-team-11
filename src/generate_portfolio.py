@@ -495,14 +495,14 @@ def main():
     username = None
     selected_non_git = []
 
-    # 1) If user passed --username, use it (and treat blank as cancel)
+    
     if args.username is not None:
         username = args.username.strip()
         if not username:
             print("No username entered; cancelled.")
             return 0
 
-    # 2) Otherwise prompt user (Git username OR local/guest non-git selection)
+  
     else:
         username, selected_non_git = select_identity_from_projects(
             projects=projects,
@@ -510,16 +510,16 @@ def main():
             blacklist=BLACKLIST,
         )
 
-        # Cancelled at prompt OR chose local with no non-git projects available
+        
         if username is None and not selected_non_git:
             print("Cancelled.")
             return 0
 
-        # Local/guest mode (non-git projects selected)
+       
         if username is None:
             username = "local"
 
-    # 3) Block known bot accounts (portfolio doesn't have --allow-bots currently)
+   
     if username in BLACKLIST:
         print(f"Generation disabled for user '{username}'.")
         return 1

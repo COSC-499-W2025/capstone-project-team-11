@@ -339,7 +339,7 @@ class RobustGenerateResumeTests(unittest.TestCase):
         rows = conn.execute("SELECT username, resume_path, metadata_json FROM resumes").fetchall()
         conn.close()
         
-        # Close any cached connections to allow cleanup
+        
         import gc
         gc.collect()
         
