@@ -13,7 +13,7 @@ import os
 import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
-from cli_username_selection import select_username_from_projects
+from cli_username_selection import select_username_from_projects, get_candidate_usernames
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
 # Import database functions
@@ -505,9 +505,11 @@ def main():
             print("No username entered; aborting.")
             return 1
 
-    if username in BLACKLIST:
-        print(f"Generation disabled for user '{username}'.")
-        return 1
+        candidates = set(get_candidate_usernames(projects, root_repo_jsons, BLACKLIST))
+        if username not in candidates:
+            print(f"Unknown username '{username}'. Run without --username to pick from the list.")
+            return 1
+
 
 
     os.makedirs(args.portfolio_dir, exist_ok=True)

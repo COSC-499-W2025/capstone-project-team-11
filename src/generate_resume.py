@@ -13,7 +13,7 @@ import os
 import re
 import sqlite3
 from db import get_project_display_name, load_projects_for_generation
-from cli_username_selection import select_username_from_projects
+from cli_username_selection import select_username_from_projects, get_candidate_usernames
 from collections import defaultdict
 from datetime import datetime
 from textwrap import dedent
@@ -293,22 +293,41 @@ def render_markdown(agg, generated_ts=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate resume Markdown from the database for a given username')
-    parser.add_argument('--username', '-u', required=False, help='GitHub username (as found in output contributions). If omitted, the script will prompt.')
-    parser.add_argument('--output-root', '-r', default='output', help='Deprecated: output folder path is ignored (DB is used)')
-    # output-root retained for CLI compatibility but ignored (DB is used)
-    parser.add_argument('--resume-dir', '-d', default='resumes', help='Directory to write generated resumes')
-    parser.add_argument('--allow-bots', action='store_true', help='Allow generating resumes for known bot accounts (not recommended)')
-    parser.add_argument('--save-to-db', action='store_true', help='Save generated resume metadata to the database')
+    parser = argparse.ArgumentParser(
+        description="Generate resume Markdown from the database for a given username"
+    )
+    parser.add_argument("--username", "-u", required=False)
+    parser.add_argument("--output-root", "-r", default="output")  # ignored (DB is used)
+    parser.add_argument("--resume-dir", "-d", default="resumes")
+    parser.add_argument("--allow-bots", action="store_true")
+    parser.add_argument("--save-to-db", action="store_true")
     args = parser.parse_args()
 
-    
-    BLACKLIST = {'githubclassroombot', 'Unknown'}
+    BLACKLIST = {"githubclassroombot", "Unknown"}
 
     projects, root_repo_jsons = collect_projects(args.output_root)
 
     username = args.username
-    if not username:
+
+    if username:
+        username = username.strip()
+        if not username:
+            print("No username entered; aborting.")
+            return 1
+
+        # blacklist check FIRST 
+        if username in BLACKLIST and not args.allow_bots:
+            print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
+            return 1
+
+        candidate_blacklist = set() if args.allow_bots else BLACKLIST
+        candidates = set(get_candidate_usernames(projects, root_repo_jsons, candidate_blacklist))
+
+        if username not in candidates:
+            print(f"Unknown username '{username}'. Run without --username to pick from the list.")
+            return 1
+
+    else:
         username = select_username_from_projects(
             projects=projects,
             root_repo_jsons=root_repo_jsons,
@@ -316,17 +335,9 @@ def main():
         )
         if not username:
             return 1
-    else:
-        username = username.strip()
-        if not username:
-            print("No username entered; aborting.")
-            return 1
 
         
-    # Prevent generating resumes for blacklisted accounts unless explicitly allowed
-    if username in BLACKLIST and not args.allow_bots:
-        print(f"Generation disabled for user '{username}'. To override, re-run with --allow-bots.")
-        return 1
+   
 
     os.makedirs(args.resume_dir, exist_ok=True)
 
