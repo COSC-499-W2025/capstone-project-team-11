@@ -2,6 +2,7 @@ import sqlite3
 import os
 import time
 import json
+import shutil
 from typing import Optional
 from collections import Counter
 from db_maintenance import prune_old_project_scans
@@ -651,6 +652,8 @@ def clear_database():
     conn.commit()
     conn.close()
 
+    _clear_output_directory()
+
 def delete_project_by_id(project_id):
     if project_id is None:
         raise ValueError("project_id cannot be None")
@@ -730,6 +733,28 @@ def delete_project_by_id(project_id):
 
     finally:
         conn.close()
+
+def _clear_output_directory():
+    """
+    Deletes generated project output folders inside src/output.
+    Keeps the output directory itself.
+    """
+    base_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "output")
+    )
+
+    if not os.path.isdir(base_dir):
+        return
+
+    for entry in os.listdir(base_dir):
+        path = os.path.join(base_dir, entry)
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+        except Exception as e:
+            print(f"Warning: failed to delete output item {path}: {e}")
 
 def _ensure_schema(conn):
     """Ensure the database schema exists and matches init_db.sql (non-destructive)."""
