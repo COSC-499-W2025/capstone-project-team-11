@@ -11,7 +11,7 @@ def test_select_identity_git_username_no_non_git(monkeypatch):
     projects = {
         "Proj": {"contributions": {"alice": {"commits": 1}}, "languages": ["Python"]}
     }
-    monkeypatch.setattr(builtins, "input", lambda _: "1")  # pick alice
+    monkeypatch.setattr(builtins, "input", lambda _: "1")  
     username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
     assert username == "alice"
     assert selected == []
@@ -22,7 +22,7 @@ def test_select_identity_git_username_with_non_git(monkeypatch):
         "NonGit": {"contributions": {}, "languages": ["Java"]},
     }
 
-    inputs = iter(["1", "y", "1"])  # pick alice, include non-git, select NonGit
+    inputs = iter(["1", "y", "1"])  
     monkeypatch.setattr(builtins, "input", lambda _: next(inputs))
 
     username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
@@ -33,7 +33,7 @@ def test_select_identity_local_guest_requires_selection(monkeypatch):
     projects = {
         "NonGit": {"contributions": {}, "languages": ["Java"]},
     }
-    inputs = iter(["0", "1"])  # local/guest, pick NonGit
+    inputs = iter(["0", "1"])  
     monkeypatch.setattr(builtins, "input", lambda _: next(inputs))
 
     username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
@@ -42,7 +42,7 @@ def test_select_identity_local_guest_requires_selection(monkeypatch):
 
 def test_select_identity_blank_cancels(monkeypatch):
     projects = {"Proj": {"contributions": {"alice": {"commits": 1}}, "languages": ["Python"]}}
-    monkeypatch.setattr(builtins, "input", lambda _: "")  # cancel at first prompt
+    monkeypatch.setattr(builtins, "input", lambda _: "")  
     username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
     assert username is None
     assert selected == []

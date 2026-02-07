@@ -630,7 +630,7 @@ def handle_generate_resume():
             return
 
        
-        # generate_resume.py already prints success/cancel messages
+       
 
     except Exception as e:
         print_error(f"Failed to run resume generator: {e}")

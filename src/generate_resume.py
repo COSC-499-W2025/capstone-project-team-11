@@ -144,9 +144,7 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
     total_commits = 0
     total_lines = 0
 
-    # ------------------------------------------------------------------
-    # 1) Git-based project contributions
-    # ------------------------------------------------------------------
+   
     for name, info in projects.items():
         contribs = info.get("contributions") or {}
 
@@ -180,9 +178,7 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if isinstance(laps, dict):
             total_lines += laps.get(username, 0) or 0
 
-    # ------------------------------------------------------------------
-    # 2) Root repo-level contribution fallback
-    # ------------------------------------------------------------------
+    
     for _, j in (root_repo_jsons or {}).items():
         if not isinstance(j, dict):
             continue
@@ -198,9 +194,7 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if isinstance(laps, dict) and username in laps:
             total_lines = max(total_lines, laps.get(username, 0) or 0)
 
-    # ------------------------------------------------------------------
-    # 3) Include selected non-git projects
-    # ------------------------------------------------------------------
+   
     existing = {p["project_name"] for p in user_projects}
 
     for proj_name in selected_non_git:
