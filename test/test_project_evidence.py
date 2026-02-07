@@ -72,7 +72,7 @@ class TestProjectEvidence(unittest.TestCase):
         ev2_id = self.pe.add_evidence(
             self.project_id,
             {
-                "type": "feedback",
+                "type": "endorsement",
                 "value": "Great polish",
                 "source": "Email",
                 "url": "https://example.com/review",
@@ -93,7 +93,7 @@ class TestProjectEvidence(unittest.TestCase):
 
         evidence = self.pe.get_evidence_for_project(self.project_id)
         self.assertEqual([ev["id"] for ev in evidence], [ev2_id, ev1_id])
-        self.assertEqual(evidence[0]["type"], "feedback")
+        self.assertEqual(evidence[0]["type"], "endorsement")
         self.assertEqual(evidence[0]["added_by_user"], 1)
 
     def test_update_evidence_changes_only_requested_fields(self):
@@ -173,7 +173,7 @@ class TestProjectEvidence(unittest.TestCase):
             {
                 "id": 2,
                 "project_id": self.project_id,
-                "type": "link",
+                "type": "external_link",
                 "value": "",
                 "source": "",
                 "url": "",
@@ -185,8 +185,8 @@ class TestProjectEvidence(unittest.TestCase):
         formatted = self.pe.format_evidence_list(evidence_list)
         self.assertIn("- **Metric** (Analytics): 10,000 MAU", formatted)
         self.assertIn("[View →](https://example.com/metrics)", formatted)
-        self.assertIn("Added: 2025-01-01 12:30:45", formatted)  # microseconds trimmed
-        self.assertIn("- **Link** : (no statement)", formatted)
+        self.assertIn("Added: 2025-01-01", formatted)  # date-only
+        self.assertIn("- **External_link** : (no outcome recorded)", formatted)
 
         self.assertEqual(
             self.pe.format_evidence_list([]),
@@ -195,7 +195,11 @@ class TestProjectEvidence(unittest.TestCase):
 
     def test_validate_evidence_type(self):
         self.assertEqual(self.pe.validate_evidence_type("metric"), "metric")
-        self.assertEqual(self.pe.validate_evidence_type("FEEDBACK"), "feedback")
+        self.assertEqual(self.pe.validate_evidence_type("ENDORSEMENT"), "endorsement")
+        with self.assertRaises(ValueError):
+            self.pe.validate_evidence_type("feedback")
+        with self.assertRaises(ValueError):
+            self.pe.validate_evidence_type("link")
         with self.assertRaises(ValueError):
             self.pe.validate_evidence_type("invalid")
 
@@ -234,18 +238,18 @@ class TestProjectEvidence(unittest.TestCase):
     def test_format_evidence_for_portfolio_basic(self):
         ev_list = [
             {"type": "metric", "value": "500 users", "source": "Analytics"},
-            {"type": "feedback", "value": "Great polish", "source": ""},
+            {"type": "endorsement", "value": "Great polish", "source": ""},
         ]
         formatted = self.pe.format_evidence_for_portfolio(ev_list)
         self.assertIn("- **Metric** (Analytics): 500 users", formatted)
-        self.assertIn("- **Feedback**: Great polish", formatted)
+        self.assertIn("- **Endorsement**: Great polish", formatted)
 
     def test_format_evidence_for_portfolio_uses_legacy_description(self):
         ev_list = [
-            {"type": "feedback", "value": "", "description": "Legacy note", "source": "Email"},
+            {"type": "endorsement", "value": "", "description": "Legacy note", "source": "Email"},
         ]
         formatted = self.pe.format_evidence_for_portfolio(ev_list)
-        self.assertIn("- **Feedback** (Email): Legacy note", formatted)
+        self.assertIn("- **Endorsement** (Email): Legacy note", formatted)
 
     def test_format_evidence_for_portfolio_empty_returns_none(self):
         self.assertIsNone(self.pe.format_evidence_for_portfolio([]))

@@ -4,7 +4,13 @@ import os
 from db import get_connection
 
 # Valid evidence types - used for validation
-EVIDENCE_TYPES = ['metric', 'feedback', 'award', 'testimonial', 'link', 'other']
+EVIDENCE_TYPES = [
+    "metric",          # Quantitative result proving impact
+    "award",           # Formal recognition or prize
+    "endorsement",     # Positive quote/approval from a person or org
+    "publication",     # Published article/post/report about the work
+    "external_link",   # Live link to proof (demo, dashboard, etc.)
+]
 
 
 def validate_evidence_type(ev_type: str) -> str:
@@ -19,18 +25,18 @@ def validate_evidence_type(ev_type: str) -> str:
 
 def add_evidence(project_id: int, evidence_data: Dict) -> int:
     """Insert new evidence row and return the new id.
-    
-    Required fields: type, value (the statement)
+
+    Required fields: type, value (the outcome / impact)
     Optional fields: source, url
-    The 'description' field is deprecated - use 'value' for the statement.
+    The 'description' field is deprecated - use 'value' for the outcome / impact.
     """
     # Validate type
     ev_type = validate_evidence_type(evidence_data.get("type", ""))
-    
-    # Validate statement (stored in 'value' field)
-    statement = evidence_data.get("value", "").strip() if evidence_data.get("value") else ""
-    if not statement:
-        raise ValueError("Evidence statement is required.")
+
+    # Validate outcome / impact (stored in 'value' field)
+    outcome = evidence_data.get("value", "").strip() if evidence_data.get("value") else ""
+    if not outcome:
+        raise ValueError("Outcome / impact is required.")
     
     conn = get_connection()
     conn.execute('PRAGMA foreign_keys = ON')
@@ -45,7 +51,7 @@ def add_evidence(project_id: int, evidence_data: Dict) -> int:
                 "project_id": project_id,
                 "type": ev_type,
                 "description": "",  # Deprecated, leave empty
-                "value": statement,
+                "value": outcome,
                 "source": evidence_data.get("source", "").strip() if evidence_data.get("source") else "",
                 "url": evidence_data.get("url", "").strip() if evidence_data.get("url") else "",
                 "added_by_user": evidence_data.get("added_by_user", True),
@@ -150,18 +156,18 @@ def format_evidence_for_resume(evidence_list: List[Dict], max_items: int = 2) ->
     
     parts = []
     for ev in items:
-        # Statement is stored in 'value' field (fallback to 'description' for legacy data)
-        statement = ev.get('value', '').strip() if ev.get('value') else ''
-        if not statement:
-            statement = ev.get('description', '').strip() if ev.get('description') else ''
-        if not statement:
+        # Outcome / impact is stored in 'value' field (fallback to 'description' for legacy data)
+        outcome = ev.get('value', '').strip() if ev.get('value') else ''
+        if not outcome:
+            outcome = ev.get('description', '').strip() if ev.get('description') else ''
+        if not outcome:
             continue
-        
+
         source = ev.get('source', '').strip() if ev.get('source') else ''
         if source:
-            parts.append(f"{statement} ({source})")
+            parts.append(f"{outcome} ({source})")
         else:
-            parts.append(statement)
+            parts.append(outcome)
     
     if not parts:
         return None
@@ -181,20 +187,20 @@ def format_evidence_for_portfolio(evidence_list: List[Dict]) -> Optional[str]:
     lines = []
     for ev in evidence_list:
         ev_type = ev.get('type', 'evidence').capitalize()
-        # Statement is stored in 'value' field (fallback to 'description' for legacy data)
-        statement = ev.get('value', '').strip() if ev.get('value') else ''
-        if not statement:
-            statement = ev.get('description', '').strip() if ev.get('description') else ''
-        if not statement:
+        # Outcome / impact is stored in 'value' field (fallback to 'description' for legacy data)
+        outcome = ev.get('value', '').strip() if ev.get('value') else ''
+        if not outcome:
+            outcome = ev.get('description', '').strip() if ev.get('description') else ''
+        if not outcome:
             continue
         
         source = ev.get('source', '').strip() if ev.get('source') else ''
-        
+
         # Build the evidence line
         if source:
-            line = f"- **{ev_type}** ({source}): {statement}"
+            line = f"- **{ev_type}** ({source}): {outcome}"
         else:
-            line = f"- **{ev_type}**: {statement}"
+            line = f"- **{ev_type}**: {outcome}"
         
         lines.append(line)
     
@@ -213,23 +219,24 @@ def format_evidence_list(evidence_list: List[Dict]) -> str:
     for ev in evidence_list:
         type_str = ev['type'].capitalize()
         source_str = f"({ev['source']})" if ev.get('source') and ev['source'].strip() else ""
-        # Statement is in 'value' field (fallback to 'description' for legacy)
-        statement = ev.get('value', '').strip() if ev.get('value') else ''
-        if not statement:
-            statement = ev.get('description', '').strip() if ev.get('description') else ''
-        statement = statement or "(no statement)"
+        # Outcome / impact is in 'value' field (fallback to 'description' for legacy)
+        outcome = ev.get('value', '').strip() if ev.get('value') else ''
+        if not outcome:
+            outcome = ev.get('description', '').strip() if ev.get('description') else ''
+        outcome = outcome or "(no outcome recorded)"
 
-        main_line = f"- **{type_str}** {source_str}: {statement}"
+        main_line = f"- **{type_str}** {source_str}: {outcome}"
 
         # URL – shorten if very long
         if ev.get('url') and ev['url'].strip():
             url = ev['url'].strip()
             main_line += f"\n  [View →]({url})"
 
-        # Timestamp – only show date+time, cut microseconds
+        # Timestamp – show date only when available
         if ev.get('created_at'):
-            ts = ev['created_at'].split('.')[0]  # remove microseconds if present
-            main_line += f"  *(Added: {ts})*"
+            ts_raw = ev['created_at']
+            date_only = ts_raw.split(' ')[0].split('T')[0]
+            main_line += f"  *(Added: {date_only})*"
 
         lines.append(main_line)
 
@@ -262,7 +269,7 @@ def handle_project_evidence():
             print(f"  {project['id']}. {project['name']} (Repo: {project['repo_url'] or 'N/A'})")
 
         # Prompt for project ID
-        project_id = input("\nEnter the project ID to manage evidence: ").strip()
+        project_id = input("\nEnter the project ID to manage evidence of success: ").strip()
         if not project_id.isdigit() or int(project_id) not in [p['id'] for p in projects]:
             print("\nError: Invalid project ID.")
             print("  Hint: Enter a project ID number from the list above.")
@@ -271,73 +278,83 @@ def handle_project_evidence():
 
         # Show current evidence
         evidence = get_evidence_for_project(project_id)
-        print("\nCurrent Evidence:")
+        print("\nCurrent Evidence of Success:")
         if not evidence:
-            print("  No evidence found for this project.")
+            print("  No evidence of success found for this project.")
         else:
             for idx, ev in enumerate(evidence, start=1):
-                # Statement is in 'value' field (fallback to 'description' for legacy)
-                statement = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
+                # Outcome / impact is in 'value' field (fallback to 'description' for legacy)
+                outcome = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
                 source_str = f" ({ev['source']})" if ev.get('source') else ""
-                print(f"  {idx}. [{ev['type']}] {statement}{source_str}")
+                date_str = ""
+                if ev.get('created_at'):
+                    date_only = ev['created_at'].split(' ')[0].split('T')[0]
+                    date_str = f"  [Added: {date_only}]"
+                print(f"  {idx}. [{ev['type']}] {outcome}{source_str}{date_str}")
 
         # Sub-menu loop
         while True:
-            print("\nEvidence Management:")
-            print("1. Add new evidence")
-            print("2. Edit existing evidence")
-            print("3. Delete evidence")
+            print("\nManage Evidence of Success:")
+            print("1. Add new evidence of success")
+            print("2. Edit existing evidence of success")
+            print("3. Delete evidence of success")
             print("4. Back")
             choice = input("Select an option: ").strip()
 
             if choice == "1":
-                # Add new evidence
+                # Add new evidence of success
                 print(f"\nValid types: {', '.join(EVIDENCE_TYPES)}")
                 ev_type = input("Type: ").strip()
-                statement = input("Statement: ").strip()
-                source = input("Source (optional): ").strip()
-                
+                outcome = input("What outcome does this prove? ").strip()
+                source = input("Source (person, org, or context) (optional): ").strip()
+                link = input("Link (optional): ").strip()
+
                 ev_data = {
                     "type": ev_type,
-                    "value": statement,
+                    "value": outcome,
                     "source": source,
+                    "url": link,
                 }
                 try:
-                    ev_id = add_evidence(project_id, ev_data)
-                    source_str = f" ({source})" if source else ""
-                    print(f"✓ Added: [{ev_type}] {statement}{source_str}")
+                    add_evidence(project_id, ev_data)
+                    print("✓ Added outcome.")
+                    print("→ This may be used to strengthen resume bullets and portfolio output.")
                     # Refresh evidence list
                     evidence = get_evidence_for_project(project_id)
                 except ValueError as e:
                     print(f"\nError: {e}")
                     print(f"  Hint: Valid types are: {', '.join(EVIDENCE_TYPES)}")
                 except Exception as e:
-                    print(f"\nError: Failed to add evidence: {e}")
+                    print(f"\nError: Failed to add evidence of success: {e}")
 
             elif choice == "2":
                 # Edit existing evidence
                 if not evidence:
-                    print("\nError: No evidence to edit.")
-                    print("  Hint: Add evidence first using option 1.")
+                    print("\nError: No evidence of success to edit.")
+                    print("  Hint: Add evidence of success first using option 1.")
                     continue
                 # Display numbered list of evidence
-                print("\nExisting evidence:")
+                print("\nExisting evidence of success:")
                 for idx, ev in enumerate(evidence, start=1):
-                    statement = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
+                    outcome = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
                     source_str = f" ({ev['source']})" if ev.get('source') else ""
-                    print(f"  {idx}. [{ev['type']}] {statement}{source_str}")
-                ev_idx = input("\nEnter the number of the evidence to edit: ").strip()
+                    date_str = ""
+                    if ev.get('created_at'):
+                        date_only = ev['created_at'].split(' ')[0].split('T')[0]
+                        date_str = f"  [Added: {date_only}]"
+                    print(f"  {idx}. [{ev['type']}] {outcome}{source_str}{date_str}")
+                ev_idx = input("\nEnter the number of the evidence of success to edit: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
                     print(f"\nError: Invalid selection.")
                     print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
                     continue
                 ev_record = evidence[int(ev_idx) - 1]
                 ev_id = ev_record['id']
-                current_statement = ev_record.get('value', '').strip() or ev_record.get('description', '')
+                current_outcome = ev_record.get('value', '').strip() or ev_record.get('description', '')
                 
-                print(f"\nEditing: [{ev_record['type']}] {current_statement}")
+                print(f"\nEditing: [{ev_record['type']}] {current_outcome}")
                 print("(Press Enter to keep current value)\n")
-                
+
                 updates = {}
                 new_type = input(f"Type [{ev_record['type']}]: ").strip()
                 if new_type:
@@ -348,37 +365,45 @@ def handle_project_evidence():
                         print(f"  Hint: Valid types are: {', '.join(EVIDENCE_TYPES)}")
                         continue
                 
-                new_statement = input(f"Statement [{current_statement}]: ").strip()
-                if new_statement:
-                    updates["value"] = new_statement
-                
-                new_source = input(f"Source [{ev_record.get('source', '')}]: ").strip()
+                new_outcome = input(f"Outcome / impact [{current_outcome}]: ").strip()
+                if new_outcome:
+                    updates["value"] = new_outcome
+
+                new_source = input(f"Source (person, org, or context) [{ev_record.get('source', '')}]: ").strip()
                 if new_source:
                     updates["source"] = new_source
+
+                new_link = input(f"Link (optional) [{ev_record.get('url', '')}]: ").strip()
+                if new_link:
+                    updates["url"] = new_link
                 
                 try:
                     if updates and update_evidence(ev_id, updates):
-                        print("✓ Evidence updated.")
+                        print("✓ Outcome updated.")
                         # Refresh evidence list
                         evidence = get_evidence_for_project(project_id)
                     else:
                         print("No changes made.")
                 except Exception as e:
-                    print(f"\nError: Failed to update evidence: {e}")
+                    print(f"\nError: Failed to update evidence of success: {e}")
 
             elif choice == "3":
                 # Delete evidence
                 if not evidence:
-                    print("\nError: No evidence to delete.")
-                    print("  Hint: Add evidence first using option 1.")
+                    print("\nError: No evidence of success to delete.")
+                    print("  Hint: Add evidence of success first using option 1.")
                     continue
                 # Display numbered list of evidence
-                print("\nExisting evidence:")
+                print("\nExisting evidence of success:")
                 for idx, ev in enumerate(evidence, start=1):
-                    statement = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
+                    outcome = ev.get('value', '').strip() or ev.get('description', '').strip() or "(empty)"
                     source_str = f" ({ev['source']})" if ev.get('source') else ""
-                    print(f"  {idx}. [{ev['type']}] {statement}{source_str}")
-                ev_idx = input("\nEnter the number of the evidence to delete: ").strip()
+                    date_str = ""
+                    if ev.get('created_at'):
+                        date_only = ev['created_at'].split(' ')[0].split('T')[0]
+                        date_str = f"  [Added: {date_only}]"
+                    print(f"  {idx}. [{ev['type']}] {outcome}{source_str}{date_str}")
+                ev_idx = input("\nEnter the number of the evidence of success to delete: ").strip()
                 if not ev_idx.isdigit() or int(ev_idx) not in range(1, len(evidence) + 1):
                     print(f"\nError: Invalid selection.")
                     print(f"  Hint: Enter a number between 1 and {len(evidence)}.")
@@ -386,13 +411,13 @@ def handle_project_evidence():
                 ev_id = evidence[int(ev_idx) - 1]['id']
                 try:
                     if delete_evidence(ev_id):
-                        print("Evidence deleted successfully.")
+                        print("Outcome removed.")
                         evidence = [ev for ev in evidence if ev['id'] != ev_id]
                     else:
-                        print("\nError: Failed to delete evidence.")
+                        print("\nError: Failed to delete evidence of success.")
                         print("  Hint: The evidence may have already been deleted.")
                 except Exception as e:
-                    print(f"\nError: Failed to delete evidence: {e}")
+                    print(f"\nError: Failed to delete evidence of success: {e}")
 
             elif choice == "4":
                 # Back to main menu
@@ -403,4 +428,3 @@ def handle_project_evidence():
                 print("  Hint: Enter a number between 1 and 4.")
     finally:
         conn.close()
-
