@@ -9,6 +9,7 @@ import contextlib
 import tempfile
 import json
 import sqlite3
+import re
 
 
 
@@ -24,13 +25,14 @@ from datetime import datetime
 
 # Try to import contribution metrics module; support running as package or standalone
 try:
-    from contrib_metrics import analyze_repo, pretty_print_metrics
+    from contrib_metrics import analyze_repo, pretty_print_metrics, canonical_username
 except Exception:
     try:
-        from .contrib_metrics import analyze_repo, pretty_print_metrics
+        from .contrib_metrics import analyze_repo, pretty_print_metrics, canonical_username
     except Exception:
         analyze_repo = None
         pretty_print_metrics = None
+        canonical_username = None
 
 # Try to import project_info_output (gather & write summaries)
 try:
@@ -97,6 +99,140 @@ def _is_macos_junk(name: str) -> bool:
     if name.split('/')[0] == '__MACOSX':
         return True
     return False
+
+
+def _normalize_contributor_key(name: str) -> str:
+    return _normalize_contributor_name(name)
+
+
+def _normalize_contributor_name(name: str) -> str:
+    if not name:
+        return ""
+    if canonical_username:
+        return canonical_username(name)
+    raw = str(name).strip().lower()
+    return re.sub(r"[^0-9a-z]+", "", raw)
+
+
+def _format_owner_from_names(names: list) -> str:
+    cleaned = [n.strip() for n in (names or []) if n and n.strip()]
+    if not cleaned:
+        return "unknown"
+    if len(cleaned) == 1:
+        return f"individual ({cleaned[0]})"
+    return f"collaborative ({', '.join(cleaned)})"
+
+
+def _get_existing_contributors() -> list:
+    try:
+        with get_connection() as conn:
+            rows = conn.execute("SELECT name FROM contributors ORDER BY name COLLATE NOCASE").fetchall()
+            names = [row["name"] for row in rows if row["name"]]
+            normalized = [_normalize_contributor_name(n) for n in names if _normalize_contributor_name(n)]
+            seen = set()
+            unique = [n for n in normalized if not (n in seen or seen.add(n))]
+            return sorted(unique)
+    except Exception:
+        return []
+
+
+def _prompt_manual_contributors(project_label: str) -> list:
+    if not sys.stdin.isatty():
+        return []
+
+    prompt = f"No git contributors found for '{project_label}'. Add contributors now? (y/n): "
+    try:
+        if not ask_yes_no(prompt):
+            return []
+    except Exception:
+        return []
+
+    existing = _get_existing_contributors()
+    if existing:
+        print("\nDetected candidate usernames:")
+        for idx, name in enumerate(existing, 1):
+            print(f"  {idx}. {name}")
+        print("  0. Add a new contributor")
+        print("You may enter numbers (e.g. 1) or exact usernames, comma-separated.")
+
+    existing_map = {_normalize_contributor_key(n): n for n in existing}
+    existing_keys = set(existing_map.keys())
+    while True:
+        raw_input = input(
+            "Select contributors (numbers or names, comma-separated): "
+        ).strip()
+        if not raw_input:
+            return []
+
+        tokens = [t.strip() for t in raw_input.split(",") if t.strip()]
+        needs_new = any(token in {"0", "new"} for token in tokens)
+        selected_keys = set()
+        results = []
+        invalid = False
+
+        for token in tokens:
+            if token in {"0", "new"}:
+                continue
+            if token.isdigit():
+                i = int(token)
+                if 1 <= i <= len(existing):
+                    name = existing[i - 1]
+                    key = _normalize_contributor_key(name)
+                    if key in selected_keys:
+                        invalid = True
+                        print("  Duplicate selection detected. Try again.")
+                        break
+                    results.append(name)
+                    selected_keys.add(key)
+                else:
+                    invalid = True
+                    print(f"  Invalid selection: {token}")
+                continue
+
+            name = _normalize_contributor_name(token)
+            key = _normalize_contributor_key(name)
+            if not key:
+                invalid = True
+                print("  Invalid name entry. Try again.")
+                break
+            if key in existing_keys or key in selected_keys:
+                invalid = True
+                print("  Contributor already exists. Select from the list instead.")
+                break
+            results.append(name)
+            selected_keys.add(key)
+
+        if invalid:
+            continue
+
+        if needs_new:
+            while True:
+                new_raw = input("Enter new contributor names (comma-separated): ").strip()
+                if not new_raw:
+                    break
+                new_tokens = [t.strip() for t in new_raw.split(",") if t.strip()]
+                new_invalid = False
+                for token in new_tokens:
+                    name = _normalize_contributor_name(token)
+                    key = _normalize_contributor_key(name)
+                    if not key:
+                        new_invalid = True
+                        print("  Invalid name entry. Try again.")
+                        break
+                    if key in existing_keys or key in selected_keys:
+                        new_invalid = True
+                        print("  Contributor already exists. Select from the list instead.")
+                        break
+                if new_invalid:
+                    continue
+                for token in new_tokens:
+                    name = _normalize_contributor_name(token)
+                    key = _normalize_contributor_key(name)
+                    results.append(name)
+                    selected_keys.add(key)
+                break
+
+        return results
 
 
 def _display_skipped_files_summary(skipped_files_list):
@@ -511,6 +647,13 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                     # No git repos - save as generic project
                     metrics = analyze_repo_path(tmpdir) if analyze_repo is not None else None
                     contributors = _contributors_from_metrics(metrics)
+                    if not contributors:
+                        contributors = _prompt_manual_contributors(os.path.basename(zip_path)) or None
+                    if contributors:
+                        owner_val = _format_owner_from_names(contributors)
+                        for meta in file_meta.values():
+                            if isinstance(meta, dict):
+                                meta['owner'] = owner_val
                     project_created_at, project_repo_url = _get_repo_info(tmpdir)
                     _persist_scan(
                         zip_path,
@@ -1124,6 +1267,13 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 project_name = os.path.basename(os.path.abspath(path))
                 metrics = analyze_repo_path(path) if analyze_repo is not None else None
                 contributors = _contributors_from_metrics(metrics)
+                if not contributors and (not repo_roots):
+                    contributors = _prompt_manual_contributors(project_name) or None
+                if contributors and (not repo_roots):
+                    owner_val = _format_owner_from_names(contributors)
+                    for meta in file_meta.values():
+                        if isinstance(meta, dict):
+                            meta['owner'] = owner_val
                 project_created_at, project_repo_url = _get_repo_info(path)
                 
                 _persist_scan(

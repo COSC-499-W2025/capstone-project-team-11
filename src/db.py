@@ -6,6 +6,7 @@ from typing import Optional
 from collections import Counter
 from db_maintenance import prune_old_project_scans
 from datetime import datetime
+from contrib_metrics import canonical_username
 
 # Allow overriding database path via environment for tests or custom locations
 DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
@@ -46,6 +47,12 @@ def _get_or_create(conn, table: str, name: str):
     cur.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
     row = cur.fetchone()
     return row['id'] if row else None
+
+
+def _normalize_contributor_name(name: str) -> str:
+    if not name:
+        return ""
+    return canonical_username(str(name))
 
 def _ensure_projects_thumbnail_column(conn):
     """Ensure the projects table has a thumbnail_path column."""
@@ -321,7 +328,7 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
             for fp, fid in file_id_map.items():
                 meta = file_metadata.get(fp) or {}
                 owner_val = meta.get('owner') if isinstance(meta, dict) else None
-                names = _parse_owner_string(owner_val)
+                names = [_normalize_contributor_name(n) for n in _parse_owner_string(owner_val)]
                 for name in names:
                     if not name:
                         continue
@@ -331,6 +338,7 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                     cur.execute("INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (fid, contrib_id))
         elif contributors:
             for contrib in contributors:
+                contrib = _normalize_contributor_name(contrib)
                 if not contrib:
                     continue
                 cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (contrib,))
@@ -458,7 +466,9 @@ def load_projects_for_generation():
                     (scan_id,),
                 )
                 for row_fc in cur.fetchall():
-                    name = row_fc["name"]
+                    name = canonical_username(row_fc["name"])
+                    if not name:
+                        continue
                     contributions.setdefault(name, {"commits": 0, "files": []})
                     contributions[name]["files"].append(row_fc["file_path"])
 

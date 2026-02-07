@@ -37,6 +37,7 @@ from rank_projects import (
     _get_all_contributors
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
+from contrib_metrics import canonical_username
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
@@ -536,12 +537,8 @@ def handle_summarize_contributor_projects():
     finally:
         cur.close()
     
-    # Normalize contributor names into canonical usernames
-    def normalize_username(name: str) -> str:
-        return ''.join(c for c in name.lower() if c.isalnum())
-    
     canonical_usernames = sorted(
-        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
+        set(canonical_username(name) for name in raw_contributors if canonical_username(name) not in BLACKLIST)
     )
     
     if not canonical_usernames:
