@@ -27,6 +27,11 @@ def describe_data_access(items: Optional[Iterable[str]] = None) -> None:
             "  - User preferences are written to a file in a hidden folder in the user's home directory (~/.mda/config.json)",
             "  - Generated reports in output/ and resumes/ directories (JSON, TXT, Markdown)",
             "",
+            "OPTIONAL LOCAL LLM SUMMARY (ONLY IF ENABLED):",
+            "  - Uses a local Ollama model (llama3.2:3b) to summarize the scanned project",
+            "  - Reads project metadata and README content (if present) to generate a short summary",
+            "  - No data is sent to external services",
+            "",
             "WHAT WE DO NOT ACCESS:",
             "  - No network requests or external API calls",
             "  - No data transmission to external services",
@@ -68,6 +73,13 @@ def ask_for_data_consent(config_path: Optional[str] = None) -> bool:
         default=False
     )
 
+    llm_consent = False
+    if consent:
+        llm_consent = ask_yes_no(
+            "Allow local LLM project summary generation (uses Ollama, reads README if present)? (y/n): ",
+            default=False
+        )
+
     # Ask whether user wants to save this preference in the config for future runs.
     save_pref = ask_yes_no(
         "Save this preference for future scans? (y/n): ",
@@ -75,7 +87,8 @@ def ask_for_data_consent(config_path: Optional[str] = None) -> bool:
     )
 
     if save_pref:
-        save_config({"data_consent": consent}, path=config_path)
+        save_config({"data_consent": consent, "llm_summary_consent": llm_consent}, path=config_path)
+
         print("Preference saved.")
     else:
         print("Preference not saved.")
