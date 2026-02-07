@@ -92,11 +92,10 @@ def test_print_main_menu_outputs_correct_text(capsys):
     assert "6. View/Manage Portfolios" in output
     assert "7. Rank Projects" in output
     assert "8. Summarize Contributor Projects" in output
-    assert "9. Generate Project Summary Report" in output
-    assert "10. Manage Evidence of Success" in output
-    assert "11. Analyze Contributor Roles" in output
-    assert "12. Edit Thumbnail for a Project" in output
-    assert "13. Manage Database" in output
+    assert "9. Manage Evidence of Success" in output
+    assert "10. Analyze Contributor Roles" in output
+    assert "11. Edit Thumbnail for a Project" in output
+    assert "12. Manage Database" in output
     assert "0. Exit" in output
 
 

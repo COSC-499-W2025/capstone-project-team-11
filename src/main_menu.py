@@ -38,7 +38,7 @@ from rank_projects import (
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from contrib_metrics import canonical_username
-from project_info_output import gather_project_info, output_project_info
+# from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
@@ -74,15 +74,14 @@ def print_main_menu():
     print("ANALYSIS")
     print("7. Rank Projects")
     print("8. Summarize Contributor Projects")
-    print("9. Generate Project Summary Report")
-    print("10. Manage Evidence of Success")
-    print("11. Analyze Contributor Roles")
+    print("9. Manage Evidence of Success")
+    print("10. Analyze Contributor Roles")
     print("")
     print("EXTRA")
-    print("12. Edit Thumbnail for a Project")
+    print("11. Edit Thumbnail for a Project")
     print("")
     print("ADMIN")
-    print("13. Manage Database")
+    print("12. Manage Database")
     print("0. Exit")
 
 
@@ -408,31 +407,6 @@ def handle_summarize_contributor_projects():
         print(f"\nProcessed {len(results)} project(s).")
     except Exception as e:
         print_error(f"Failed to generate contributor projects summary: {e}")
-
-
-def handle_generate_project_summary():
-    """Handle generating a project summary report."""
-    print("\n=== Generate Project Summary Report ===")
-    directory = input("Enter project directory path: ").strip()
-    if not directory:
-        print_error("No directory path provided.", "Enter a valid project directory path.")
-        return
-    if not os.path.exists(directory):
-        print_error("Directory does not exist.", "Check the path and try again.")
-        return
-
-    try:
-        info = gather_project_info(directory)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(directory))
-        out_dir = os.path.join("output", project_name)
-        os.makedirs(out_dir, exist_ok=True)
-        json_path, txt_path = output_project_info(info, output_dir=out_dir)
-        print(f"\nSummary reports saved to: {out_dir}")
-        print(f"  JSON: {json_path}")
-        print(f"  TXT:  {txt_path}")
-    except Exception as e:
-        print_error(f"Failed to generate project summary: {e}", "Check that the directory contains valid project files.")
-
 
 def handle_generate_resume():
     print("\n=== Generate Resume ===")
@@ -1259,14 +1233,12 @@ def main():
         elif choice == "8":
             handle_summarize_contributor_projects()
         elif choice == "9":
-            handle_generate_project_summary()
-        elif choice == "10":
             handle_project_evidence()
-        elif choice == "11":
+        elif choice == "10":
             handle_analyze_roles()
-        elif choice == "12":
+        elif choice == "11":
             handle_edit_project_thumbnail()
-        elif choice == "13":
+        elif choice == "12":
             database_management_menu()
         elif choice == "0":
             print("\nExiting program. Goodbye!")
