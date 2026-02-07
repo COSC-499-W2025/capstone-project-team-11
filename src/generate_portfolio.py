@@ -13,7 +13,7 @@ import os
 import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
-from cli_username_selection import select_username_from_projects
+from cli_username_selection import select_identity_from_projects
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
 # Import database functions
@@ -372,23 +372,25 @@ def build_tech_summary_section(projects_data, confidence_level='high'):
         content='\n'.join(content_lines)
     )
 
-# Aggregate projects for portfolio based on a selected git username
-def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=None):
+def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=None, selected_non_git=None):
     """
     Args:
         username: Portfolio owner's username
         all_projects: Dict of project_name -> project_info
         root_repo_jsons: Optional dict of root-level repo JSON files
+        selected_non_git: Optional list of non-git project names selected by user
 
     Returns:
         List of project dicts suitable for portfolio generation
     """
+    selected_non_git = set(selected_non_git or [])
+
     portfolio_projects = []
 
     for name, info in all_projects.items():
         contribs = info.get('contributions', {}) or {}
         if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
-         contribs = contribs["contributions"]
+            contribs = contribs["contributions"]
         user_entry = contribs.get(username) if isinstance(contribs, dict) else None
 
         # Include project if: Selected sername explicitly contributed to it, OR Project has valuable metadata (to include non-git projects, and solo projects)
@@ -402,7 +404,7 @@ def aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons=Non
         # Include project if:
         # - user explicitly contributed (git-tracked project), OR
         # - project has no git contributors at all but has metadata (assumed solo / non-git project)
-        if user_entry or (not contribs and has_metadata):  # Include only if user contributed OR project has no git data
+        if name in selected_non_git or user_entry or (not contribs and has_metadata):
             project = {
                 'project_name': name,
                 'path': info.get('project_path'),
@@ -490,29 +492,49 @@ def main():
 
     projects, root_repo_jsons = collect_projects(args.output_root)
 
-    username = args.username
-    if not username:
-        username = select_username_from_projects(
+    username = None
+    selected_non_git = []
+
+    # 1) If user passed --username, use it (and treat blank as cancel)
+    if args.username is not None:
+        username = args.username.strip()
+        if not username:
+            print("No username entered; cancelled.")
+            return 0
+
+    # 2) Otherwise prompt user (Git username OR local/guest non-git selection)
+    else:
+        username, selected_non_git = select_identity_from_projects(
             projects=projects,
             root_repo_jsons=root_repo_jsons,
-            blacklist=BLACKLIST
+            blacklist=BLACKLIST,
         )
-        if not username:
-            return 1
-    else:
-        username = username.strip()
-        if not username:
-            print("No username entered; aborting.")
-            return 1
 
+        # Cancelled at prompt OR chose local with no non-git projects available
+        if username is None and not selected_non_git:
+            print("Cancelled.")
+            return 0
+
+        # Local/guest mode (non-git projects selected)
+        if username is None:
+            username = "local"
+
+    # 3) Block known bot accounts (portfolio doesn't have --allow-bots currently)
     if username in BLACKLIST:
         print(f"Generation disabled for user '{username}'.")
         return 1
 
 
+
+
     os.makedirs(args.portfolio_dir, exist_ok=True)
 
-    portfolio_projects = aggregate_projects_for_portfolio(username, projects, root_repo_jsons)
+    portfolio_projects = aggregate_projects_for_portfolio(
+        username,
+        projects,
+        root_repo_jsons,
+        selected_non_git,
+    )
     if not portfolio_projects:
         print(f"No projects found for user '{username}' in the database")
         return 1
