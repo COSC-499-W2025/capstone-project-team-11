@@ -2,7 +2,7 @@ import builtins
 import sys
 from pathlib import Path
 
-
+# Make repo root importable so "src" can be imported when running pytest directly
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.cli_username_selection import select_username_from_projects

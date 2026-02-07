@@ -148,7 +148,7 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
     for name, info in projects.items():
         contribs = info.get("contributions") or {}
 
-        
+        # unwrap nested structure
         if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
             contribs = contribs["contributions"]
 
