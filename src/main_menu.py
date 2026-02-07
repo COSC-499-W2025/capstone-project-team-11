@@ -75,7 +75,7 @@ def print_main_menu():
     print("7. Rank Projects")
     print("8. Summarize Contributor Projects")
     print("9. Generate Project Summary Report")
-    print("10. Manage Project Evidence")
+    print("10. Manage Evidence of Success")
     print("11. Analyze Contributor Roles")
     print("")
     print("EXTRA")
