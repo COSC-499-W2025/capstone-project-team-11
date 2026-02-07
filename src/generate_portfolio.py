@@ -13,7 +13,7 @@ import os
 import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
-from cli_username_selection import select_identity_from_projects
+from cli_username_selection import select_username_from_projects, get_candidate_usernames
 # Import shared functions from generate_resume.py
 from generate_resume import collect_projects, normalize_project_name
 # Import database functions

@@ -6,6 +6,7 @@ from typing import Optional
 from collections import Counter
 from db_maintenance import prune_old_project_scans
 from datetime import datetime
+from contrib_metrics import canonical_username
 
 # Allow overriding database path via environment for tests or custom locations
 DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
@@ -46,6 +47,12 @@ def _get_or_create(conn, table: str, name: str):
     cur.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
     row = cur.fetchone()
     return row['id'] if row else None
+
+
+def _normalize_contributor_name(name: str) -> str:
+    if not name:
+        return ""
+    return canonical_username(str(name))
 
 def _ensure_projects_thumbnail_column(conn):
     """Ensure the projects table has a thumbnail_path column."""
@@ -144,7 +151,9 @@ def set_project_display_name(project_name: str, custom_name: Optional[str]):
 def save_scan(scan_source: str, files_found: list, project: str = None, notes: str = None,
               detected_languages: list = None, detected_skills: list = None, contributors: list = None,
               file_metadata: dict = None, project_created_at: str = None, project_repo_url: str = None,
-              project_thumbnail_path: str = None, git_metrics: dict = None, tech_summary: dict = None):
+              project_thumbnail_path: str = None, git_metrics: dict = None, tech_summary: dict = None,
+              summary_text: str = None, summary_input_hash: str = None, summary_model: str = None,
+              summary_updated_at: str = None):
     """Persist a scan and related metadata into the DB in a single transaction.
 
     - files_found: list of filesystem paths OR list of tuples (display_path, size, mtime)
@@ -167,6 +176,10 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
         _ensure_projects_column(conn, "project_path", "TEXT")
         _ensure_projects_column(conn, "git_metrics_json", "TEXT")
         _ensure_projects_column(conn, "tech_json", "TEXT")
+        _ensure_projects_column(conn, "summary_text", "TEXT")
+        _ensure_projects_column(conn, "summary_model", "TEXT")
+        _ensure_projects_column(conn, "summary_input_hash", "TEXT")
+        _ensure_projects_column(conn, "summary_updated_at", "TEXT")
            
         cur.execute('BEGIN')
 
@@ -223,6 +236,15 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                 cur.execute(
                     "UPDATE projects SET tech_json = ? WHERE name = ?",
                     (json.dumps(tech_summary, default=str), project_key),
+                )
+            if summary_text is not None:
+                cur.execute(
+                    """
+                    UPDATE projects
+                    SET summary_text = ?, summary_model = ?, summary_input_hash = ?, summary_updated_at = ?
+                    WHERE name = ?
+                    """,
+                    (summary_text, summary_model, summary_input_hash, summary_updated_at, project_key),
                 )
 
             cur.execute("SELECT id FROM projects WHERE name = ?", (project_key,))
@@ -321,7 +343,7 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
             for fp, fid in file_id_map.items():
                 meta = file_metadata.get(fp) or {}
                 owner_val = meta.get('owner') if isinstance(meta, dict) else None
-                names = _parse_owner_string(owner_val)
+                names = [_normalize_contributor_name(n) for n in _parse_owner_string(owner_val)]
                 for name in names:
                     if not name:
                         continue
@@ -331,6 +353,7 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                     cur.execute("INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (fid, contrib_id))
         elif contributors:
             for contrib in contributors:
+                contrib = _normalize_contributor_name(contrib)
                 if not contrib:
                     continue
                 cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (contrib,))
@@ -458,7 +481,9 @@ def load_projects_for_generation():
                     (scan_id,),
                 )
                 for row_fc in cur.fetchall():
-                    name = row_fc["name"]
+                    name = canonical_username(row_fc["name"])
+                    if not name:
+                        continue
                     contributions.setdefault(name, {"commits": 0, "files": []})
                     contributions[name]["files"].append(row_fc["file_path"])
 
@@ -733,7 +758,11 @@ def _ensure_schema(conn):
             thumbnail_path TEXT,
             project_path TEXT,
             git_metrics_json TEXT,
-            tech_json TEXT
+            tech_json TEXT,
+            summary_text TEXT,
+            summary_model TEXT,
+            summary_input_hash TEXT,
+            summary_updated_at TEXT
         )
     """)
 

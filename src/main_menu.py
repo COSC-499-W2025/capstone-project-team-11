@@ -37,6 +37,7 @@ from rank_projects import (
     _get_all_contributors
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
+from contrib_metrics import canonical_username
 from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
@@ -92,7 +93,7 @@ def handle_scan_directory():
     # Check data consent first
     current = load_config(None)
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): "):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
                 print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
@@ -115,6 +116,7 @@ def handle_scan_directory():
         )
 
     if use_saved and current.get("directory"):
+        llm_summary = bool(current.get("llm_summary_consent"))
         save_db = True
         thumbnail_source = None
         run_with_saved_settings(
@@ -127,6 +129,7 @@ def handle_scan_directory():
             save=False,
             save_to_db=save_db,
             thumbnail_source=thumbnail_source,
+            generate_llm_summary=llm_summary,
         )
         selected_dir = current.get("directory")
     else:
@@ -146,6 +149,7 @@ def handle_scan_directory():
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
         save_db = True
         thumbnail_source = None
+        llm_summary = bool(current.get("llm_summary_consent"))
 
         run_with_saved_settings(
             directory=directory,
@@ -157,6 +161,7 @@ def handle_scan_directory():
             save=remember,
             save_to_db=save_db,
             thumbnail_source=thumbnail_source,
+            generate_llm_summary=llm_summary,
         )
         selected_dir = directory
 
@@ -234,186 +239,10 @@ def human_ts(ts):
 
 def handle_inspect_database():
     """Handle database inspection."""
-    print("\n=== Inspect Database ===")
-    print(f"Inspecting DB: {DB_PATH}")
-    
     try:
+        import inspect_db
         conn = get_connection()
-        cur = conn.cursor()
-
-        # Tables
-        print('\n' + '=' * 80)
-        print('Tables in database')
-        print('=' * 80)
-        rows = safe_query(cur, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        if rows:
-            for r in rows:
-                print(' -', r['name'])
-        else:
-            print(' (no tables found)')
-
-        # Scans summary
-        print('\n' + '=' * 80)
-        print('Recent scans')
-        print('=' * 80)
-        scans = safe_query(cur, "SELECT id, scanned_at, project, notes FROM scans ORDER BY scanned_at DESC LIMIT 10")
-        if not scans:
-            print(' No scans found')
-        else:
-            for s in scans:
-                print(f"Scan {s['id']}: {human_ts(s['scanned_at'])} | project={s['project'] or '<none>'} | notes={s['notes'] or ''}")
-
-        # Files overview
-        print('\n' + '=' * 80)
-        print('Files (recent)')
-        print('=' * 80)
-        files = safe_query(cur, "SELECT id, file_name, file_path, file_extension, file_size, modified_at FROM files ORDER BY (modified_at IS NULL), modified_at DESC, id DESC LIMIT 20")
-        if not files:
-            print(' No files recorded')
-        else:
-            for f in files:
-                size = f['file_size'] if f['file_size'] is not None else 'unknown'
-                print(f"[{f['id']}] {f['file_name']} ({f['file_extension'] or ''}) — {size} bytes — modified: {human_ts(f['modified_at'])}\n    path: {f['file_path']}")
-
-        # Projects and skills
-        print('\n' + '=' * 80)
-        print('Projects and skills')
-        print('=' * 80)
-        projects = safe_query(cur, "SELECT id, name, repo_url, created_at FROM projects ORDER BY name")
-        if projects:
-            for p in projects:
-                print(f"Project {p['id']}: {p['name']} (repo: {p['repo_url'] or '<none>'}) created: {human_ts(p['created_at'])}")
-                # count scans and files for this project
-                sc = safe_query(cur, "SELECT COUNT(*) AS c FROM scans WHERE project = ?", (p['name'],))
-                fc = safe_query(cur, "SELECT COUNT(f.id) AS c FROM files f JOIN scans s ON f.scan_id = s.id WHERE s.project = ?", (p['name'],))
-                sc_cnt = sc[0]['c'] if sc else 0
-                f_cnt = fc[0]['c'] if fc else 0
-                print(f"  scans: {sc_cnt} | files: {f_cnt}")
-                # skills
-                skills = safe_query(cur, "SELECT sk.name FROM skills sk JOIN project_skills ps ON sk.id = ps.skill_id WHERE ps.project_id = ?", (p['id'],))
-                if skills:
-                    print('  skills:', ', '.join([r['name'] for r in skills]))
-                else:
-                    print('  skills: (none)')
-        else:
-            print(' No projects recorded')
-
-        # Thumbnails
-        print('\n' + '=' * 80)
-        print('Project thumbnails (path + file check)')
-        print('=' * 80)
-        thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
-        if not thumb_rows:
-            print(' No projects recorded')
-        else:
-            for row in thumb_rows:
-                thumb_path = row['thumbnail_path']
-                if not thumb_path:
-                    status = 'empty'
-                elif not os.path.isfile(thumb_path):
-                    status = 'missing file'
-                elif not is_image_file(thumb_path):
-                    status = 'not an image'
-                else:
-                    status = 'ok'
-                display_path = thumb_path or '<none>'
-                print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
-
-        # Languages top summary
-        print('\n' + '=' * 80)
-        print('Top languages (by files)')
-        print('=' * 80)
-        lang_rows = safe_query(cur, "SELECT l.name, COUNT(fl.file_id) AS cnt FROM languages l LEFT JOIN file_languages fl ON l.id = fl.language_id GROUP BY l.id ORDER BY cnt DESC LIMIT 20")
-        if not lang_rows:
-            print(' No language information')
-        else:
-            for r in lang_rows:
-                print(f"  {r['name']}: {r['cnt']}")
-
-        # Contributors summary
-        print('\n' + '=' * 80)
-        print('Contributors & sample files')
-        print('=' * 80)
-        contribs = safe_query(cur, "SELECT id, name FROM contributors ORDER BY name")
-        if not contribs:
-            print(' No contributors recorded')
-        else:
-            for c in contribs:
-                print(f"Contributor {c['id']}: {c['name']}")
-                sample_files = safe_query(cur, "SELECT f.file_name, f.file_path FROM files f JOIN file_contributors fc ON f.id = fc.file_id WHERE fc.contributor_id = ? LIMIT 5", (c['id'],))
-                if sample_files:
-                    for sf in sample_files:
-                        print(f"   - {sf['file_name']}  ({sf['file_path']})")
-                else:
-                    print('   (no linked files)')
-
-        # Resumes summary
-        print('\n' + '=' * 80)
-        print('Resumes (recent)')
-        print('=' * 80)
-        resumes = safe_query(cur, """
-            SELECT r.id, r.username, r.resume_path, r.generated_at, c.name AS contributor_name
-            FROM resumes r
-            LEFT JOIN contributors c ON c.id = r.contributor_id
-            ORDER BY r.generated_at DESC
-            LIMIT 10
-        """)
-        if not resumes:
-            print(' No resumes saved')
-        else:
-            for r in resumes:
-                uname = r['username'] or r['contributor_name'] or '<unknown>'
-                print(f"[{r['id']}] user={uname} | generated={human_ts(r['generated_at'])}")
-                print(f"    path: {r['resume_path']}")
-
-        # Portfolios summary
-        print('\n' + '=' * 80)
-        print('Portfolios (recent)')
-        print('=' * 80)
-        portfolios = safe_query(cur, """
-            SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name
-            FROM portfolios p
-            LEFT JOIN contributors c ON c.id = p.contributor_id
-            ORDER BY p.generated_at DESC
-            LIMIT 10
-        """)
-        if not portfolios:
-            print(' No portfolios saved')
-        else:
-            for p in portfolios:
-                uname = p['username'] or p['contributor_name'] or '<unknown>'
-                print(f"[{p['id']}] user={uname} | generated={human_ts(p['generated_at'])}")
-                print(f"    path: {p['portfolio_path']}")
-
-        # Skills timeline
-        print('\n' + '=' * 80)
-        print('Skills Exercised (Chronologically — Grouped by Skill)')
-        print('=' * 80)
-        raw_rows = safe_query(cur, """
-            SELECT sk.name AS skill,
-                   s.scanned_at AS used_at,
-                   p.name AS project
-            FROM skills sk
-            JOIN project_skills ps ON sk.id = ps.skill_id
-            JOIN projects p ON ps.project_id = p.id
-            JOIN scans s ON s.project = p.name
-            ORDER BY sk.name ASC, used_at ASC
-        """)
-        if not raw_rows:
-            print(" No recorded skills")
-        else:
-            grouped = {}
-            for row in raw_rows:
-                skill = row["skill"]
-                ts = human_ts(row["used_at"])
-                proj = row["project"]
-                grouped.setdefault(skill, []).append((ts, proj))
-            for skill, entries in grouped.items():
-                print(f"\n{skill}:")
-                for ts, proj in entries:
-                    print(f"   • {ts}  (project: {proj})")
-
-        conn.close()
+        inspect_db.inspect_connection(conn, db_label=DB_PATH)
     except Exception as e:
         print_error(f"Failed to inspect database: {e}", "Check that the database file exists and is accessible.")
 
@@ -536,12 +365,8 @@ def handle_summarize_contributor_projects():
     finally:
         cur.close()
     
-    # Normalize contributor names into canonical usernames
-    def normalize_username(name: str) -> str:
-        return ''.join(c for c in name.lower() if c.isalnum())
-    
     canonical_usernames = sorted(
-        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
+        set(canonical_username(name) for name in raw_contributors if canonical_username(name) not in BLACKLIST)
     )
     
     if not canonical_usernames:
