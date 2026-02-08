@@ -38,7 +38,6 @@ from rank_projects import (
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from contrib_metrics import canonical_username
-# from project_info_output import gather_project_info, output_project_info
 from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
