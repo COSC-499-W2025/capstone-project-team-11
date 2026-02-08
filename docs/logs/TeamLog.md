@@ -1122,3 +1122,397 @@ Next week we will be participating in a class-wide peer testing event as mention
 <img width="1875" height="901" alt="t2week3-kanban" src="https://github.com/user-attachments/assets/87b736f7-6287-4d03-bd23-3cf8249e8721" />
 
 ---
+
+# Team #11 - T2 Week 3 Team Log (January 26th - Febuary 8th)
+
+Team Members --> GitHub Username
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+## Overview
+This week focused on improving system robustness, fixing critical bugs in nested folder scanning, and reworking core resume/portfolio generation logic. Daniel led the effort to fix nested folder scanning issues and added comprehensive tests. Jaxson reworked the resume and portfolio generation to properly source data from the database and updated the corresponding test suites. Priyanshu added project resume display name editing and cleaned up resume output by removing local paths and git metrics. Tanner addressed bug fixes in Docker configuration, test suite organization, and nested folder JSON handling. Travis fixed portfolio generation to correctly exclude non-contributor projects. Tyler ensured database schema initialization on startup and added comprehensive schema tests.
+
+## Team Members Completed Tasks
+
+*See the hyperlinked PR templates for more detail*
+
+### Daniel
+- [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292) – Reworked Scan to fix nested folder scans
+    - Rewrote scanning logic to properly handle nested folder structures
+    - Updated `collab_summary.py`, `project_info_output.py`, and `scan.py` to support projects found in nested folder
+    - Added per-project languages and skills extraction
+
+- [PR #300](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/300) – Added tests for nested folders
+    - Added a plethora of new tests in `test_scan.py` to ensure coverage for nested folder scenarios
+
+### Jaxson
+- [PR #297](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/297) – Reworked resume/portfolio generation to take info from DB
+    - Refactored generation logic to source project data from database instead of scan results
+    - Updated API, database layer, and both resume/portfolio generators
+
+- [PR #298](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/298) – Resume/Portfolio tests update after rework
+    - Updated failing test files to work with the new db-centric data aggregation approach
+    - Fixed failing tests on Windows devices due to file lock issues during temp directory cleanup
+
+### Priyanshu
+- [PR #294](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/294) – Add project resume display name editing
+    - Added ability to edit custom project names for resume/portfolio display
+    - Streamlined database and menu code for display name handling
+
+- [PR #311](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/311) – Remove local paths and git metrics from resume output
+    - Removed local paths and git metrics from resume output for cleaner presentation (based on feedback from teaching staff)
+
+### Tanner
+- [PR #288](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/288) – Docker updates & Test suite refactors
+    - Refactored Docker configuration and docker-compose setup process
+    - Renamed inconsistent test files to follow `test_TESTNAME.py` naming convention
+    - Added error handling for menu option six
+
+- [PR #292](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/292)
+    - Fixed nested JSON dict username extraction in `project_info_output.py`
+    - Updated failing tests in `test_project_info_output.py` to handle nested projects
+
+### Travis
+- [PR #291](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/291) – Fix portfolio generation to exclude non-contributor projects
+    - Fixed bug where portfolios included projects that the user did not contribute to
+    - Added test for portfolio contributor filtering
+
+- [PR #315](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/315) – Fix top project summaries: correct skills, zip project resolution, and per-user commit counts
+- Allows users to select from a list of detected candidate usernames within the CLI
+- Fixes a bug where per-contributor commit counts were always reported as 0 in the combined summary
+
+### Tyler
+- [PR #304](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/304) – DB table missing error fixed by auto initialization
+    - Ensured database schema is automatically initialized on startup
+    - Added comprehensive database schema tests in `test_db_schema_init.py`
+    - Added new `db.py` module to validate database initialization
+
+### All Members
+- Code reviews and verification
+- Attended team meeting on Wednesday
+- Completion of individual logs and peer reviews
+
+## Testing Report
+All 222 new and existing unit tests pass successfully. Testing additions this week largely focused on nested folder handling and database schema initialization.
+
+### Tests Added:
+`test_scan.py`
+Added tests for nested folder scanning scenarios, ensuring proper extraction of project data from complex directory structures.
+
+`test_db_schema_init.py`
+Comprehensive tests validating database schema auto-initialization, table creation, and startup behavior.
+
+`test_generate_resume.py` / `test_generate_portfolio.py` / `test_api.py`
+Updated tests to reflect reworked generation logic that sources data from database rather than direct scan results found in local JSON files.
+
+`test_regenerate_resume.py` / `test_regenerate_portfolio.py`
+Updated tests for regeneration workflows with new database-backed approach.
+
+This is the result of running `py -m pytest test/ -W ignore::DeprecationWarning` on a Windows device on the latest build of Development branch before our end-of-week merge to main for T2 Week 3: 
+<img width="1608" height="677" alt="t2week3-tests" src="https://github.com/user-attachments/assets/8b463ada-6756-48ca-87cc-047d8a2fe7aa" />
+
+Tests are also working when using Docker
+<img width="1697" height="192" alt="t2week3-docker-tests" src="https://github.com/user-attachments/assets/c180054d-5139-478b-84af-9b8990cc0462" />
+
+## Reflection
+The entire team collaborated well together this week. Our in-class meeting on Wednesday went well, and gave us the opportunity to set clear goals for the rest of the week. We opted to focus on bug fixes and system stability in preparation for our upcoming peer testing event. We explicitly assigned major tasks and sequentially worked through a list of smaller bug fixes based on feedback from the teaching staff. Team members were active and helpful in the Discord, and collaborated to find solutions for encountered problems. All code additions were completed by Sunday evening, and I was given plenty of time to complete this team log entry as a result. Overall, the team seems to be very happy with our performance this week, and to keeping our momentum moving into the next one. 
+
+## Plans for T2 Week 4:
+Next week we will be participating in a class-wide peer testing event as mentioned above. It is likely that we will spend the majority of the early week preparing a final build of our program to be used during the peer testing. Post-Wednesday, we plan to continue onwards with larger features and further refinements to pre-existing features:
+- Continue fixing bugs found during milestone 1
+- LLM-assisted analysis integration
+- Further informational separation between resumes and portfolios, as well as the ability to configure/edit the documents within the CLI
+- Keeping README up to date with newly implemented features
+
+## Burnup Chart
+<img width="1037" height="664" alt="t2week3-burnup" src="https://github.com/user-attachments/assets/e8d5d03b-73e2-4478-8881-2d8df7c0433e" />
+
+## Kanban Board
+<img width="1875" height="901" alt="t2week3-kanban" src="https://github.com/user-attachments/assets/87b736f7-6287-4d03-bd23-3cf8249e8721" />
+
+---
+
+# Team #11 - T2 Week 4/5 Team Log (January 27th - February 8th)
+
+Team Members --> GitHub Username
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+## Overview
+Weeks 4 and 5 focused on improving CLI usability, strengthening contributor analysis, stabilizing database-backed workflows, and reducing technical debt. Daniel led significant feature refactors across contributor scoring, role analysis, thumbnail handling, resume summaries, and opt-in LLM project summaries, with careful alignment between CLI behavior, database storage, and testing. Priyanshu focused on improving CLI robustness and identity handling, introducing shared helpers, stronger validation, and comprehensive test coverage. Tanner concentrated on cross-cutting CLI UX improvements, error handling consistency, scan output clarity, and post-merge stabilization. Travis strengthened core architecture by fully DB-backing project summaries, refining Evidence of Success semantics, and improving CLI correctness. Tyler focused on correctness and maintainability by completing database reset behavior and removing deprecated functionality. Jaxson supported stability through reviews, validation, and coordination during feature merges. Overall, the team emphasized polish, correctness, and test reliability in preparation for peer testing.
+
+## Team Members Completed Tasks
+
+*See the hyperlinked PR templates for more detail*
+
+---
+
+### Daniel
+- [PR #321](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/321) – Contributor scoring fixes and TopScore metric
+    - Fixed contributor ranking inconsistencies
+    - Introduced a composite **TopScore** metric for improved contributor evaluation
+    - Improved CLI contributor ranking clarity
+    - Updated and expanded contributor scoring tests to match new ranking logic
+
+- [PR #322](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/322) – Reworked contributor role analysis
+    - Refactored contributor role definitions and assignment logic
+    - Added clearer role descriptions and CLI role exploration
+    - Updated contributor role analysis tests for correctness and coverage
+
+- [PR #359](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/359) – Non-git contributor support
+    - Enabled contributor analysis for non-git projects
+    - Improved canonical username handling and contributor prompts
+    - Updated database handling to support non-git contributors
+    - Added new automated tests to prevent regressions
+
+---
+
+### Jaxson
+
+- [PR #347](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/347) – Reworked thumbnail feature
+    - Refactored thumbnail handling to be fully database-driven rather than scan-time dependent
+    - Removed thumbnail prompting and file copying during scans
+    - Introduced a dedicated thumbnail edit workflow via the **EXTRA** section of the main menu
+    - Stored raw thumbnail file paths directly in the database for improved flexibility
+    - Added thumbnail validation and visibility within database inspection tools
+    - Reordered and renumbered main menu options (EXTRA before ADMIN) for improved UX
+    - Updated tests to align with new thumbnail behavior:
+        - `test_scan_db.py` updated to reflect raw thumbnail path storage and removal of deprecated helpers
+        - `test_main_menu.py` updated for menu text changes, new `thumbnail_path` column, and DB inspection output
+
+- [PR #353](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/353) – Updated resume summary section
+    - Refactored resume summaries into a concise 2–3 line narrative format
+    - Summary now consistently references project count, top technologies, and top skills
+    - Ensured consistent behavior across both generate and regenerate resume workflows
+    - No tests were modified or added, as existing test coverage already validated summary output generation
+
+- [PR #357](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/357) – Integrated LLM-based project summaries
+    - Implemented opt-in local LLM project summaries using Ollama (`llama3.2:3b`)
+    - Summaries leverage README context when available and are cached using an input hash
+    - Stored generated summaries with full metadata (model, timestamp, hash)
+    - Integrated functionality across scan workflows (single repo, multi-repo, zip), database schema, CLI, API, and DB inspection
+    - Added explicit consent and privacy handling to gate LLM usage
+    - Updated `test_main_menu.py` to reflect new database inspection routing via `inspect_db.inspect_connection`
+    - Verified existing test suite passes successfully with the feature gated behind user consent
+
+
+---
+
+### Priyanshu
+- [PR #345](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/345) – CLI path validation helpers
+    - Centralized path normalization and validation in `cli_validators.py`
+    - Added consistent handling for directories, optional zip files, quoted paths, and whitespace
+    - Improved user-facing error messages and re-prompting behavior
+    - Added `test_cli_validators.py` covering path normalization, invalid inputs, and username regex validation
+
+- [PR #356](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/356) – Shared username selection helper
+    - Refactored username selection into a shared helper for resume and portfolio generation
+    - Prevented invalid or arbitrary usernames
+    - Unified cancel and error behavior across flows
+    - Added `test_cli_username_selection.py` covering valid selection, invalid input handling, and cancel paths
+
+- [PR #360](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/360) – CLI input validation improvements
+    - Validated usernames against known contributors in the database
+    - Blocked blacklisted users by default with `--allow-bots` override
+    - Ensured resume and portfolio generators fail early and predictably
+    - Expanded `test_cli_username_selection.py` to cover retry, cancel, and invalid-then-cancel scenarios
+
+- [PR #361](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/361) – CLI identity selection
+    - Unified identity selection across resume and portfolio flows
+    - Added local/guest mode and explicit non-git project selection
+    - Allowed optional inclusion of non-git projects alongside git contributors
+    - Added graceful cancel paths throughout
+    - Added `test_cli_identity_selection.py`
+    - Updated `test_generate_resume.py` and `test_generate_portfolio.py` to reflect new identity aggregation logic
+
+---
+
+### Tanner
+- [PR #346](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/346) – Standardized error handling
+    - Standardized CLI error messages into consistent `Error:` / `Hint:` format
+    - Centralized error handling in `main_menu.py`
+    - Updated tests to match standardized error output
+
+- [PR #349](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/349) – Post-merge bugfixes
+    - Fixed broken menu logic after recent merges
+    - Restored scan prompts, resume/portfolio flows, and thumbnail wiring
+    - Updated menu numbering and exit option
+    - Updated `test_main_menu.py` to reflect restored behavior
+
+- [PR #351](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/351) – Error handling improvements
+    - Removed deprecated default behaviors causing silent failures
+    - Added robust re-prompt loops across CLI inputs
+    - Fixed misleading post-generation messages
+    - Updated tests to reflect new re-prompt behavior
+
+- [PR #352](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/352) – Scanned project summary manager
+    - Added View/Manage Scanned Projects to the main menu
+    - Enabled viewing, renaming, and deleting scanned projects
+    - Ensured DB and filesystem state remain synchronized
+    - Updated tests for new menu structure and deletion behavior
+
+- [PR #354](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/354) – Improved scan progress CLI output
+    - Centralized scan progress into a clean, phased output system
+    - Added progress bars, confidence-based reporting, and a post-scan action menu
+    - Reduced noisy output while preserving scan accuracy
+    - Manually validated across project types with all 238 tests passing
+
+---
+
+### Travis
+- [PR #326](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/326) – DB-backed project summaries
+    - Refactored summary generation to rely exclusively on database-backed scan data
+    - Removed runtime filesystem rescans
+    - Improved determinism, performance, and error handling
+    - Heavily updated `test_summarize_projects.py` with in-memory DBs and edge-case coverage
+
+- [PR #366](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/366) – Evidence of Success improvements
+    - Reframed “project evidence” as Evidence of Success
+    - Canonicalized supported evidence types and removed ambiguous legacy options
+    - Updated resume and portfolio outputs accordingly
+    - Updated tests to validate evidence types, formatting, ordering, and attribution
+
+- [PR #370](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/370) – CLI UX cleanup and blacklist enforcement
+    - Removed confusing file-extension scan prompt
+    - Fixed blacklist enforcement for interactive and non-interactive resume generation
+    - Added `--allow-bots` override
+    - Manual verification with full test suite passing
+
+---
+
+### Tyler
+
+- [PR #348](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/348) – Database management and project deletion
+    - Added full database management functionality, including the ability to:
+        - Clear all database tables while preserving schema
+        - Delete individual projects and all related dependent data
+    - Implemented safe, dependency-aware deletion logic to ensure cascading removal of:
+        - File contributors and file languages
+        - Files and scans
+        - Project skills and project evidence
+        - Projects themselves
+    - Added user-facing database management menu with clear warnings and confirmation prompts
+    - Improved menu readability by adding spacing before project listings
+    - Contributed to and reviewed deletion logic to ensure data integrity and rollback safety
+    - Added comprehensive unit tests validating database management behavior:
+        - `test_db_clear_and_delete_project.py` verifies full database clearing
+        - Confirms project deletion removes all related rows across dependent tables
+    - Verified functionality through both automated testing (`pytest`) and manual CLI testing
+
+
+- [PR #367](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/367) – Delete output folders on database clear
+    - Extended database clearing to also remove generated project output folders
+    - Preserved the main output directory
+    - Added `_clear_output_directory()` helper with defensive checks
+    - Added `test_db_clear_output_directory.py` to validate filesystem cleanup
+
+- [PR #368](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/368) – Removed deprecated project summary feature
+    - Fully removed deprecated “Generate Project Summary Report” option
+    - Deleted unused legacy code paths
+    - Updated main menu numbering and corresponding tests
+    - Reduced technical debt and user confusion
+
+---
+
+### All Members
+- Code reviews and verification
+- Active collaboration via Discord and GitHub
+- Participation in in-class meetings
+- Completion of individual logs and peer reviews
+
+## Testing Report
+
+All **new and existing unit tests pass successfully**. This testing cycle focused heavily on **CLI interaction flows, contributor identity selection, database consistency, and output regeneration**, ensuring recent feature work is fully covered and regression-safe across platforms.
+
+### Tests Added / Updated:
+
+`test_cli_identity_selection.py`  
+Added comprehensive tests covering contributor identity selection logic, including:
+- Git-only projects with no non-git selections
+- Mixed git and non-git project flows
+- Local/guest contributor selection requirements
+- Blank input cancellation behavior  
+These tests validate correct username resolution and project selection handling under all CLI paths.
+
+`test_cli_username_selection.py`  
+New tests validating username selection from project contribution data, including:
+- Valid numeric selection
+- Invalid input recovery and cancellation
+- Blank input cancellation
+- Proper unwrapping of nested/root contribution structures
+
+`test_contributor_prompt.py`  
+Added end-to-end tests for manual contributor prompting, verifying:
+- Selection of existing contributors
+- Addition of new contributors with canonical normalization
+- Mixed selection of existing and new contributors
+- De-duplication of contributor entries  
+All tests run against an isolated temporary database to ensure correctness.
+
+`test_db_updates.py`  
+Updated tests to reflect contributor canonicalization behavior, ensuring:
+- Uppercase and lowercase contributor names coexist correctly
+- File-level contributor mappings remain accurate
+- Contributor fallback and idempotent insert logic is preserved
+
+`test_generate_portfolio.py`  
+Adjusted tests to align with updated project collection and aggregation behavior, validating:
+- Project aggregation consistency
+- Portfolio build stability with updated data sources
+
+`test_generate_resume.py`  
+Updated and expanded tests covering:
+- Project normalization and acronym handling
+- Resume aggregation for git and non-git contributors
+- Rendering logic with evidence and impact metrics
+- Robust handling of regenerated resume data
+
+`test_main_menu.py`  
+Reworked menu and handler tests to reflect updated CLI structure, ensuring:
+- Correct menu output ordering
+- Graceful handling of empty datasets
+- Accurate contributor role analysis outputs (with and without per-project data)
+
+`test_project_evidence.py`  
+Updated tests validating evidence handling, including:
+- Correct ordering by creation timestamp
+- Evidence formatting for resumes and portfolios
+- Legacy description compatibility
+- Strict evidence type validation
+
+`test_clear_database_output_directory.py`  
+New tests confirming database clearing behavior:
+- Output directory is preserved
+- All project subfolders are correctly removed
+- Database reset does not delete required directory structure
+
+---
+
+This test suite was executed using:
+
+`py -m pytest test/ -W ignore::DeprecationWarning`
+
+on a Windows device using the latest **Development** branch prior to end-of-week merge.  
+All tests also pass successfully when run inside Docker, confirming environment parity and deployment readiness.
+
+
+## Reflection
+The team worked effectively across Weeks 4 and 5, prioritizing usability, correctness, and maintainability ahead of peer testing. Strong communication and consistent testing practices allowed the team to safely integrate large refactors while maintaining stability.
+
+## Plans for T2 Week 6
+The team will continue moving towards a stable build for presentations/completion of milestone 2, address feedback-driven bugs, continue LLM-assisted analysis refinement, improve resume and portfolio configurability, and keep documentation up to date.
+
+## Burnup Chart
+<img width="1035" height="547" alt="image" src="https://github.com/user-attachments/assets/3237d956-0f7f-426e-b020-4d7917fa9622" />
+
+## Kanban Board
+<img width="1908" height="841" alt="image" src="https://github.com/user-attachments/assets/e9f979c4-5961-4cfa-bc07-82fc26135be1" />
+
