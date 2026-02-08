@@ -285,7 +285,7 @@ Focus of the week was extending the incremental portfolio/resume workflow and in
 
 <img width="1507" height="722" alt="image" src="https://github.com/user-attachments/assets/5488036b-cc22-475f-ae3d-6f6f2a4adc9b" />
 
-# Tyler's T2 Week 3 Personal Log (12-18 Jan.)
+# Tyler's T2 Week 3 Personal Log (19-25 Jan.)
 [Back to Term 2 Navigation](#)
 
 Focus of the week was extending the incremental portfolio/resume workflow and integrating headless portfolio regeneration. This builds upon last week's work on resume incremental updates. I completed the portfolio portion of the incremental addition, ensuring that new project folders or zip files could be added to existing portfolios, with overwrite functionality and full tests. Additionally, I implemented full database schema initialization with proper foreign key constraints and cascade rules, and wrote comprehensive tests to ensure schema integrity.
@@ -335,6 +335,81 @@ Focus of the week was extending the incremental portfolio/resume workflow and in
 - Practice presenting and running peer testing
 
 <img width="1908" height="886" alt="image" src="https://github.com/user-attachments/assets/ee53cfd6-5fba-4212-b887-dfbbe5b4bc49" />
+
+# Tyler's T2 Week 4/5 Personal Log (Jan. 26 - Feb. 8)
+[Back to Term 2 Navigation](#)
+
+Focus of the past two weeks was on **database management improvements** and **removing deprecated functionality** from the project. I completed three major tasks:
+
+1. Added functionality for clearing the database and deleting individual projects, including cascading deletes for related tables.
+2. Extended the `clear_database` function to remove generated project output folders while keeping the main output directory intact.
+3. Removed the deprecated “Generate Project Summary Report” feature, updated the main menu numbering, and fixed related tests.
+
+These changes improve maintainability, ensure project data can be fully reset for testing, and clean up the user interface for project management.
+
+<img width="977" height="568" alt="image" src="https://github.com/user-attachments/assets/d57fb29b-5293-435a-bb6a-0a1140740be7" />
+
+---
+
+## Coding Tasks
+
+- Implemented `clear_database()` to remove all data from every table while preserving the schema.
+- Created `delete_project_by_id(project_id)` to delete a specific project and all dependent rows in related tables.
+- Developed `remove_project_menu()` and `database_management_menu()` to allow interactive deletion of projects and full database clearing.
+- Added `_clear_output_directory()` to delete all subfolders inside `src/output` when clearing the database while keeping the output folder itself.
+- Removed deprecated project summary functionality:
+  - Deleted `gather_project_info`, `output_project_info`, and `handle_generate_project_summary`.
+  - Updated `main_menu.py` numbering:  
+    - Option 9: Manage Evidence of Success  
+    - Option 10: Analyze Contributor Roles  
+    - Option 11: Edit Thumbnail for a Project  
+    - Option 12: Manage Database
+- Updated menu handlers to reflect the removed option and ensure consistent behavior.
+
+---
+
+## Testing / Debugging Tasks
+
+- Wrote `test_db_clear_and_delete_project.py` to verify:
+  - Clearing the database empties all tables.
+  - Deleting a project removes the project and all related rows.
+  - Invalid or `None` project IDs are handled gracefully.
+- Wrote `test_db_clear_output_directory.py` to verify:
+  - Subfolders in `src/output` are deleted when clearing the database.
+  - The main output directory remains intact.
+- Updated main menu test to reflect new menu numbering.
+- Manual verification:
+  - Menu prints correctly and functions work interactively.
+  - Project deletion, database clearing, and output folder removal behave as expected.
+
+---
+
+## Reviewing / Collaboration Tasks
+
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #354], [PR #357], [PR #360]) and [PR #361]).
+- Scheduled weekly meetings on monday
+- Since we didnt have time to do the checkin on wednesday we spent the entire time discussing the future of our project, what work needs to be done and changes in communication to streamline our project and be more efficient.
+- Completed team log for week 4/5
+
+---
+
+## Blockers / Issues
+
+- Minor conflicts between new output-folder deletion logic and existing tests, resolved by cleaning temporary directories properly.
+- Needed careful adjustment of menu numbering and test assertions to prevent breaking automated tests.
+
+---
+
+## T2 Week 6 Plans
+
+- Work on PT issues
+- #2 validate paths of files scanned
+- #16 Fix depreciation warning on resume generation
+
+<img width="1896" height="576" alt="image" src="https://github.com/user-attachments/assets/db6fc244-37d4-45ee-954e-8c9cef44c26e" />
+
+
+
 
 
 
