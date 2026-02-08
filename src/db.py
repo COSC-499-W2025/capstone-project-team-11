@@ -740,7 +740,7 @@ def _clear_output_directory():
     Keeps the output directory itself.
     """
     base_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "output")
+        os.path.join(os.path.dirname(__file__), "..", "output")
     )
 
     if not os.path.isdir(base_dir):
