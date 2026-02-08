@@ -21,11 +21,11 @@ class TestClearDatabaseOutputDirectory(unittest.TestCase):
         os.environ["FILE_DATA_DB_PATH"] = self.db_path
         init_db()
 
-        # --- Create fake src/output structure ---
-        self.src_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..', 'src')
+        # --- Create fake project-root/output structure ---
+        self.project_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..')
         )
-        self.output_dir = os.path.join(self.src_dir, "output")
+        self.output_dir = os.path.join(self.project_root, "output")
 
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -61,7 +61,7 @@ class TestClearDatabaseOutputDirectory(unittest.TestCase):
         # Assert: output directory still exists
         self.assertTrue(
             os.path.isdir(self.output_dir),
-            "src/output directory should not be deleted"
+            "output directory should not be deleted"
         )
 
         # Assert: output directory is empty
@@ -69,7 +69,7 @@ class TestClearDatabaseOutputDirectory(unittest.TestCase):
         self.assertEqual(
             remaining,
             [],
-            f"Expected src/output to be empty, found: {remaining}"
+            f"Expected output to be empty, found: {remaining}"
         )
 
 
