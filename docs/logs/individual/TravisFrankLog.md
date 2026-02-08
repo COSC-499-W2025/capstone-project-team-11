@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#semester-2--weeks-4--5-personal-log-january-26th--february-8th-2026)
 - [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
 - [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
 - [Week 1 (Jan 5 – Jan 11, 2026)](#semester-2--week-1-personal-log-january-5th---11th-2026)
@@ -371,3 +372,47 @@ My individual work focused on fixing correctness issues in contributor-based rep
 - Prepare peer testing documentation for Wednesday  
 - Finalize a polished prototype for peer testing  
 - Investigate pulling project information directly from the database in `summarize_projects.py` 
+
+# Semester 2 – Weeks 4 + 5 Personal Log (January 26th – February 8th, 2026)
+
+During Weeks 4 and 5 of Semester 2, the team continued Milestone 2 development with a strong focus on reliability, usability, and polish. During **Week 4**, we conducted peer testing, which helped surface a concrete list of bugs, usability issues, and unclear workflows across the system. Based on this feedback, we shifted focus away from adding new features and instead prioritized implementing fixes and refinements identified through peer testing.
+
+In Week 4, I completed **PR #326**, which refactored project summary generation to rely exclusively on database-backed data rather than filesystem scans. This change significantly improved performance, consistency, and correctness by ensuring summaries reflect the canonical persisted state of the system. The update also included additional initialization checks and new tests to guard against invalid or incomplete database state.
+
+In Week 5, my focus shifted toward UX polish and clarity in Milestone 2 features. I addressed confusing terminology in the **Project Evidence** workflow by renaming and re-framing labels to better communicate intent to users (e.g., “Evidence of Success”), improving overall usability and reducing cognitive overhead. I also began work on refining the file extension filtering experience in the scanning workflow, evaluating whether the prompt should be clarified or removed entirely based on user feedback.
+
+<img width="1079" height="632" alt="Screenshot 2026-02-07 at 9 02 59 PM" src="https://github.com/user-attachments/assets/3dd0ff0b-dff7-44a4-90f2-4a2f522bbd7e" />
+
+## Coding Tasks
+- Refactored project summary generation to rely solely on database data instead of filesystem scans, improving reliability and performance (PR #326)  
+- Added initialization checks and safeguards to prevent invalid summary generation when database state is incomplete (PR #326)  
+- Improved UX clarity in the **Manage Project Evidence** workflow by renaming and re-framing confusing labels (PR #366, Issue #337)  
+- Began refactoring file extension filtering behavior to reduce confusion and improve scan usability (PR #370, Issue #330)
+
+## Testing Tasks
+- Added new unit tests to validate database-backed summary generation and initialization behavior (PR #326)  
+- Verified summary correctness and consistency after removing filesystem-based aggregation  
+- Performed manual CLI testing to confirm improved UX clarity in Project Evidence workflows and other modules
+- Fixed bug in generate_summary.py to ensure failing test passed (PR #
+- Ran the full automated test suite locally to ensure no regressions across Milestone 2 features
+
+## Reviewing / Collaboration Tasks
+- Participated in **peer testing during Week 4**, helping identify bugs, UX issues, and unclear workflows across Milestone 2 features  
+- Collaborated with teammates to consolidate peer testing feedback into a concrete list of bug fixes and refinement tasks that guided work in Weeks 4 and 5  
+
+- Reviewed **Non-git contributor handling** (PR #359)  
+- Reviewed **Integrated LLM summary** (PR #357)  
+- Reviewed **Refactor username selection into shared helper and update resume/portfolio generation** (PR #356)  
+- Reviewed **Updated resume summary section** (PR #353)  
+- Reviewed **T2 Week 4 merge to main** (PR #350)  
+- Reviewed **First round of bugfixes before T2 Week 4 final merge** (PR #349)  
+- Reviewed **Database management updates** (PR #348)  
+- Reviewed **Standardized error handling for core functionalities** (PR #346)
+
+<img width="1092" height="304" alt="Screenshot 2026-02-07 at 9 16 24 PM" src="https://github.com/user-attachments/assets/aaca6d3d-12af-4162-9533-9db4d2a28dc0" />
+
+### Plans Going Forward
+- Complete UX polish tasks for Milestone 2 features  
+- Finalize and merge file extension filtering workflow changes  
+- Support continued LLM integration and downstream summary generation  
+- Assist with final testing, review, and stabilization ahead of Milestone 2 submission  
