@@ -1,3 +1,10 @@
+# Term 2 Navigation:
+- [T2 Week 1](#t2-week-1-january-5th---11th)
+- [T2 Week 2](#t2-week-2-logs-january-12th---18th)
+- [T2 Week 3](#t2-week-3-january-19th-25th)
+- [T2 Week 4 and 5](#t2-week-4-and-5-january-26th--february-8th-2026)
+
+
 # Week 3 Personal Log (15th-21st of September)
 
 The main focus of this week was creating some requirements for our project as well as creating the repository. 
@@ -220,7 +227,9 @@ Sleep and relax. Potentially look into APIs and LLMs to integrate.
 <br></br>
 # Milsestone 2
 <br></br>
-# Week 1 (January 5th - 11th)
+
+
+# T2 Week 1 (January 5th - 11th)
 <img width="799" height="466" alt="image" src="https://github.com/user-attachments/assets/749d4e4d-0293-4f1b-9ba3-0804a918cbb7" />
 
 ## Tasks completed:
@@ -329,4 +338,71 @@ No main issues or blockers.
 - Prepare for peer testing #1.
 - Fix existing bugs from Milestone 1 feedback.
 - Continue researching LLMs.
+
+# T2 Week 4 and 5  (January 26th – February 8th, 2026)
+
+<img width="798" height="473" alt="image" src="https://github.com/user-attachments/assets/84dbb29b-d80c-4fc6-9095-cfd17d40a7fa" />
+
+## Overview:
+For the past two weeks I have been reworking features in preperation for Peer Testing 1 and then reworked features after receiving some feedback from Peer Testing 1. Leading up to the peer testing I looked at some of the suggestions where we lost marks in Milestone 1 and I reworked the way we rank importance of a project by expanding the formula to consider other factors rather than just files touched. I also made the key roles a project more clear by changing the naming conventions, adding descriptions to the roles, and showing the responsibilities of each role. The user has the option to view all the roles with descriptions and responsibilities before getting the real data of users scanned to ensure transparency and make it clear to the user. Lastly, I added a feature that allows a non git project to have a contributor. Previously, we could only extract contributors from git projects however, now the user can assign an existing contributor to a project or create a new contributor to assign to projects. 
+
+Closed issue #358, #305, #320
+
+
+## Reflection
+Overall, the team worked really well these past two weeks and showed professionalism for Peer Testing 1. Leading up to the peer testing we got some last minute feature improvements in that helped us make things clearer to the people who tested our project. During the peer testing we all took solid notes and communicated the issues that we all came across and put that into a list. With that information we spent week 5 fixing some of those issues and integrating new features. All in all, the team was very effective and worked together solidly. 
+
+## Coding Tasks
+- Non git contributor (PR #359, Issue #358)
+    - This PR introduces adding contributors or assigning existing contributors if the file being scanned is not a git project and doesnt offer git data.
+    - Users can select existing contributors by number or name. New contributors can be added with clear duplicate detection and prompts.
+    - Updated contributor prompt flow with strict re‑prompting and “Add new contributor.”
+    - Applies assigned contributors to file ownership for non‑git scans.
+
+- Reworked key roles of a project to be clearer and more in depth (PR #322, Issue #305)
+    - Roles are now designed to be easier to understand for both technical and non-technical users.
+    - Each role represents a well-defined area of contribution rather than a vague title, reducing ambiguity in generated reports.
+    - Role assignments now include detailed context such as descriptions, responsibilities, and confidence levels.
+    - Users can explore all available roles directly from the CLI, helping them understand how the system classifies contributors.
+    - Contributor role reports are more readable and informative, surfacing meaningful context instead of just labels.
+
+- Contributor score fix (PR #321, Issue #320)
+    - Added TopScore as a composite score (coverage + dominance gap + team-size factor) for project-level contribution summaries.
+    - Updated project ranking to sort by TopScore instead of individual metrics, improving consistency and interpretability.
+    - Clarified CLI output and help text to explicitly describe TopScore and TopFraction, aligning terminology with contributor-level scoring.
+    - Updated contributor ranking tests to match the composite score formula and prevent regressions
+
+## Testing and Debugging
+- Updated failing tests due to changes to contributor score formula change
+- Updated failing tests due to more in depth changes to key roles of a user.
+- `test_contributor_prompt.py`
+    - `test_prompt_selects_existing_and_new`: Checks that the prompt correctly returns a combination of selected existing contributors and a newly entered contributor.
+    - `test_prompt_selects_existing_only`: Verifies that the prompt returns only the existing contributor chosen by the user.
+    - `test_prompt_adds_new_only`: Ensures that the prompt correctly handles the creation of a new contributor when no existing contributor is selected.
+ 
+## Reviewing and collaboration
+- Travis' Remove CLI file-extension prompt and fix resume blacklist enforcement #370
+- Tyler's Removing depreciated code (9. generate project summary report) #368
+- Tyler's Completed Deleting Output Folder Projects On Database Clear #367
+- Travis' Improve Evidence of Success naming and clarity #366
+- Jaxson's Integrated LLM summary #357
+- Tanner's Improved scan progress CLI output#354
+- Tanner's Implemented a scanned project TXT summary manager in the CLI #352
+- Tanner's Improved error handling based on teammate feedback #351
+- Jaxson's Update to main menu #323
+
+## Issues and Blockers
+No issues or blockers.
+
+# Plans for week 6
+- Add per user filtering for git contributions.
+- Work on customizing what information a user wants (ie. being able to customize the order of rankings)
+
+
+
+ 
+
+
+
+
 
