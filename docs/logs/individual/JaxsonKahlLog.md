@@ -1,7 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
-- [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-4/5-personal-logs-jan-26th---feb-8th)
+- [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-45-personal-logs-jan-26th---feb-8th)
 - [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
 - [T2 Week 2 (Jan 12 – Jan 18)](#t2-week-2-personal-logs-jan-12th---18th)
 - [T2 Week 1 (Jan 5 – Jan 11)](#t2-week-1-personal-logs-jan-5th---11th)
@@ -506,3 +506,4 @@ Over the past two weeks, I focused on improving the usability, structure, and ou
 - Prepare for the end of Milestone 2
 
 <img width="835" height="738" alt="Screenshot 2026-02-08 at 6 14 45 PM" src="https://github.com/user-attachments/assets/88d735c7-e8ef-4241-9175-db312bc0b563" />
+
