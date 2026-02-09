@@ -3,7 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #2)
-- [T2 Weeks #4 and #5 - January 26th-February 8th](#team-11---t2-week-4/5-team-log-january-26th---february-8th)
+- [T2 Weeks #4 and #5 - January 26th-February 5th](#team-11---weeks-4-and-5-team-log-january-26th---february-8th)
 - [T2 Week #3 - January 19th-25th](#team-11---t2-week-3-team-log-january-19th---january-25th)
 - [T2 Week #2 - January 12th-18th](#team-11---t2-week-2-team-log-january-12th---january-18th)
 - [T2 Week #1 - January 5th-11th](#team-11---t2-week-1-team-log-january-5th---january-11th)
@@ -1237,7 +1237,7 @@ Next week we will be participating in a class-wide peer testing event as mention
 
 ---
 
-# Team #11 - T2 Week 4/5 Team Log (January 26th - February 8th)
+# Team #11 - T2 Weeks 4 and 5 Team Log (January 26th - February 8th)
 
 Team Members --> GitHub Username
 - Daniel Sokic --> danielsokic
