@@ -109,7 +109,6 @@ def handle_scan_directory():
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
-            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             "Proceed with these settings? (y/n): "
         )
 
@@ -120,7 +119,7 @@ def handle_scan_directory():
         run_with_saved_settings(
             directory=current.get("directory"),
             recursive_choice=True,
-            file_type=current.get("file_type"),
+            file_type=None,
             show_collaboration=True,
             show_contribution_metrics=True,
             show_contribution_summary=True,
@@ -139,8 +138,6 @@ def handle_scan_directory():
             break
 
         recursive_choice = True
-        file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
-        file_type = file_type if file_type else None
         show_collab = True
         show_metrics = True
         show_summary = True
@@ -152,7 +149,7 @@ def handle_scan_directory():
         run_with_saved_settings(
             directory=directory,
             recursive_choice=recursive_choice,
-            file_type=file_type,
+            file_type=None,
             show_collaboration=show_collab,
             show_contribution_metrics=show_metrics,
             show_contribution_summary=show_summary,

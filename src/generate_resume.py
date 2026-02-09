@@ -377,8 +377,9 @@ def main():
 
 
 
-        
-   
+    if (not args.allow_bots) and username in BLACKLIST:
+        print(f"Generation disabled for user '{username}'")
+        return 1
 
     os.makedirs(args.resume_dir, exist_ok=True)
 
