@@ -1,6 +1,7 @@
 # Tanner Dyck's Personal Log
 
 ### Term 2 (Milestone #2)
+- [Weeks #4 and #5 - January 26th-February 2nd](#weeks-4-and-5---january-26th---february-2nd)
 - [Week #3 - January 19th-25th](#week-3---january-19th---25th)
 - [Week #2 - January 12th-18th](#week-2---january-12th---18th)
 - [Week #1 - January 5th-11th](#week-1---january-5th---11th)
@@ -586,3 +587,126 @@ Next week I want to pick up where we left off at the end of last week. This week
 ## Kanban Board at End of T2 Week 3
 
 <img width="1875" height="896" alt="t2week3-kanban" src="https://github.com/user-attachments/assets/444a23fe-64d7-4c38-a02b-0bcf253b57a7" />
+
+---
+
+# Weeks #4 and #5 - January 26th - February 2nd
+
+<img width="676" height="538" alt="t2weeks4+5-tasks" src="https://github.com/user-attachments/assets/a27d39ce-eb80-495f-a716-24009c8da03a" />
+
+## Connection to T2 Week 3
+T2 Week 3 was focused on bug-fixing, polishing, and preparing for peer testing. I mentioned wanting to continue pushing forward with larger features, and that is exactly what I was able to do during these two weeks. The first half of this period was dominated by peer testing preparations: revamping the main menu layout, updating the session outline, and standardizing our error handling across the CLI. The second half shifted towards implementing new functionality: a scanned project TXT summary manager, critical bugfixes after merging, and further error handling improvements based on teammate and peer tester feedback. These two weeks combined saw significant changes to the core CLI experience.
+
+## Coding Tasks
+
+### [T2 Week 4 - January 26th to February 1st]
+
+### 1. Standardized error handling for core functionalities [PR #346](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/346)
+- I essentially reworked all error messages I found, that are tied to any of the functionalities that are accessible from the main menu. I just scanned through each file top-to-bottom and replaced any error messages with a new standardized format:
+"Error: ERROR_MESSAGE"
+"    Hint: HINT_MESSAGE"
+- Most of the error handling was able to be handled from within `main_menu.py`, but for all error messages relating to managing project evidence, I had to change the wording directly in the `project_evidence.py` script, as it works as more of an external submenu, so error handling is handled locally.
+- I also had to update a failing test in `test_main_menu.py` to accommodate the updated error message format.
+*Full transparency: This does not ensure ALL error handling is standardized. I only reworked anything I found in the CORE interaction loop*
+
+### 2. Bugfixes before T2 Week 4 final merge [PR #349](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/349)
+*Certain elements of our program broke during the last round of PR merges. This commit includes some hotfixes for the most intrusive of the newly introduced issues:*
+- `main_menu.py`:
+    - Updated `handle_view_resumes()` to host the same logic as `handle_view_portfolios()`:
+        - Added the `action` prompt so users can choose to (v)iew, (a)dd, (d)elete, or (c)ancel
+        - Added the `add_path` logic using `prompt_project_path()` when the user chooses "a"
+        - Wrapped handle_add_to_resume() in a try/except for improved error handling
+    - Reworked a code block at the top that handled scan settings and scan paths. This was a merge conflict issue within PR #346, so I just reverted the changes to what was on Development before.
+    - Fixed an issue that arose during the merge that made the main menu options out of sync. Re-wired options 11. Thumbnails and 12. Manage Database and ensured they were functional.
+    - Fixed an issue that changed the runtime prompts during a project scan. It has now been set back to its intended structure: review consent policy (y/n) scan project path: filter by file type: save settings for next time (y/n)
+    - Changed "Exit" menu option to be activated with number zero instead of thirteen for cleanliness
+- `test_main_menu.py`: Updated the first test to accommodate for the updated menu numbering
+- `project_evidence.py`: Fixed an issue where the list of current feedback was not re-printed when entering (e)dit or (d)elete submenus.
+
+### [T2 Week 5 - February 2nd to 8th]
+
+### 1. Improved Error Handling Based on Teammate Feedback [PR #351](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/351)
+- Addressed 5 issues identified by Jaxson and Pri during review of PR #346:
+    1. Removed `default=False` parameter from `ask_yes_no()` in `consent.py` to ensure re-prompting always occurs on invalid/empty inputs
+    2. Added while loops with re-prompting in `main_menu.py` for empty scan path inputs (previously sent users back to the main menu)
+    3. Added while loops with proper error handling in `generate_portfolio.py` for username selection — both when no candidates are found and when candidates are listed
+    4. Applied the same username selection fixes to `generate_resume.py` for parity
+    5. Removed the deprecated "(Tip: use option 12 to edit project display names.)" message from resume generation output, as the feature was no longer accessible at that menu number
+- Removed deprecated `default=False` arguments from `ask_yes_no()` calls across `main_menu.py`
+
+### 2. Scanned Project TXT Summary Manager [PR #352](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/352)
+- Implemented a new main menu option: `2. View/Manage Scanned Projects`
+    - Shifted all existing menu options down to accommodate the new entry
+- Added `_list_project_summaries()` helper function to locate the `output/` folder, find JSON and TXT summary files for each scanned project, and build a list of project names, paths, and file counts
+- Added `_delete_project_output_files()` helper function to delete local JSON and TXT summary files for a project
+- Added `handle_manage_scanned_projects()` to host the core logic for the new feature:
+    - Lists available project summaries with any custom display names
+    - Offers three actions: View (prints TXT summary to CLI), Edit Display Name, and Delete Scanned Project
+    - Delete action clears both the database entry and the local output folder
+- Updated the "Delete Project" feature within `13. Manage Database` to also clear the project's local `output/` folder when possible
+
+### 3. Improved scan progress CLI output [PR #354](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/354)
+*NOTE: I did not see the "Changes requested" status of my PR until Sunday night, once it was too late to push the fix and have others properly test and review it. I recognize that this cannot be counted towards these week's coding contributions as they are not merged to main. But I wanted to document the PR here, as I will need to push a few small fixes for the nested project scanning bug early next week, and the core of the PR will remain the same. My apologies for any inconvenience/hassle*
+
+I revamped how the scan progress output is formatted within the CLI. We received feedback during our first peer testing event that our CLI got overwhelming during scanning due to the mountain of text, file paths, and metrics that were printed to the CLI. I wanted to improve the user experience when scanning, so I cleaned up the formatting for scan progress updates:
+- `scan.py`:
+    - Added `ScanProgress` class for centralized, clean CLI output management
+    - Added `scan_with_clean_output()` as unified scan entry point with phased/modularized progress display
+    - Added helper functions `get_scan_progress()` and `reset_scan_progress()` for global progress instance management
+    - Removed label parameter from `_run_with_progress()` calls, now uses ScanProgress to display to the CLI `Updated `if __name__ == "__main__"` block to direct users to main menu
+- `main_menu.py`:
+    - Replaced `run_with_saved_settings` import with `scan_with_clean_output` in order to use the new CLI scan progress formatting
+    - Added `_show_post_scan_menu()` for post-scan action selection (view summary, manage other projects, return to main menu)
+    - Added `_view_project_summary()` to display TXT summaries for scanned projects
+    - Refactored `handle_scan_directory()` to use new clean scan system with an updated and simplified flow
+- `project_info_output.py`:
+    - Added quiet parameters to `gather_project_info()` and `output_project_info()` to suppress progress messages (preserves code and logic, but doesn't use it for CLI output)
+    - Added confidence categorization (high/medium/low) for languages/frameworks in TXT summary, and during CLI progress reporting
+- `detect_langs.py`: Commented out the "Log filtering statistics" code to ensure the new output remains clean
+
+## Testing & Debugging Tasks
+
+### Test Updates
+### [T2 Week 4 - January 26th to February 1st]
+- [PR #346](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/346): Updated 1 test to accomodate the new standardized `print_error()` message format
+- [PR #349](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/349): Updated 1 test to accomodate the new main menu numbering
+### [T2 Week 5 - February 2nd to 8th]
+- [PR #351](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/351): Updated 6 tests to remove deprecated `default=False` arguments from `ask_yes_no()` calls
+- [PR #352](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/352): Updated 1 test to accomodate the new main menu numbering
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the two weeks in our Discord server
+- Completed individual log and peer review for T2 Weeks 4 & 5
+- Participated in and helped organize our first peer testing event
+- Aggregated peer testing feedback/known bugs/remaining M2 deliverables, and translated them into GitHub issues 
+- Reviewed and approved:
+    - Code PRs:
+        - [#321 - Contributor score fix](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/321) (Daniel)
+        - [#322 - Reworked key roles of a project to be clearer and more in depth](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/322) (Daniel)
+        - [#323 - Update to main menu](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/323) (Jaxson)
+        - [#347 - Reworked Thumbnail Feature](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/347) (Jaxson)
+        - [#348 - Database management](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/348) (Tyler)
+        - [#353 - Updated resume summary section](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/353) (Jaxson)
+        - [#356 - Refactor username selection into shared helper and update resume/portfolio generation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/356) (Priyanshu)
+        - [#357 - Integrated LLM summary](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/357) (Jaxson)
+        - [#359 - Non git contributor](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/359) (Daniel) *Didn't review BEFORE merge, but provided some possible improvements afterwards*
+        - [#360 - Fix/cli input validation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/360) (Priyanshu)
+        - [#361 - Feature/cli identity selection](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/361) (Priyanshu)
+    - Log PRs:
+        - [#369 - Tyler's Individual Log for Weeks 4 and 5](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/369)
+        - [#371 - Travis' Individual Log for Weeks 4 and 5](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/371)
+
+## Issues & Blockers
+The biggest challenge these two weeks was dealing with merge conflicts. After the initial round of PRs were merged, several components of the program broke. I spent a bit of time hotfixing these issues in PR [PR #349](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/349) before the final merge could go through. None of the breaking changes were too difficult to fix, and there was only a small handful of critical errors. But still, our program couldn't even be executed on my system without fatal errors. This reinforces the importance of thorough post-merge testing, especially when multiple PRs touch the same files (in our case, `main_menu.py` and `scan.py` are becoming minor bottlenecks for merge conflicts)
+
+## Reflection Points
+These two weeks were productive and featured a good mix of polishing and new feature work. The peer testing event went smoothly thanks to the preparation we put in during the first week. We took plenty of notes and were quick to translate feedback into actionable GitHub issues. We spent a lot of time improving the error handling, CLI user experience, and overall polish of our program. We also took a huge step forwards thanks to Jaxson's work on the LLM-assisted project summary implementation in [PR #357](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/357). Our project is becoming more streamlined, more accessible, and more visually appealing every week. Our team vision feels clearer and more aligned than ever before. I'm really proud of our team's work over these two weeks, and I am excited to be closing in on the end of milestone 2! 
+
+## Goals for Next Week (T2 Week 6)
+- Continue improving the CLI experience (nested project scanning is currently buggy, and I have fixes planned for next week thanks to PR review feedback from Travis)
+- Begin looking into finalizing resume and portfolio functionality (I want them to be customizable and editable, but I fear the restrictions put in place by the CLI interface)
+- Assist teammates with LLM integration work if needed, as it is becoming a priority for improving our analysis features (langauges, skills, contributor roles, rankings, etc.)
+- Loosely start preparing for the end of Milestone 2 by preparing video demo footage, presentation slides, documentation updates, etc.
+
+## Kanban Board at End of T2 Weeks 4 & 5
+<img width="1875" height="893" alt="t2weeks4+5-kanban" src="https://github.com/user-attachments/assets/011041ef-9386-4fa1-973f-1522b2f92ad0" />
