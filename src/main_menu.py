@@ -42,6 +42,7 @@ from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
+from project_info_output import gather_project_info, output_project_info
 from detect_roles import (
     load_contributors_from_db,
     load_contributors_per_project_from_db,
