@@ -1,6 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
+- [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-45-personal-logs-jan-26th---feb-8th)
 - [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
 - [T2 Week 2 (Jan 12 – Jan 18)](#t2-week-2-personal-logs-jan-12th---18th)
 - [T2 Week 1 (Jan 5 – Jan 11)](#t2-week-1-personal-logs-jan-5th---11th)
@@ -465,3 +466,44 @@ This week, I worked on reworking the resume and portfolio generation feature for
 - Rework the information in the resumes, as some information is seen as redundant and not useful
 
 <img width="829" height="494" alt="Screenshot 2026-01-25 at 5 09 06 PM" src="https://github.com/user-attachments/assets/f5d040b3-cdd1-47a8-af0a-0885b10d4889" />
+
+# T2 Week 4/5 Personal Logs (Jan 26th - Feb 8th)
+<img width="949" height="549" alt="Screenshot 2026-02-08 at 6 10 53 PM" src="https://github.com/user-attachments/assets/6a32f792-4b17-44a3-9c17-b60e7029fe4e" />
+## Overview
+Over the past two weeks, I focused on improving the usability, structure, and output quality of the capstone system. This work included CLI usability improvements, feature refactoring, resume output refinement, and the introduction of an opt-in LLM-based project summary feature. The overall goal was to make the system easier to use, more modular, and more aligned with realistic resume and portfolio generation workflows, while preserving existing non-LLM functionality and analysis pipelines.
+
+## Coding Tasks
+- Simplified and reorganized the CLI main menu to remove redundant scan prompts and improve navigation (PR #323).
+- Refactored thumbnail handling by removing it from the scan flow and adding a dedicated thumbnail management workflow (PR #347).
+- Updated resume generation to produce a short, narrative-style professional summary instead of raw skill and technology lists (PR #353).
+- Added an opt-in LLM-based project summary feature using a local LLaMA model (llama 3.2:3b), limited strictly to summarization (PR #357).
+- Extended the database layer to store generated project summaries alongside existing project metadata (PR #357).
+- Updated consent and data access policy logic to allow users to enable or disable LLM usage without affecting default system behavior (PR #357).
+- Closed issues #340 and #239
+
+## Testing and Debugging
+- Ran the full automated test suite after each PR to ensure no regressions were introduced (PRs #323, #347, #353, #357).
+- Updated and validated tests affected by menu changes, thumbnail refactoring, and resume output updates (PRs #323, #347, #353).
+- Manually tested CLI workflows, including scanning with and without LLM consent, thumbnail management, and resume generation (PRs #347, #357).
+- Verified that LLM summaries are cached correctly and not regenerated unnecessarily when inputs remain unchanged (PR #357).
+
+## Reviewing and Collaboration
+- Reviewed and provided feedback on:
+  - Travis's Refactor summarize_projects.py to use database-backed data only (PR #326)
+  - Tanner's Add CLI path validation helpers + tests (PR #345)
+  - Tanner's Standardized error handling for core functionalities (PR #346)
+  - Tanner's implemented a scanned project TXT summary manager in the CLI#352
+  - Daniel's Non git contributor (PR #359)
+  - Travis's Improve Evidence of Success naming and clarity#366
+
+## Issues / Blockers
+- No major blockers during this period.
+- Identified a minor UX limitation where LLM-generated summaries are not immediately displayed after generation, which may be addressed in future work (PR #357).
+- Care was required to ensure LLM functionality did not overlap with existing .git-based analysis logic; this was resolved by tightly scoping LLM usage to summarization only (PR #357).
+  
+## Plan for Next Week
+- Use the new LLM summary to improve the resume generation
+- Prepare for the end of Milestone 2
+
+<img width="835" height="738" alt="Screenshot 2026-02-08 at 6 14 45 PM" src="https://github.com/user-attachments/assets/88d735c7-e8ef-4241-9175-db312bc0b563" />
+
