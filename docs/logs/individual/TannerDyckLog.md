@@ -592,7 +592,7 @@ Next week I want to pick up where we left off at the end of last week. This week
 
 # Weeks #4 and #5 - January 26th - February 2nd
 
-TODO: <img width="" height="" alt="t2weeks4+5-tasks" src="" />
+<img width="676" height="538" alt="t2weeks4+5-tasks" src="https://github.com/user-attachments/assets/a27d39ce-eb80-495f-a716-24009c8da03a" />
 
 ## Connection to T2 Week 3
 T2 Week 3 was focused on bug-fixing, polishing, and preparing for peer testing. I mentioned wanting to continue pushing forward with larger features, and that is exactly what I was able to do during these two weeks. The first half of this period was dominated by peer testing preparations: revamping the main menu layout, updating the session outline, and standardizing our error handling across the CLI. The second half shifted towards implementing new functionality: a scanned project TXT summary manager, critical bugfixes after merging, and further error handling improvements based on teammate and peer tester feedback. These two weeks combined saw significant changes to the core CLI experience.
@@ -646,6 +646,8 @@ T2 Week 3 was focused on bug-fixing, polishing, and preparing for peer testing. 
 - Updated the "Delete Project" feature within `13. Manage Database` to also clear the project's local `output/` folder when possible
 
 ### 3. Improved scan progress CLI output [PR #354](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/354)
+*NOTE: I did not see the "Changes requested" status of my PR until Sunday night, once it was too late to push the fix and have others properly test and review it. I recognize that this cannot be counted towards these week's coding contributions as they are not merged to main. But I wanted to document the PR here, as I will need to push a few small fixes for the nested project scanning bug early next week, and the core of the PR will remain the same. My apologies for any inconvenience/hassle*
+
 I revamped how the scan progress output is formatted within the CLI. We received feedback during our first peer testing event that our CLI got overwhelming during scanning due to the mountain of text, file paths, and metrics that were printed to the CLI. I wanted to improve the user experience when scanning, so I cleaned up the formatting for scan progress updates:
 - `scan.py`:
     - Added `ScanProgress` class for centralized, clean CLI output management
@@ -675,6 +677,8 @@ I revamped how the scan progress output is formatted within the CLI. We received
 ## Reviewing & Collaboration Tasks
 - Communicated regularly throughout the two weeks in our Discord server
 - Completed individual log and peer review for T2 Weeks 4 & 5
+- Participated in and helped organize our first peer testing event
+- Aggregated peer testing feedback/known bugs/remaining M2 deliverables, and translated them into GitHub issues 
 - Reviewed and approved:
     - Code PRs:
         - [#321 - Contributor score fix](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/321) (Daniel)
@@ -685,10 +689,12 @@ I revamped how the scan progress output is formatted within the CLI. We received
         - [#353 - Updated resume summary section](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/353) (Jaxson)
         - [#356 - Refactor username selection into shared helper and update resume/portfolio generation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/356) (Priyanshu)
         - [#357 - Integrated LLM summary](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/357) (Jaxson)
+        - [#359 - Non git contributor](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/359) (Daniel) *Didn't review BEFORE merge, but provided some possible improvements afterwards*
+        - [#360 - Fix/cli input validation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/360) (Priyanshu)
+        - [#361 - Feature/cli identity selection](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/361) (Priyanshu)
     - Log PRs:
-        - TODO:
-- Participated in and helped organize our first peer testing event
-- Aggregated peer testing feedback/known bugs/remaining M2 deliverables, and translated them into GitHub issues 
+        - [#369 - Tyler's Individual Log for Weeks 4 and 5](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/369)
+        - [#371 - Travis' Individual Log for Weeks 4 and 5](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/371)
 
 ## Issues & Blockers
 The biggest challenge these two weeks was dealing with merge conflicts. After the initial round of PRs were merged, several components of the program broke. I spent a bit of time hotfixing these issues in PR [PR #349](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/349) before the final merge could go through. None of the breaking changes were too difficult to fix, and there was only a small handful of critical errors. But still, our program couldn't even be executed on my system without fatal errors. This reinforces the importance of thorough post-merge testing, especially when multiple PRs touch the same files (in our case, `main_menu.py` and `scan.py` are becoming minor bottlenecks for merge conflicts)
@@ -700,6 +706,7 @@ These two weeks were productive and featured a good mix of polishing and new fea
 - Continue improving the CLI experience (nested project scanning is currently buggy, and I have fixes planned for next week thanks to PR review feedback from Travis)
 - Begin looking into finalizing resume and portfolio functionality (I want them to be customizable and editable, but I fear the restrictions put in place by the CLI interface)
 - Assist teammates with LLM integration work if needed, as it is becoming a priority for improving our analysis features (langauges, skills, contributor roles, rankings, etc.)
+- Loosely start preparing for the end of Milestone 2 by preparing video demo footage, presentation slides, documentation updates, etc.
 
 ## Kanban Board at End of T2 Weeks 4 & 5
-TODO: <img width="" height="" alt="t2weeks4+5-tasks" src="" />
+<img width="1875" height="893" alt="t2weeks4+5-kanban" src="https://github.com/user-attachments/assets/011041ef-9386-4fa1-973f-1522b2f92ad0" />
