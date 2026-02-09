@@ -398,4 +398,88 @@ No main issues or blockers.
 - Fix existing bugs from Milestone 1 feedback.
 - Continue researching LLMs.
 
+# T2 Week 4/5 Personal Logs (Jan 26th - Feb 8th)
 
+<img width="1123" height="641" alt="Screenshot 2026-02-08 at 8 22 57 PM" src="https://github.com/user-attachments/assets/f2e07d8c-7244-4454-9647-bef9d9192fb0" />
+
+
+## Overview
+Over the past two weeks, my work focused on fixing and standardizing core CLI input flows, especially around path validation, username/identity selection, and resume/portfolio generation. The goal was to make user input handling predictable, reusable, and consistent across the system, while reducing crashes, silent failures, and confusing control flow. A large part of this effort involved refactoring duplicated logic into shared helpers, tightening validation against database-backed data, and adding tests to lock in correct behavior.
+
+
+## Coding Tasks
+introduced shared CLI path validation helpers to standardize how project paths and zip inputs are checked before scanning (PR #345).
+
+Refactored username selection into a shared helper used by both resume and portfolio generation to prevent invalid or arbitrary usernames from being accepted (PR #356).
+
+Extended CLI input validation to fully align resume and portfolio behavior, including blacklist handling, early failure for invalid usernames, and clearer error messages (PR #360).
+
+Implemented a unified identity selection flow allowing users to:
+
+Select a valid git contributor
+
+Use a local/guest (non-git) mode
+
+Optionally include non-git projects alongside git-based output (PR #361).
+
+Cleaned up control flow and comments across affected files to make validation logic easier to follow and maintain.
+
+Closed issue #336.
+
+
+
+## Testing and Debugging
+Added targeted unit tests for shared helpers, including:
+
+cli_validators.py path normalization and validation
+
+cli_username_selection logic and edge cases
+
+Ran the full pytest suite locally after each PR to ensure no regressions were introduced.
+
+Manually tested CLI flows through the main menu for:
+
+Resume generation
+
+Portfolio generation
+
+Valid and invalid usernames
+
+Blank inputs and cancel paths
+
+Guest/local-only generation
+
+Verified that invalid input consistently re-prompts instead of crashing or dumping the user back to the main menu.
+
+
+
+## Reviewing and Collaboration
+Reviewed and provided feedback on the following PRs:
+
+Travis — Refactor summarize_projects.py to use database-backed data only (PR #326)
+
+Tanner — Standardized error handling for core functionalities (PR #346)
+
+Tanner — Reworked Thumbnail Feature (PR #347)
+
+Jaxson — Improved error handling based on teammate feedback (PR #351)
+
+Feedback focused on correctness, control flow consistency, test coverage, and alignment with existing CLI behavior.
+
+
+## Issues / Blockers
+No major blockers during this period.
+
+Some care was required to avoid changing output formats or database structure while refactoring input flows.
+
+Coordinating overlapping CLI changes required frequent rebasing and validation to avoid merge conflicts, especially around main_menu.py
+
+
+## Plan for Next Week
+
+
+Build on the identity selection flow to support more granular project selection.
+
+Continue tightening CLI UX edge cases now that a stable validation base is in place.
+
+Assist with final Milestone 2 polish and testing as features converge.
