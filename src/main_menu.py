@@ -37,11 +37,12 @@ from rank_projects import (
     _get_all_contributors
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
-from project_info_output import gather_project_info, output_project_info
+from contrib_metrics import canonical_username
 from db import get_connection, DB_PATH
 from thumbnail_manager import handle_edit_project_thumbnail
 from file_utils import is_image_file
 from project_evidence import handle_project_evidence
+from project_info_output import gather_project_info, output_project_info
 from detect_roles import (
     load_contributors_from_db,
     load_contributors_per_project_from_db,
@@ -73,15 +74,14 @@ def print_main_menu():
     print("ANALYSIS")
     print("7. Rank Projects")
     print("8. Summarize Contributor Projects")
-    print("9. Generate Project Summary Report")
-    print("10. Manage Project Evidence")
-    print("11. Analyze Contributor Roles")
+    print("9. Manage Evidence of Success")
+    print("10. Analyze Contributor Roles")
     print("")
     print("EXTRA")
-    print("12. Edit Thumbnail for a Project")
+    print("11. Edit Thumbnail for a Project")
     print("")
     print("ADMIN")
-    print("13. Manage Database")
+    print("12. Manage Database")
     print("0. Exit")
 
 # Show post-scan action menu (View new summary, manage other projects, return to main menu)
@@ -129,7 +129,7 @@ def handle_scan_directory():
     # Check data consent first
     current = load_config(None)
     if current.get("data_consent") is True:
-        if ask_yes_no("Would you like to review our data access policy? (y/n): "):
+        if ask_yes_no("Would you like to review our data access policy? (y/n): ", default=False):
             consent = ask_for_data_consent(config_path=default_config_path())
             if not consent:
                 print_error("Data access consent not granted.", "You must accept the data policy to scan projects.")
@@ -150,11 +150,25 @@ def handle_scan_directory():
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
             f"  Scanned Directory:          {current.get('directory') or '<none>'}\n"
-            f"  Only Scan File Type:        {current.get('file_type') or '<all>'}\n"
             "Proceed with these settings? (y/n): "
         )
 
     if use_saved and current.get("directory"):
+        llm_summary = bool(current.get("llm_summary_consent"))
+        save_db = True
+        thumbnail_source = None
+        run_with_saved_settings(
+            directory=current.get("directory"),
+            recursive_choice=True,
+            file_type=None,
+            show_collaboration=True,
+            show_contribution_metrics=True,
+            show_contribution_summary=True,
+            save=False,
+            save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
+            generate_llm_summary=llm_summary,
+        )
         selected_dir = current.get("directory")
         file_type = current.get("file_type")
     else:
@@ -165,9 +179,27 @@ def handle_scan_directory():
                 continue
             break
 
-        file_type = input("Enter file type (e.g. .txt) or leave blank for all: ").strip()
-        file_type = file_type if file_type else None
+        recursive_choice = True
+        show_collab = True
+        show_metrics = True
+        show_summary = True
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
+        save_db = True
+        thumbnail_source = None
+        llm_summary = bool(current.get("llm_summary_consent"))
+
+        run_with_saved_settings(
+            directory=directory,
+            recursive_choice=recursive_choice,
+            file_type=None,
+            show_collaboration=show_collab,
+            show_contribution_metrics=show_metrics,
+            show_contribution_summary=show_summary,
+            save=remember,
+            save_to_db=save_db,
+            thumbnail_source=thumbnail_source,
+            generate_llm_summary=llm_summary,
+        )
         selected_dir = directory
 
         # Save settings if requested
@@ -260,186 +292,10 @@ def human_ts(ts):
 
 def handle_inspect_database():
     """Handle database inspection."""
-    print("\n=== Inspect Database ===")
-    print(f"Inspecting DB: {DB_PATH}")
-    
     try:
+        import inspect_db
         conn = get_connection()
-        cur = conn.cursor()
-
-        # Tables
-        print('\n' + '=' * 80)
-        print('Tables in database')
-        print('=' * 80)
-        rows = safe_query(cur, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        if rows:
-            for r in rows:
-                print(' -', r['name'])
-        else:
-            print(' (no tables found)')
-
-        # Scans summary
-        print('\n' + '=' * 80)
-        print('Recent scans')
-        print('=' * 80)
-        scans = safe_query(cur, "SELECT id, scanned_at, project, notes FROM scans ORDER BY scanned_at DESC LIMIT 10")
-        if not scans:
-            print(' No scans found')
-        else:
-            for s in scans:
-                print(f"Scan {s['id']}: {human_ts(s['scanned_at'])} | project={s['project'] or '<none>'} | notes={s['notes'] or ''}")
-
-        # Files overview
-        print('\n' + '=' * 80)
-        print('Files (recent)')
-        print('=' * 80)
-        files = safe_query(cur, "SELECT id, file_name, file_path, file_extension, file_size, modified_at FROM files ORDER BY (modified_at IS NULL), modified_at DESC, id DESC LIMIT 20")
-        if not files:
-            print(' No files recorded')
-        else:
-            for f in files:
-                size = f['file_size'] if f['file_size'] is not None else 'unknown'
-                print(f"[{f['id']}] {f['file_name']} ({f['file_extension'] or ''}) — {size} bytes — modified: {human_ts(f['modified_at'])}\n    path: {f['file_path']}")
-
-        # Projects and skills
-        print('\n' + '=' * 80)
-        print('Projects and skills')
-        print('=' * 80)
-        projects = safe_query(cur, "SELECT id, name, repo_url, created_at FROM projects ORDER BY name")
-        if projects:
-            for p in projects:
-                print(f"Project {p['id']}: {p['name']} (repo: {p['repo_url'] or '<none>'}) created: {human_ts(p['created_at'])}")
-                # count scans and files for this project
-                sc = safe_query(cur, "SELECT COUNT(*) AS c FROM scans WHERE project = ?", (p['name'],))
-                fc = safe_query(cur, "SELECT COUNT(f.id) AS c FROM files f JOIN scans s ON f.scan_id = s.id WHERE s.project = ?", (p['name'],))
-                sc_cnt = sc[0]['c'] if sc else 0
-                f_cnt = fc[0]['c'] if fc else 0
-                print(f"  scans: {sc_cnt} | files: {f_cnt}")
-                # skills
-                skills = safe_query(cur, "SELECT sk.name FROM skills sk JOIN project_skills ps ON sk.id = ps.skill_id WHERE ps.project_id = ?", (p['id'],))
-                if skills:
-                    print('  skills:', ', '.join([r['name'] for r in skills]))
-                else:
-                    print('  skills: (none)')
-        else:
-            print(' No projects recorded')
-
-        # Thumbnails
-        print('\n' + '=' * 80)
-        print('Project thumbnails (path + file check)')
-        print('=' * 80)
-        thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
-        if not thumb_rows:
-            print(' No projects recorded')
-        else:
-            for row in thumb_rows:
-                thumb_path = row['thumbnail_path']
-                if not thumb_path:
-                    status = 'empty'
-                elif not os.path.isfile(thumb_path):
-                    status = 'missing file'
-                elif not is_image_file(thumb_path):
-                    status = 'not an image'
-                else:
-                    status = 'ok'
-                display_path = thumb_path or '<none>'
-                print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
-
-        # Languages top summary
-        print('\n' + '=' * 80)
-        print('Top languages (by files)')
-        print('=' * 80)
-        lang_rows = safe_query(cur, "SELECT l.name, COUNT(fl.file_id) AS cnt FROM languages l LEFT JOIN file_languages fl ON l.id = fl.language_id GROUP BY l.id ORDER BY cnt DESC LIMIT 20")
-        if not lang_rows:
-            print(' No language information')
-        else:
-            for r in lang_rows:
-                print(f"  {r['name']}: {r['cnt']}")
-
-        # Contributors summary
-        print('\n' + '=' * 80)
-        print('Contributors & sample files')
-        print('=' * 80)
-        contribs = safe_query(cur, "SELECT id, name FROM contributors ORDER BY name")
-        if not contribs:
-            print(' No contributors recorded')
-        else:
-            for c in contribs:
-                print(f"Contributor {c['id']}: {c['name']}")
-                sample_files = safe_query(cur, "SELECT f.file_name, f.file_path FROM files f JOIN file_contributors fc ON f.id = fc.file_id WHERE fc.contributor_id = ? LIMIT 5", (c['id'],))
-                if sample_files:
-                    for sf in sample_files:
-                        print(f"   - {sf['file_name']}  ({sf['file_path']})")
-                else:
-                    print('   (no linked files)')
-
-        # Resumes summary
-        print('\n' + '=' * 80)
-        print('Resumes (recent)')
-        print('=' * 80)
-        resumes = safe_query(cur, """
-            SELECT r.id, r.username, r.resume_path, r.generated_at, c.name AS contributor_name
-            FROM resumes r
-            LEFT JOIN contributors c ON c.id = r.contributor_id
-            ORDER BY r.generated_at DESC
-            LIMIT 10
-        """)
-        if not resumes:
-            print(' No resumes saved')
-        else:
-            for r in resumes:
-                uname = r['username'] or r['contributor_name'] or '<unknown>'
-                print(f"[{r['id']}] user={uname} | generated={human_ts(r['generated_at'])}")
-                print(f"    path: {r['resume_path']}")
-
-        # Portfolios summary
-        print('\n' + '=' * 80)
-        print('Portfolios (recent)')
-        print('=' * 80)
-        portfolios = safe_query(cur, """
-            SELECT p.id, p.username, p.portfolio_path, p.generated_at, c.name AS contributor_name
-            FROM portfolios p
-            LEFT JOIN contributors c ON c.id = p.contributor_id
-            ORDER BY p.generated_at DESC
-            LIMIT 10
-        """)
-        if not portfolios:
-            print(' No portfolios saved')
-        else:
-            for p in portfolios:
-                uname = p['username'] or p['contributor_name'] or '<unknown>'
-                print(f"[{p['id']}] user={uname} | generated={human_ts(p['generated_at'])}")
-                print(f"    path: {p['portfolio_path']}")
-
-        # Skills timeline
-        print('\n' + '=' * 80)
-        print('Skills Exercised (Chronologically — Grouped by Skill)')
-        print('=' * 80)
-        raw_rows = safe_query(cur, """
-            SELECT sk.name AS skill,
-                   s.scanned_at AS used_at,
-                   p.name AS project
-            FROM skills sk
-            JOIN project_skills ps ON sk.id = ps.skill_id
-            JOIN projects p ON ps.project_id = p.id
-            JOIN scans s ON s.project = p.name
-            ORDER BY sk.name ASC, used_at ASC
-        """)
-        if not raw_rows:
-            print(" No recorded skills")
-        else:
-            grouped = {}
-            for row in raw_rows:
-                skill = row["skill"]
-                ts = human_ts(row["used_at"])
-                proj = row["project"]
-                grouped.setdefault(skill, []).append((ts, proj))
-            for skill, entries in grouped.items():
-                print(f"\n{skill}:")
-                for ts, proj in entries:
-                    print(f"   • {ts}  (project: {proj})")
-
-        conn.close()
+        inspect_db.inspect_connection(conn, db_label=DB_PATH)
     except Exception as e:
         print_error(f"Failed to inspect database: {e}", "Check that the database file exists and is accessible.")
 
@@ -562,12 +418,8 @@ def handle_summarize_contributor_projects():
     finally:
         cur.close()
     
-    # Normalize contributor names into canonical usernames
-    def normalize_username(name: str) -> str:
-        return ''.join(c for c in name.lower() if c.isalnum())
-    
     canonical_usernames = sorted(
-        set(normalize_username(name) for name in raw_contributors if normalize_username(name) not in BLACKLIST)
+        set(canonical_username(name) for name in raw_contributors if canonical_username(name) not in BLACKLIST)
     )
     
     if not canonical_usernames:
@@ -610,56 +462,31 @@ def handle_summarize_contributor_projects():
     except Exception as e:
         print_error(f"Failed to generate contributor projects summary: {e}")
 
-
-def handle_generate_project_summary():
-    """Handle generating a project summary report."""
-    print("\n=== Generate Project Summary Report ===")
-    directory = input("Enter project directory path: ").strip()
-    if not directory:
-        print_error("No directory path provided.", "Enter a valid project directory path.")
-        return
-    if not os.path.exists(directory):
-        print_error("Directory does not exist.", "Check the path and try again.")
-        return
-
-    try:
-        info = gather_project_info(directory)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(directory))
-        out_dir = os.path.join("output", project_name)
-        os.makedirs(out_dir, exist_ok=True)
-        json_path, txt_path = output_project_info(info, output_dir=out_dir)
-        print(f"\nSummary reports saved to: {out_dir}")
-        print(f"  JSON: {json_path}")
-        print(f"  TXT:  {txt_path}")
-    except Exception as e:
-        print_error(f"Failed to generate project summary: {e}", "Check that the directory contains valid project files.")
-
-
 def handle_generate_resume():
-    """Run the resume generator script for a specified username.
-
-    Delegates username prompting and candidate listing entirely to the
-    generate_resume script.
-    """
     print("\n=== Generate Resume ===")
 
-    script_path = os.path.join(os.path.dirname(__file__), 'generate_resume.py')
+    script_path = os.path.join(os.path.dirname(__file__), "generate_resume.py")
     if not os.path.exists(script_path):
-        print_error(f"Resume generator script not found at: {script_path}", "Ensure the application is installed correctly.")
+        print_error(f"Resume generator script not found at: {script_path}")
         return
 
-    cmd = [sys.executable, script_path, '--save-to-db']
+    cmd = [sys.executable, script_path, "--save-to-db"]
 
     try:
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
-            print_error(f"Resume generator exited with code {result.returncode}.", "Check the output above for details on what went wrong.")
+            print_error(
+                f"Resume generator exited with code {result.returncode}.",
+                "Check the output above for details."
+            )
             return
 
-        print("\nResume generated successfully.")
+       
+       
 
     except Exception as e:
-        print_error(f"Failed to run resume generator: {e}", "Check that Python is configured correctly and try again.")
+        print_error(f"Failed to run resume generator: {e}")
 
 
         
@@ -717,19 +544,34 @@ def handle_edit_project_display_name():
 def handle_generate_portfolio():
     """Run the portfolio generator script."""
     print("\n=== Generate Portfolio ===")
-    script_path = os.path.join(os.path.dirname(__file__), 'generate_portfolio.py')
+
+    script_path = os.path.join(os.path.dirname(__file__), "generate_portfolio.py")
     if not os.path.exists(script_path):
-        print_error(f"Portfolio generator script not found at: {script_path}", "Ensure the application is installed correctly.")
+        print_error(
+            f"Portfolio generator script not found at: {script_path}",
+            "Ensure the application is installed correctly."
+        )
         return
 
-    cmd = [sys.executable, script_path, '--save-to-db']
+    cmd = [sys.executable, script_path, "--save-to-db"]
+
     try:
         result = subprocess.run(cmd)
+
         if result.returncode != 0:
-            print_error(f"Portfolio generator exited with code {result.returncode}.", "Check the output above for details on what went wrong.")
+            print_error(
+                f"Portfolio generator exited with code {result.returncode}.",
+                "Check the output above for details."
+            )
             return
+
+    
     except Exception as e:
-        print_error(f"Failed to run portfolio generator: {e}", "Check that Python is configured correctly and try again.")
+        print_error(
+            f"Failed to run portfolio generator: {e}",
+            "Check that Python is configured correctly and try again."
+        )
+
 
 
 def _pager(text: str):
@@ -1445,14 +1287,12 @@ def main():
         elif choice == "8":
             handle_summarize_contributor_projects()
         elif choice == "9":
-            handle_generate_project_summary()
-        elif choice == "10":
             handle_project_evidence()
-        elif choice == "11":
+        elif choice == "10":
             handle_analyze_roles()
-        elif choice == "12":
+        elif choice == "11":
             handle_edit_project_thumbnail()
-        elif choice == "13":
+        elif choice == "12":
             database_management_menu()
         elif choice == "0":
             print("\nExiting program. Goodbye!")

@@ -33,12 +33,13 @@ class TestGenerateResume(unittest.TestCase):
         project_name = 'assignment-5-tcp-and-udp-programming-with-java-jaxsonkahl'
         project_path = os.path.join(self.tmpdir.name, project_name)
         git_metrics = {
-            'commits_per_author': {'jaxsonkahl': 4},
-            'lines_added_per_author': {'jaxsonkahl': 120},
-            'files_changed_per_author': {'jaxsonkahl': ['src/Main.java', 'README.md']},
-            'project_start': '2025-01-01 00:00:00',
-            'total_commits': 4,
-        }
+    'commits_per_author': {'jaxsonkahl': 4},
+    'lines_added_per_author': {'jaxsonkahl': 120},
+    'files_changed_per_author': {'jaxsonkahl': ['src/Main.java', 'README.md']},
+    'project_start': '2025-01-01 00:00:00',
+    'total_commits': 4,
+}
+
         tech_summary = {
             'languages': ['Java', 'Python', 'Go', 'TCP'],
             'frameworks': ['Flask'],
@@ -93,14 +94,14 @@ class TestGenerateResume(unittest.TestCase):
         self.assertTrue(norm.split()[0].startswith('Assignment'))
 
     def test_collect_projects_returns_dicts(self):
-        projects, root = gr.collect_projects(self.output_dir)
+        projects, root = gr.collect_projects()
         self.assertIsInstance(projects, dict)
         self.assertIsInstance(root, dict)
-        # Expect at least one project info file to be present in output/
+        # Expect at least one project loaded from the temp DB
         self.assertGreaterEqual(len(projects), 1)
 
     def test_aggregate_and_render_for_user(self):
-        projects, root = gr.collect_projects(self.output_dir)
+        projects, root = gr.collect_projects()
         agg = gr.aggregate_for_user('jaxsonkahl', projects, root)
         self.assertIsInstance(agg, dict)
         self.assertEqual(agg.get('username'), 'jaxsonkahl')
@@ -132,7 +133,10 @@ class RobustGenerateResumeTests(unittest.TestCase):
         git_metrics = {
             'commits_per_author': {'alice': 3, 'githubclassroombot': 1},
             'lines_added_per_author': {'alice': 120, 'githubclassroombot': 50},
-            'files_changed_per_author': {'alice': ['src/Main.java', 'README.md']},
+            'files_changed_per_author': {
+    'alice': ['src/Main.java', 'README.md'],
+    'githubclassroombot': ['autogen/assignment.md'],
+},
             'project_start': '2025-01-01 00:00:00',
             'total_commits': 4,
         }
@@ -189,7 +193,7 @@ class RobustGenerateResumeTests(unittest.TestCase):
         self.assertTrue(norm.lower().startswith('assignment'))
 
     def test_aggregate_for_user_and_render(self):
-        projects, root = gr.collect_projects(self.output_root)
+        projects, root = gr.collect_projects()
         agg = gr.aggregate_for_user('alice', projects, root)
         self.assertEqual(agg['username'], 'alice')
         self.assertGreaterEqual(agg['total_commits'], 1)
@@ -245,7 +249,7 @@ class RobustGenerateResumeTests(unittest.TestCase):
                 {"type": "metric", "value": "500 users", "source": "Analytics"},
             )
 
-            projects, root = gr_local.collect_projects(self.output_root)
+            projects, root = gr_local.collect_projects()
             agg = gr_local.aggregate_for_user('alice', projects, root)
             md = gr_local.render_markdown(agg, generated_ts='2025-11-27 01:02:03Z')
             self.assertIn("Impact: 500 users (Analytics)", md)

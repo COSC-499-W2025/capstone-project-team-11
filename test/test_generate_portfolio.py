@@ -370,7 +370,7 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
 
     # Verify project collection, aggregation, and full portfolio building
     def test_aggregate_and_build_portfolio(self):
-        projects, root = collect_projects(self.output_root)
+        projects, root = collect_projects()
 
         portfolio_projects = gp.aggregate_projects_for_portfolio('john', projects, root)
         self.assertGreaterEqual(len(portfolio_projects), 1)
