@@ -82,10 +82,13 @@ def human_ts(ts):
     return str(ts)
 
 
-def main():
-    print(f"Inspecting DB: {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def inspect_connection(conn: sqlite3.Connection, db_label: str = None):
+    label = db_label or DB_PATH
+    print(f"Inspecting DB: {label}")
+    try:
+        conn.row_factory = sqlite3.Row
+    except Exception:
+        pass
     cur = conn.cursor()
 
     # Tables
@@ -135,6 +138,27 @@ def main():
                 print('  skills: (none)')
     else:
         print(' No projects recorded')
+
+    # Project summaries (LLM)
+    print_header('Project summaries (LLM)')
+    summaries = safe_query(
+        cur,
+        "SELECT id, name, summary_text, summary_model, summary_updated_at FROM projects ORDER BY name"
+    )
+    if not summaries:
+        print(' No project summaries recorded')
+    else:
+        for row in summaries:
+            text = (row['summary_text'] or '').strip()
+            if not text:
+                print(f"Project {row['id']}: {row['name']} | summary: <none>")
+                continue
+            clipped = text[:500]
+            suffix = "..." if len(text) > 500 else ""
+            model = row['summary_model'] or '<unknown>'
+            updated = human_ts(row['summary_updated_at'])
+            print(f"Project {row['id']}: {row['name']} | model: {model} | updated: {updated}")
+            print(f"  {clipped}{suffix}")
 
     # Thumbnail verification
     print_header('Project thumbnails (path + file check)')
@@ -198,6 +222,12 @@ def main():
     
     
     conn.close()
+
+
+def main(db_path: str = None):
+    path = db_path or DB_PATH
+    conn = sqlite3.connect(path)
+    inspect_connection(conn, db_label=path)
 
 
 if __name__ == '__main__':

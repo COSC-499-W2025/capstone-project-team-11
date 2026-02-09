@@ -106,13 +106,26 @@ def render_markdown(agg):
     date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
     md = [f"# Resume — {username}", '']
 
-    # Summary
+    # Summary: 2–3 line overview of projects + skills/tech
     summary_lines = []
-    if agg['skills']:
-        summary_lines.append(', '.join(agg['skills']))
-    if agg['technologies']:
-        summary_lines.append('Experience with: ' + ', '.join(agg['technologies']))
-    summary = ' · '.join(summary_lines) if summary_lines else 'Contributed to multiple coding and data-analysis projects.'
+    project_count = len(agg.get('projects') or [])
+    if project_count:
+        plural = "s" if project_count != 1 else ""
+        summary_lines.append(f"Contributor to {project_count} software project{plural}, delivering features across collaborative codebases.")
+    else:
+        summary_lines.append("Contributor to multiple coding projects, delivering features across collaborative codebases.")
+
+    techs = agg.get('technologies') or []
+    skills = agg.get('skills') or []
+    if techs:
+        summary_lines.append("Built with " + ', '.join(techs[:6]) + ".")
+    if skills:
+        summary_lines.append("Skills include " + ', '.join(skills[:6]) + ".")
+
+    if len(summary_lines) < 2:
+        summary_lines.append("Hands-on experience with project delivery and team collaboration.")
+
+    summary = '\n'.join(summary_lines[:3])
     md += ['## Summary', '', summary, '']
 
     # Technical skills
