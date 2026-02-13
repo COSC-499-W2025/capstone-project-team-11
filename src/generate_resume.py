@@ -160,11 +160,13 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if not user_entry:
             continue
 
+        languages = info.get("high_confidence_languages") or info.get("languages", [])
+        frameworks = info.get("high_confidence_frameworks") or info.get("frameworks", [])
         pj = {
             "project_name": name,
             "path": info.get("project_path"),
-            "languages": info.get("languages", []),
-            "frameworks": info.get("frameworks", []),
+            "languages": languages,
+            "frameworks": frameworks,
             "skills": info.get("skills", []),
             "summary_text": info.get("summary_text"),
             "summary_model": info.get("summary_model"),
@@ -211,11 +213,13 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if not isinstance(info, dict):
             continue
 
+        languages = info.get("high_confidence_languages") or info.get("languages", [])
+        frameworks = info.get("high_confidence_frameworks") or info.get("frameworks", [])
         pj = {
             "project_name": proj_name,
             "path": info.get("project_path"),
-            "languages": info.get("languages", []),
-            "frameworks": info.get("frameworks", []),
+            "languages": languages,
+            "frameworks": frameworks,
             "skills": info.get("skills", []),
             "summary_text": info.get("summary_text"),
             "summary_model": info.get("summary_model"),
