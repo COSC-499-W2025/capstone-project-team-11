@@ -63,6 +63,154 @@ def _get_all_contributors() -> List[str]:
         return []
 
 
+def _ensure_custom_ranking_tables(conn):
+    """Create custom ranking tables if they do not exist."""
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS custom_rankings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS custom_ranking_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ranking_id INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            project_name TEXT NOT NULL,
+            FOREIGN KEY (ranking_id) REFERENCES custom_rankings(id) ON DELETE CASCADE,
+            UNIQUE (ranking_id, position),
+            UNIQUE (ranking_id, project_name)
+        )
+        """
+    )
+    conn.commit()
+
+
+def list_custom_rankings() -> List[Dict]:
+    """Return custom rankings with name and created_at."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        _ensure_custom_ranking_tables(conn)
+        cur.execute(
+            "SELECT name, created_at FROM custom_rankings ORDER BY created_at DESC, name COLLATE NOCASE"
+        )
+        rows = cur.fetchall()
+        return [{"name": r["name"], "created_at": r["created_at"]} for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+def get_custom_ranking(name: str) -> List[str]:
+    """Return ordered project names for a custom ranking name."""
+    if not name:
+        return []
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        _ensure_custom_ranking_tables(conn)
+        cur.execute(
+            """
+            SELECT i.project_name
+            FROM custom_rankings r
+            JOIN custom_ranking_items i ON i.ranking_id = r.id
+            WHERE r.name = ?
+            ORDER BY i.position ASC
+            """,
+            (name,),
+        )
+        rows = cur.fetchall()
+        return [r["project_name"] for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+def save_custom_ranking(name: str, ordered_projects: List[str]) -> int:
+    """Create or replace a custom ranking and return its id."""
+    if not name:
+        raise ValueError("name is required")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        _ensure_custom_ranking_tables(conn)
+        cur.execute("INSERT OR IGNORE INTO custom_rankings (name) VALUES (?)", (name,))
+        cur.execute("SELECT id FROM custom_rankings WHERE name = ?", (name,))
+        row = cur.fetchone()
+        ranking_id = row["id"] if row else None
+        if ranking_id is None:
+            raise ValueError("Failed to create custom ranking")
+
+        cur.execute("DELETE FROM custom_ranking_items WHERE ranking_id = ?", (ranking_id,))
+        for idx, project_name in enumerate(ordered_projects, start=1):
+            cur.execute(
+                "INSERT INTO custom_ranking_items (ranking_id, position, project_name) VALUES (?, ?, ?)",
+                (ranking_id, idx, project_name),
+            )
+        conn.commit()
+        return ranking_id
+    finally:
+        conn.close()
+
+
+def delete_custom_ranking(name: str) -> bool:
+    """Delete a custom ranking and its items by name."""
+    if not name:
+        return False
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        _ensure_custom_ranking_tables(conn)
+        cur.execute("DELETE FROM custom_rankings WHERE name = ?", (name,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def rename_custom_ranking(old_name: str, new_name: str) -> bool:
+    """Rename a custom ranking."""
+    if not old_name or not new_name:
+        return False
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        _ensure_custom_ranking_tables(conn)
+        cur.execute("UPDATE custom_rankings SET name = ? WHERE name = ?", (new_name, old_name))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def print_custom_ranking(name: str, ordered_projects: List[str]):
+    """Print a custom ranking table."""
+    if not ordered_projects:
+        print(f"No projects saved for custom ranking '{name}'.")
+        return
+
+    headers = ["Rank", "Project"]
+    col_widths = [len(h) for h in headers]
+    col_widths[0] = max(col_widths[0], len(str(len(ordered_projects))))
+    for project_name in ordered_projects:
+        col_widths[1] = max(col_widths[1], len(str(project_name)))
+
+    fmt = f"{{:>{col_widths[0]}}}  {{:<{col_widths[1]}}}"
+    print(fmt.format(*headers))
+    print("-" * (sum(col_widths) + 2))
+    for idx, project_name in enumerate(ordered_projects, start=1):
+        print(fmt.format(idx, project_name))
+
+
 def rank_projects(order: str = "desc", limit: Optional[int] = None) -> List[Dict]:
     """Return a list of projects aggregated from the scans table.
 

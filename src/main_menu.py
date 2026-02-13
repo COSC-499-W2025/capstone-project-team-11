@@ -34,7 +34,13 @@ from rank_projects import (
     print_projects_contribution_summary,
     rank_projects_by_contributor,
     print_projects_by_contributor,
-    _get_all_contributors
+    _get_all_contributors,
+    list_custom_rankings,
+    get_custom_ranking,
+    save_custom_ranking,
+    delete_custom_ranking,
+    rename_custom_ranking,
+    print_custom_ranking
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from contrib_metrics import canonical_username
@@ -365,6 +371,199 @@ def handle_rank_projects():
                     print_projects_by_contributor(user_projects, name)
     except Exception as e:
         print_error(f"Failed to rank projects by contributor: {e}")
+
+    # Custom ranking flow (user-defined ordering)
+    try:
+        print()
+        print("Custom rankings let you order projects however you want (e.g., favorites).")
+        print("Example order input: 3,1,2")
+        action = input("Custom rankings: (v)iew, (c)reate, (e)dit, (d)elete, (s)kip [s]: ").strip().lower() or "s"
+        if action == "v":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to view (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            projects = get_custom_ranking(selected)
+            print(f"\n=== Custom Ranking: {selected} ===")
+            print_custom_ranking(selected, projects)
+
+        elif action == "c":
+            projects = list_projects_for_display()
+            if not projects:
+                print_error("No projects found in the database.", "Run a directory scan first (Option 1) to populate the database.")
+                return
+
+            print("\nProjects:")
+            for idx, p in enumerate(projects, start=1):
+                custom = (p["custom_name"] or "").strip()
+                default = p["name"]
+                display = custom or default
+                if custom:
+                    print(f"  {idx}. {display}  [default: {default}]")
+                else:
+                    print(f"  {idx}. {display}")
+
+            name = input("\nName this custom ranking: ").strip()
+            if not name:
+                print_error("No name provided.", "Enter a name to save the custom ranking.")
+                return
+
+            existing_names = {r["name"] for r in list_custom_rankings()}
+            if name in existing_names:
+                overwrite = input("A ranking with this name already exists. Overwrite? (y/n): ").strip().lower()
+                if overwrite != "y":
+                    print("Cancelled.")
+                    return
+
+            order_input = input(
+                "Enter project numbers in your desired order (comma-separated, e.g., 3,1,2): "
+            ).strip()
+            if not order_input:
+                print_error("No order provided.", "Enter at least one project number.")
+                return
+
+            parts = [p for p in order_input.replace(",", " ").split() if p]
+            if not all(part.isdigit() for part in parts):
+                print_error("Invalid order.", "Use numbers only, separated by commas.")
+                return
+
+            indices = [int(p) for p in parts]
+            if len(indices) != len(set(indices)):
+                print_error("Invalid order.", "Each project number can only appear once.")
+                return
+
+            if not all(1 <= i <= len(projects) for i in indices):
+                print_error("Invalid order.", f"Use numbers between 1 and {len(projects)}.")
+                return
+
+            ordered_projects = [projects[i - 1]["name"] for i in indices]
+            save_custom_ranking(name, ordered_projects)
+            print(f"\nCustom ranking saved: {name}")
+            print_custom_ranking(name, ordered_projects)
+        elif action == "d":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to delete (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            confirm = input(f"Delete custom ranking '{selected}'? (y/n): ").strip().lower()
+            if confirm != "y":
+                print("Cancelled.")
+                return
+
+            if delete_custom_ranking(selected):
+                print("Deleted.")
+            else:
+                print_error("Delete failed.")
+        elif action == "e":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to edit (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            edit_action = input("Edit: (r)ename, (o)rder, (b)oth, (c)ancel [c]: ").strip().lower() or "c"
+            if edit_action == "c":
+                return
+
+            new_name = selected
+            if edit_action in ("r", "b"):
+                candidate = input("New name: ").strip()
+                if not candidate:
+                    print_error("No name provided.", "Enter a name to rename the ranking.")
+                    return
+                existing_names = {r["name"] for r in list_custom_rankings()}
+                if candidate in existing_names and candidate != selected:
+                    print_error("Name already exists.", "Choose a different name.")
+                    return
+                if candidate != selected:
+                    if not rename_custom_ranking(selected, candidate):
+                        print_error("Rename failed.")
+                        return
+                    new_name = candidate
+
+            if edit_action in ("o", "b"):
+                projects = list_projects_for_display()
+                if not projects:
+                    print_error("No projects found in the database.", "Run a directory scan first (Option 1) to populate the database.")
+                    return
+
+                print("\nProjects:")
+                for idx, p in enumerate(projects, start=1):
+                    custom = (p["custom_name"] or "").strip()
+                    default = p["name"]
+                    display = custom or default
+                    if custom:
+                        print(f"  {idx}. {display}  [default: {default}]")
+                    else:
+                        print(f"  {idx}. {display}")
+
+                order_input = input(
+                    "Enter project numbers in your desired order (comma-separated, e.g., 3,1,2): "
+                ).strip()
+                if not order_input:
+                    print_error("No order provided.", "Enter at least one project number.")
+                    return
+
+                parts = [p for p in order_input.replace(",", " ").split() if p]
+                if not all(part.isdigit() for part in parts):
+                    print_error("Invalid order.", "Use numbers only, separated by commas.")
+                    return
+
+                indices = [int(p) for p in parts]
+                if len(indices) != len(set(indices)):
+                    print_error("Invalid order.", "Each project number can only appear once.")
+                    return
+
+                if not all(1 <= i <= len(projects) for i in indices):
+                    print_error("Invalid order.", f"Use numbers between 1 and {len(projects)}.")
+                    return
+
+                ordered_projects = [projects[i - 1]["name"] for i in indices]
+                save_custom_ranking(new_name, ordered_projects)
+                print(f"\nCustom ranking updated: {new_name}")
+                print_custom_ranking(new_name, ordered_projects)
+    except Exception as e:
+        print_error(f"Failed to manage custom rankings: {e}")
 
 
 def handle_summarize_contributor_projects():
