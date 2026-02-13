@@ -169,9 +169,9 @@ def test_handle_inspect_database_works(monkeypatch, capsys):
 def test_preview_resume_reads_file(tmp_path):
     p = tmp_path / "resume.md"
     p.write_text("line1\nline2\nline3\n", encoding="utf-8")
-    preview, truncated = _preview_resume(str(p), lines=2)
-    assert "line1" in preview and "line2" in preview
-    assert truncated is True
+    preview, truncated = _preview_resume(str(p))
+    assert "line1" in preview and "line2" in preview and "line3" in preview
+    assert truncated is False
 
 
 def test_markdown_to_plain_simple():

@@ -577,18 +577,16 @@ def _print_resume_list(resumes):
         print(f"     path: {r['resume_path']}")
 
 
-def _preview_resume(path: str, lines: int = 30):
-    """Return a preview (first N lines) of a resume file, lightly rendered."""
+def _preview_resume(path: str, lines: int = None):
+    """Return a preview of a resume file, lightly rendered."""
     try:
         with open(path, 'r', encoding='utf-8') as fh:
             content = fh.read().splitlines()
     except Exception as e:
         return None, f"Failed to read resume file: {e}"
 
-    preview_lines = content[:lines]
-    truncated = len(content) > lines
-    rendered = _markdown_to_plain("\n".join(preview_lines))
-    return rendered, truncated
+    rendered = _markdown_to_plain("\n".join(content))
+    return rendered, False
 
 
 def _markdown_to_plain(text: str) -> str:
@@ -693,11 +691,8 @@ def handle_view_resumes():
             print(truncated_or_error)
             return
 
-        truncated = truncated_or_error is True
         print("\n--- Preview ---\n")
         print(preview)
-        if truncated:
-            print(f"\n... [Preview truncated - full file at: {path}]")
 
     except sqlite3.OperationalError as e:
         print_error(f"Resumes table not available: {e}", "Run a scan first to initialize the database.")
@@ -812,16 +807,13 @@ def handle_view_portfolios():
 
         # Default: view
         print(f"\nOpening portfolio for {uname}: {portfolio_file_path}")
-        preview, truncated_or_error = _preview_resume(portfolio_file_path, lines=500)
+        preview, truncated_or_error = _preview_resume(portfolio_file_path)
         if preview is None:
             print(truncated_or_error)
             return
 
-        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
         print("\n--- Preview ---\n")
         print(preview)
-        if truncated:
-            print(f"\n... [Preview truncated - full file at: {portfolio_file_path}]")
 
     except sqlite3.OperationalError as e:
         print_error(f"Portfolios table not available: {e}", "Run a scan first to initialize the database.")
