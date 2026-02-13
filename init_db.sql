@@ -59,6 +59,23 @@ CREATE TABLE IF NOT EXISTS projects (
     summary_updated_at TEXT
 );
 
+-- User-defined project rankings
+CREATE TABLE IF NOT EXISTS custom_rankings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS custom_ranking_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ranking_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    project_name TEXT NOT NULL,
+    FOREIGN KEY (ranking_id) REFERENCES custom_rankings(id) ON DELETE CASCADE,
+    UNIQUE (ranking_id, position),
+    UNIQUE (ranking_id, project_name)
+);
+
 
 -- Table to store evidence related to projects
 CREATE TABLE IF NOT EXISTS project_evidence (
@@ -149,6 +166,8 @@ CREATE INDEX IF NOT EXISTS idx_portfolios_generated_at ON portfolios (generated_
 
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name);
+CREATE INDEX IF NOT EXISTS idx_custom_rankings_name ON custom_rankings (name);
+CREATE INDEX IF NOT EXISTS idx_custom_ranking_items_rank ON custom_ranking_items (ranking_id);
 CREATE INDEX IF NOT EXISTS idx_contributors_name ON contributors (name);
 CREATE INDEX IF NOT EXISTS idx_languages_name ON languages (name);
 CREATE INDEX IF NOT EXISTS idx_skills_name ON skills (name);
