@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 from db import get_project_display_name, load_projects_for_generation
 from cli_username_selection import (
     select_identity_from_projects,
@@ -22,6 +23,9 @@ from datetime import datetime
 from textwrap import dedent
 from db import save_resume
 from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_resume
+from config import load_config, save_config, config_path as default_config_path
+from consent import ask_yes_no
+from llm_summary import DEFAULT_MODEL, generate_resume_summary_text
 
 
 
@@ -156,12 +160,16 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if not user_entry:
             continue
 
+        languages = info.get("high_confidence_languages") or info.get("languages", [])
+        frameworks = info.get("high_confidence_frameworks") or info.get("frameworks", [])
         pj = {
             "project_name": name,
             "path": info.get("project_path"),
-            "languages": info.get("languages", []),
-            "frameworks": info.get("frameworks", []),
+            "languages": languages,
+            "frameworks": frameworks,
             "skills": info.get("skills", []),
+            "summary_text": info.get("summary_text"),
+            "summary_model": info.get("summary_model"),
             "user_commits": user_entry.get("commits", 0),
             "user_files": user_entry.get("files", []),
             "git_metrics": info.get("git_metrics", {}),
@@ -205,12 +213,16 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
         if not isinstance(info, dict):
             continue
 
+        languages = info.get("high_confidence_languages") or info.get("languages", [])
+        frameworks = info.get("high_confidence_frameworks") or info.get("frameworks", [])
         pj = {
             "project_name": proj_name,
             "path": info.get("project_path"),
-            "languages": info.get("languages", []),
-            "frameworks": info.get("frameworks", []),
+            "languages": languages,
+            "frameworks": frameworks,
             "skills": info.get("skills", []),
+            "summary_text": info.get("summary_text"),
+            "summary_model": info.get("summary_model"),
             "user_commits": 0,
             "user_files": [],
             "git_metrics": info.get("git_metrics", {}),
@@ -235,8 +247,82 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
     }
 
 
+def _resolve_project_display_name(project_name: str, path: str = None) -> str:
+    custom_name = get_project_display_name(project_name)
+    base_name = custom_name or project_name
+    normalized_name = normalize_project_name(base_name, path) or base_name
+    return normalized_name
 
-def render_markdown(agg, generated_ts=None):
+
+def _build_resume_llm_payload(agg: dict) -> dict:
+    projects_payload = []
+    for p in agg.get("projects") or []:
+        display_name = _resolve_project_display_name(p.get("project_name"), p.get("path"))
+        projects_payload.append({
+            "name": display_name,
+            "languages": p.get("languages") or [],
+            "frameworks": p.get("frameworks") or [],
+            "skills": p.get("skills") or [],
+            "summary_text": p.get("summary_text"),
+        })
+    return {
+        "username": agg.get("username"),
+        "projects": projects_payload,
+        "technologies": agg.get("technologies") or [],
+        "skills": agg.get("skills") or [],
+    }
+
+
+def _ensure_all_projects_mentioned(summary_text: str, project_names: list) -> str:
+    if not summary_text:
+        return summary_text
+    missing = []
+    lowered = summary_text.lower()
+    for name in project_names:
+        if name and name.lower() not in lowered:
+            missing.append(name)
+    if not missing:
+        return summary_text
+    suffix = "Projects: " + ", ".join(missing) + "."
+    joiner = " " if summary_text.endswith((".", "!", "?")) else " "
+    return summary_text.rstrip() + joiner + suffix
+
+
+def maybe_generate_resume_summary(agg: dict, use_llm: bool, model: str = DEFAULT_MODEL) -> str:
+    if not use_llm:
+        return ""
+    try:
+        payload = _build_resume_llm_payload(agg)
+        project_names = [p.get("name") for p in payload.get("projects") or [] if p.get("name")]
+        summary = generate_resume_summary_text(payload, model=model)
+        if not summary:
+            return ""
+        return _ensure_all_projects_mentioned(summary, project_names)
+    except Exception:
+        return ""
+
+
+def _bullets_from_project_summary(summary_text: str, project_name: str, max_lines: int = 2) -> list:
+    if not summary_text:
+        return []
+    # Split into sentences and keep 1-2 concise lines from the summary.
+    parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', summary_text.strip()) if p.strip()]
+    if not parts:
+        return []
+
+    bullets = []
+    for part in parts:
+        line = part.strip()
+        if line and not line.endswith(('.', '!', '?')):
+            line += '.'
+        bullets.append(line)
+        if len(bullets) >= max_lines:
+            break
+    return bullets
+
+
+
+def render_markdown(agg, generated_ts=None, llm_summary: str = None):
     username = agg['username']
     # generated_ts should be an ISO-like UTC timestamp string; if not provided, create one
     if generated_ts:
@@ -265,7 +351,7 @@ def render_markdown(agg, generated_ts=None):
     if len(summary_lines) < 2:
         summary_lines.append("Hands-on experience with project delivery and team collaboration.")
 
-    summary = '\n'.join(summary_lines[:3])
+    summary = llm_summary.strip() if llm_summary else '\n'.join(summary_lines[:3])
     md.append('## Summary')
     md.append('')
     md.append(summary)
@@ -288,12 +374,7 @@ def render_markdown(agg, generated_ts=None):
     for p in agg['projects']:
         name = p.get('project_name')
 
-        # 1) Grab custom display name from DB (if any)
-        custom_name = get_project_display_name(name)
-
-        # 2) Decide what to show on the resume
-        base_name = custom_name or name
-        normalized_name = normalize_project_name(base_name, p.get('path')) or base_name
+        normalized_name = _resolve_project_display_name(name, p.get('path'))
 
         line = f"**{normalized_name}**"
 
@@ -308,7 +389,14 @@ def render_markdown(agg, generated_ts=None):
         # generate 2-4 bullets similar to earlier style
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []
-        if commits:
+        # Prefer a concise, project-specific summary line if available
+        summary_bullets = _bullets_from_project_summary(
+            p.get("summary_text"),
+            normalized_name,
+        )
+        if summary_bullets:
+            bullets.extend(summary_bullets)
+        elif commits:
             bullets.append("Contributed features and fixes across the codebase in collaboration with the team.")
         if techs:
             bullets.append(f"Technologies: {techs}.")
@@ -347,6 +435,9 @@ def main():
     parser.add_argument("--resume-dir", "-d", default="resumes")
     parser.add_argument("--allow-bots", action="store_true")
     parser.add_argument("--save-to-db", action="store_true")
+    llm_group = parser.add_mutually_exclusive_group()
+    llm_group.add_argument("--llm-summary", action="store_true", help="Use local LLM for resume summary")
+    llm_group.add_argument("--no-llm-summary", action="store_true", help="Disable local LLM for resume summary")
     args = parser.parse_args()
 
     BLACKLIST = {"githubclassroombot", "Unknown"}
@@ -383,12 +474,29 @@ def main():
 
     os.makedirs(args.resume_dir, exist_ok=True)
 
+    config = load_config(default_config_path())
+    use_llm = None
+    if args.llm_summary:
+        use_llm = True
+    elif args.no_llm_summary:
+        use_llm = False
+    else:
+        noninteractive = os.environ.get('SCANNER_NONINTERACTIVE', '').lower() in ('1', 'true') or not sys.stdin.isatty()
+        if noninteractive:
+            use_llm = bool(config.get("llm_resume_consent"))
+        else:
+            use_llm = ask_yes_no(
+                "Allow local LLM resume summary generation (uses Ollama, reads project summaries if present)? (y/n): ",
+                default=bool(config.get("llm_resume_consent")),
+            )
+
     # (re)aggregate for the chosen username
     agg = aggregate_for_user(username, projects, root_repo_jsons, selected_non_git)
     # Use a single UTC timestamp for both content and filename
     ts_iso = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
     ts_fname = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    md = render_markdown(agg, generated_ts=ts_iso)
+    llm_summary = maybe_generate_resume_summary(agg, use_llm=use_llm)
+    md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary)
 
     out_path = os.path.join(args.resume_dir, f"resume_{username}_{ts_fname}.md")
     with open(out_path, 'w', encoding='utf-8') as fh:

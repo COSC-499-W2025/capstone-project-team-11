@@ -49,11 +49,20 @@ def ask_yes_no(prompt: str, default: Optional[bool] = None) -> bool:
     # default: if provided and user enters empty input, this value is returned.
     # If running in non-interactive mode (e.g. inside CI or docker tests) return the default
     # or False to avoid blocking on input(). The environment variable SCANNER_NONINTERACTIVE
-    # can be set to '1' or 'true' to enable this behavior.
-    if os.environ.get('SCANNER_NONINTERACTIVE', '').lower() in ('1', 'true'):
+    # can be set to '1' or 'true' to enable this behavior. Also default to non-interactive
+    # behavior if stdin is not a TTY.
+    force_interactive = os.environ.get('SCANNER_FORCE_INTERACTIVE', '').lower() in ('1', 'true')
+    if not force_interactive and (
+        os.environ.get('SCANNER_NONINTERACTIVE', '').lower() in ('1', 'true')
+        or not sys.stdin
+        or not sys.stdin.isatty()
+    ):
         return default if default is not None else False
     while True:
-        resp = input(prompt).strip().lower()
+        try:
+            resp = input(prompt).strip().lower()
+        except EOFError:
+            return default if default is not None else False
         if resp == "" and default is not None:
             return default
         if resp in ("y", "yes"):
