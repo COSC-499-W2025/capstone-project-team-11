@@ -190,21 +190,25 @@ def handle_scan_directory():
         return
 
     project_name = result.get('project_name', os.path.basename(os.path.abspath(selected_dir)))
-    output_dir = result.get('output_dir', os.path.join("output", project_name))
-
-    # Generate the summary report
-    try:
-        info = gather_project_info(selected_dir, quiet=True)
-        os.makedirs(output_dir, exist_ok=True)
-        output_project_info(info, output_dir=output_dir, quiet=True)
-    except Exception:
-        pass  # Summary generation is optional
+    project_names = result.get('project_names', [project_name])
+    is_multi = result.get('is_multi_project', False)
 
     # Show post-scan menu
     choice = _show_post_scan_menu()
 
     if choice == "1":
-        _view_project_summary(project_name)
+        if is_multi and len(project_names) > 1:
+            # Let user pick which project summary to view (multi-project scans)
+            print("\nMultiple projects were scanned:")
+            for idx, pn in enumerate(project_names, start=1):
+                print(f"  {idx}. {pn}")
+            pick = input("\nEnter number to view summary (blank to cancel): ").strip()
+            if pick.isdigit() and 1 <= int(pick) <= len(project_names):
+                _view_project_summary(project_names[int(pick) - 1])
+            elif pick:
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(project_names)}.")
+        else:
+            _view_project_summary(project_names[0] if project_names else project_name)
     elif choice == "2":
         handle_manage_scanned_projects()
 
