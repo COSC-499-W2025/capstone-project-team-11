@@ -485,9 +485,6 @@ def main():
                 "Allow local LLM resume summary generation (uses Ollama, reads project summaries if present)? (y/n): ",
                 default=bool(config.get("llm_resume_consent")),
             )
-            save_pref = ask_yes_no("Save this preference for future resume generations? (y/n): ", default=False)
-            if save_pref:
-                save_config({"llm_resume_consent": use_llm}, path=default_config_path())
 
     # (re)aggregate for the chosen username
     agg = aggregate_for_user(username, projects, root_repo_jsons, selected_non_git)
