@@ -16,7 +16,12 @@ from generate_portfolio import (
     aggregate_projects_for_portfolio,
     build_portfolio,
 )
-from generate_resume import collect_projects, aggregate_for_user, render_markdown
+from generate_resume import (
+    collect_projects,
+    aggregate_for_user,
+    render_markdown,
+    maybe_generate_resume_summary,
+)
 from project_info_output import gather_project_info, output_project_info
 from scan import run_with_saved_settings
 
@@ -27,6 +32,7 @@ app = FastAPI(title="MDA API")
 class PrivacyConsentRequest(BaseModel):
     data_consent: bool
     llm_summary_consent: Optional[bool] = None
+    llm_resume_consent: Optional[bool] = None
 
 
 class ProjectUploadRequest(BaseModel):
@@ -47,6 +53,7 @@ class ResumeGenerateRequest(BaseModel):
     resume_dir: str = "resumes"
     allow_bots: bool = False
     save_to_db: bool = False
+    llm_summary: bool = False
 
 
 class ResumeEditRequest(BaseModel):
@@ -118,13 +125,21 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
     llm_value = payload.llm_summary_consent
     if llm_value is None:
         llm_value = current.get("llm_summary_consent", False)
+    resume_llm_value = payload.llm_resume_consent
+    if resume_llm_value is None:
+        resume_llm_value = current.get("llm_resume_consent", False)
     save_config(
-        {"data_consent": payload.data_consent, "llm_summary_consent": llm_value},
+        {
+            "data_consent": payload.data_consent,
+            "llm_summary_consent": llm_value,
+            "llm_resume_consent": resume_llm_value,
+        },
         path=default_config_path(),
     )
     return {
         "data_consent": payload.data_consent,
         "llm_summary_consent": llm_value,
+        "llm_resume_consent": resume_llm_value,
         "config_path": default_config_path(),
     }
 
@@ -329,13 +344,18 @@ def generate_resume(payload: ResumeGenerateRequest):
             detail=f"Generation disabled for user '{username}'.",
         )
 
+    config = load_config(default_config_path())
+    if payload.llm_summary and not config.get("llm_resume_consent"):
+        raise HTTPException(status_code=403, detail="LLM resume summary consent not granted")
+
     projects, root_repo_jsons = collect_projects(payload.output_root)
     agg = aggregate_for_user(username, projects, root_repo_jsons)
 
     os.makedirs(payload.resume_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     ts_fname = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    md = render_markdown(agg, generated_ts=ts_iso)
+    llm_summary = maybe_generate_resume_summary(agg, use_llm=payload.llm_summary)
+    md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary)
 
     out_path = os.path.join(payload.resume_dir, f"resume_{username}_{ts_fname}.md")
     with open(out_path, "w", encoding="utf-8") as fh:

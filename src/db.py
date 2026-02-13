@@ -388,6 +388,10 @@ def load_projects_for_generation():
             select_cols.append("git_metrics_json")
         if "tech_json" in project_cols:
             select_cols.append("tech_json")
+        if "summary_text" in project_cols:
+            select_cols.append("summary_text")
+        if "summary_model" in project_cols:
+            select_cols.append("summary_model")
 
         cur.execute(f"SELECT {', '.join(select_cols)} FROM projects ORDER BY name COLLATE NOCASE")
         project_rows = cur.fetchall()
@@ -494,6 +498,8 @@ def load_projects_for_generation():
                 "languages": languages,
                 "frameworks": frameworks,
                 "skills": skills,
+                "summary_text": row["summary_text"] if "summary_text" in row.keys() else None,
+                "summary_model": row["summary_model"] if "summary_model" in row.keys() else None,
                 "high_confidence_languages": tech_summary.get("high_confidence_languages", []),
                 "medium_confidence_languages": tech_summary.get("medium_confidence_languages", []),
                 "low_confidence_languages": tech_summary.get("low_confidence_languages", []),
