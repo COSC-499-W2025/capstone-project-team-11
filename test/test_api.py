@@ -89,6 +89,120 @@ class TestAPI(unittest.TestCase):
             )
             conn.commit()
 
+    def _seed_web_portfolio_data(self, username="alice"):
+        proj_dir = os.path.join(self.tmpdir.name, "demo_web_project")
+        os.makedirs(proj_dir, exist_ok=True)
+        portfolio_file = os.path.join(self.portfolio_dir, "portfolio_seed.md")
+        os.makedirs(self.portfolio_dir, exist_ok=True)
+        with open(portfolio_file, "w", encoding="utf-8") as fh:
+            fh.write("# Seed Portfolio\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects (name, project_path, thumbnail_path, git_metrics_json, tech_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "demo_web_project",
+                    proj_dir,
+                    "/tmp/thumb.png",
+                    json.dumps(
+                        {
+                            "project_start": "2025-01-01 00:00:00",
+                            "commits_per_author": {"alice": 3, "bob": 1},
+                            "files_changed_per_author": {"alice": ["main.py"], "bob": ["utils.py"]},
+                        }
+                    ),
+                    json.dumps({"languages": ["Python"], "frameworks": ["FastAPI"]}),
+                ),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_web_project",),
+            ).fetchone()["id"]
+
+            conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", ("APIs",))
+            conn.execute("INSERT OR IGNORE INTO skills (name) VALUES (?)", ("Testing",))
+            skill_rows = conn.execute(
+                "SELECT id FROM skills WHERE name IN (?, ?)",
+                ("APIs", "Testing"),
+            ).fetchall()
+            for row in skill_rows:
+                conn.execute(
+                    "INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)",
+                    (project_id, row["id"]),
+                )
+
+            conn.execute(
+                "INSERT INTO scans (project, scanned_at, notes) VALUES (?, ?, ?)",
+                ("demo_web_project", "2025-01-10 10:00:00", "init"),
+            )
+            conn.execute(
+                "INSERT INTO scans (project, scanned_at, notes) VALUES (?, ?, ?)",
+                ("demo_web_project", "2025-02-14 12:00:00", "improved"),
+            )
+            scan_rows = conn.execute(
+                "SELECT id FROM scans WHERE project = ? ORDER BY scanned_at ASC",
+                ("demo_web_project",),
+            ).fetchall()
+
+            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("alice",))
+            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("bob",))
+            alice_id = conn.execute(
+                "SELECT id FROM contributors WHERE name = ?",
+                ("alice",),
+            ).fetchone()["id"]
+            bob_id = conn.execute(
+                "SELECT id FROM contributors WHERE name = ?",
+                ("bob",),
+            ).fetchone()["id"]
+
+            for idx, scan in enumerate(scan_rows):
+                conn.execute(
+                    """
+                    INSERT INTO files
+                    (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        scan["id"],
+                        f"file_{idx}.py",
+                        f"/tmp/file_{idx}.py",
+                        ".py",
+                        120 + idx,
+                        None,
+                        None,
+                        "alice",
+                        "{}",
+                    ),
+                )
+                file_id = conn.execute(
+                    "SELECT id FROM files WHERE scan_id = ? ORDER BY id DESC LIMIT 1",
+                    (scan["id"],),
+                ).fetchone()["id"]
+                conn.execute(
+                    "INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)",
+                    (file_id, alice_id),
+                )
+                if idx == 0:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)",
+                        (file_id, bob_id),
+                    )
+
+            conn.execute(
+                """
+                INSERT INTO project_evidence (project_id, type, description, value, source, url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (project_id, "impact", "Shipped API dashboard", "v1", "internal", None),
+            )
+            conn.commit()
+
+        portfolio_id = db_mod.save_portfolio(username=username, portfolio_path=portfolio_file, metadata={}, generated_at="2025-02-14 12:00:00Z")
+        return portfolio_id, project_id
+
     def test_privacy_consent(self):
         resp = self.client.post("/privacy-consent", json={"data_consent": True})
         self.assertEqual(resp.status_code, 200)
@@ -257,6 +371,45 @@ class TestAPI(unittest.TestCase):
         )
         self.assertEqual(resp_edit.status_code, 200)
         self.assertTrue(resp_edit.json()["metadata"].get("edited"))
+
+    def test_web_portfolio_endpoints(self):
+        portfolio_id, project_id = self._seed_web_portfolio_data()
+
+        timeline_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline")
+        self.assertEqual(timeline_resp.status_code, 200)
+        timeline_body = timeline_resp.json()
+        self.assertIn("timeline", timeline_body)
+        self.assertTrue(isinstance(timeline_body["timeline"], list))
+
+        heatmap_resp = self.client.get(f"/web/portfolio/{portfolio_id}/heatmap?granularity=month&metric=files")
+        self.assertEqual(heatmap_resp.status_code, 200)
+        heatmap_body = heatmap_resp.json()
+        self.assertIn("cells", heatmap_body)
+        self.assertTrue(heatmap_body["max_value"] >= 0)
+
+        showcase_resp = self.client.get(f"/web/portfolio/{portfolio_id}/showcase")
+        self.assertEqual(showcase_resp.status_code, 200)
+        showcase_body = showcase_resp.json()
+        self.assertIn("projects", showcase_body)
+        self.assertLessEqual(len(showcase_body["projects"]), 3)
+
+        customize_resp = self.client.patch(
+            f"/web/portfolio/{portfolio_id}/customize",
+            json={
+                "is_public": False,
+                "selected_project_ids": [project_id],
+                "showcase_project_ids": [project_id],
+                "hidden_skills": ["Testing"],
+            },
+        )
+        self.assertEqual(customize_resp.status_code, 200)
+        self.assertFalse(customize_resp.json()["web_config"]["is_public"])
+
+        public_blocked_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=public")
+        self.assertEqual(public_blocked_resp.status_code, 403)
+
+        private_ok_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=private")
+        self.assertEqual(private_ok_resp.status_code, 200)
 
 
 if __name__ == "__main__":
