@@ -8,6 +8,7 @@ import os
 
 from db import get_connection, _ensure_projects_thumbnail_column
 from file_utils import is_image_file
+from cli_output import print_error
 
 
 def _list_projects():
@@ -32,7 +33,7 @@ def _select_project(projects):
     if not choice:
         return None
     if choice not in project_ids:
-        print("Invalid project ID.")
+        print_error("Invalid project ID.", "Enter a valid project ID from the list.")
         return None
     return int(choice)
 
@@ -40,7 +41,7 @@ def _select_project(projects):
 def _prompt_action():
     action = input("Choose action: (a)dd/update, (r)emove, (c)ancel [a]: ").strip().lower() or "a"
     if action not in {"a", "r", "c"}:
-        print("Invalid action.")
+        print_error("Invalid action.", "Choose one of the listed actions.")
         return None
     return action
 

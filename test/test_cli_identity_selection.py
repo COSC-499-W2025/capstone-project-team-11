@@ -46,3 +46,17 @@ def test_select_identity_blank_cancels(monkeypatch):
     username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
     assert username is None
     assert selected == []
+
+def test_select_identity_invalid_then_valid(monkeypatch):
+    projects = {
+        "Proj": {"contributions": {"alice": {"commits": 1}}, "languages": ["Python"]}
+    }
+
+    inputs = iter(["abc", "1", "n"])  # <-- add "n" for the include prompt
+    monkeypatch.setattr(builtins, "input", lambda _: next(inputs))
+
+    username, selected = select_identity_from_projects(projects, root_repo_jsons={}, blacklist=set())
+
+    assert username == "alice"
+    assert selected == []
+
