@@ -11,8 +11,6 @@ import json
 import sqlite3
 import re
 
-
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 from config import load_config, save_config, merge_settings, config_path as default_config_path, is_default_config
 from consent import ask_for_data_consent, ask_yes_no
@@ -20,9 +18,74 @@ from detect_langs import detect_languages_and_frameworks, LANGUAGE_MAP
 from detect_skills import detect_skills
 from file_utils import is_valid_format, is_image_file
 from db import get_connection, init_db, save_scan
-from collab_summary import summarize_project_contributions
+from collab_summary import summarize_project_contributions, identify_contributions
 from datetime import datetime
 from llm_summary import get_or_generate_summary, summary_timestamp
+
+# =============================================================================
+# SCAN PROGRESS OUTPUT MANAGER
+# =============================================================================
+
+# Centralized, clean scan output manager for consistent CLI display
+class ScanProgress:
+
+    def __init__(self):
+        self.results = {}
+
+    # Print a section header
+    def header(self, title: str):
+        print(f"\n{title}")
+        print("-" * 20)
+
+    # Print a real-time progress bar (updates in place)
+    def progress(self, current: int, total: int):
+        if total <= 0:
+            return
+        pct = min(100, int((current / total) * 100))
+        width = 25
+        filled = int((current / total) * width)
+        bar = '#' * filled + '-' * (width - filled)
+        sys.stdout.write(f'\r    [{bar}] {pct}%')
+        sys.stdout.flush()
+        if current >= total:
+            print()
+
+    # Print a simple item line
+    def item(self, text: str):
+        print(f"    [-] {text}")
+
+    # Store a result for later display in summary
+    def store(self, key: str, value):
+        self.results[key] = value
+
+    # Print scan complete summary with moderate detail
+    def complete(self, project_name: str, output_dir: str = None):
+        self.header("Scan Complete!")
+        self.item(f"Project: {project_name}")
+        if self.results.get('files_found'):
+            self.item(f"Files: {self.results['files_found']} scanned, {self.results.get('files_skipped', 0)} skipped ({self.results['files_found'] + self.results.get('files_skipped', 0)} total)")
+        if self.results.get('languages'):
+            self.item(f"Languages: {', '.join(self.results['languages'])}")
+        if self.results.get('frameworks'):
+            self.item(f"Frameworks: {', '.join(self.results['frameworks'])}")
+        if self.results.get('skills'):
+            self.item(f"Skills: {', '.join(self.results['skills'])}")
+        if self.results.get('contributors'):
+            self.item(f"Contributors: {', '.join(self.results['contributors'])}")
+        if self.results.get('project_type'):
+            self.item(f"Project Type: {self.results['project_type']}")
+        if output_dir:
+            self.item(f"Summary saved to: {output_dir}")
+
+# Global progress instance for use across functions
+_scan_progress = None
+
+# Get or create the global scan progress instance (set reset=True to start fresh)
+def get_scan_progress(reset: bool = False) -> ScanProgress:
+    global _scan_progress
+    if _scan_progress is None or reset:
+        _scan_progress = ScanProgress()
+    return _scan_progress
 
 # Try to import contribution metrics module; support running as package or standalone
 try:
@@ -487,7 +550,7 @@ def _persist_scan(scan_source: str, files_found: list, project: str = None, note
     )
 
 
-def _run_with_progress(func, args=(), kwargs=None, label: str = "Working", total_steps: int = 30):
+def _run_with_progress(func, args=(), kwargs=None, total_steps: int = 30):
     """Run `func(*args, **kwargs)` in a background thread while showing a filling progress bar.
 
     Returns (result, captured_stdout, error)
@@ -508,17 +571,18 @@ def _run_with_progress(func, args=(), kwargs=None, label: str = "Working", total
     th.daemon = True
     th.start()
 
+    progress = get_scan_progress()
     step = 0
     # animate until finished
     while th.is_alive():
         step = (step + 1) % (total_steps + 1)
         if step == 0:
             step = total_steps
-        _print_progress(step, total_steps, label)
+        progress.progress(step, total_steps)
         time.sleep(0.08)
 
     # ensure final 100%
-    _print_progress(total_steps, total_steps, label)
+    progress.progress(total_steps, total_steps)
 
     return result_container.get('result'), buf.getvalue(), result_container.get('error')
 
@@ -589,13 +653,13 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                 # detect languages/skills/contributors from extracted tree
                 # Run language detection under the progress/capture helper to avoid noisy prints
                 langs_res, langs_out, langs_err = _run_with_progress(
-                    detect_languages_and_frameworks, args=(tmpdir,), label="Detect languages", total_steps=40
+                    detect_languages_and_frameworks, args=(tmpdir,),  total_steps=40
                 )
                 langs = langs_res.get('languages', []) if langs_res else []
 
                 # Run skill detection using the same runner so output is captured
                 skills_res, skills_out, skills_err = _run_with_progress(
-                    detect_skills, args=(tmpdir,), label="Detect skills", total_steps=40
+                    detect_skills, args=(tmpdir,),  total_steps=40
                 )
                 skills = skills_res.get('skills', []) if skills_res else []
                 tech_summary = {}
@@ -633,12 +697,8 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                         lang = None
                     file_meta[display] = {'owner': owner, 'language': lang}
 
-                # Detect all git repos in the extracted zip; if none/missing, fall back to project folders
-                repo_roots = _find_all_git_roots(tmpdir)
-                if not repo_roots:
-                    candidate_roots = _find_candidate_project_roots(tmpdir)
-                    if len(candidate_roots) > 1:
-                        repo_roots = candidate_roots
+                # Detect all project roots (BOTH git repo folders and non-git folders)
+                repo_roots = _find_all_project_roots(tmpdir)
 
                 if repo_roots:
                     # Multiple or single repo detected - save per-repo
@@ -671,7 +731,7 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
                     if generate_llm_summary:
                         try:
                             project_name = os.path.basename(os.path.abspath(zip_path))
-                            print(f"LLM summary: generating for {project_name}...")
+                            print(f"    [-] LLM summary: generating for {project_name}...")
                             summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
                                 project_name=project_name,
                                 project_root=tmpdir,
@@ -705,11 +765,7 @@ def list_files_in_zip(zip_path, recursive=False, file_type=None, show_collaborat
             except sqlite3.OperationalError:
                 try:
                     init_db()
-                    repo_roots = _find_all_git_roots(tmpdir)
-                    if not repo_roots:
-                        candidate_roots = _find_candidate_project_roots(tmpdir)
-                        if len(candidate_roots) > 1:
-                            repo_roots = candidate_roots
+                    repo_roots = _find_all_project_roots(tmpdir)
                     if repo_roots:
                         print("\n=== Saving Projects to Database ===")
                         _persist_multi_repo_scans(zip_path, files_found, repo_roots, file_metadata=file_meta,
@@ -841,13 +897,20 @@ def _map_files_to_repos(file_list: list, repo_roots: list) -> dict:
     """Map each file to its parent git repo root. Returns dict[repo_root] -> files."""
     mapping = {root: [] for root in repo_roots}
     unmapped = []
-    
+
     for item in file_list:
         file_path = item[0] if isinstance(item, tuple) else item
+        # Extract inner part for zip display paths, use as-is for normal filesystem paths
+        if ':' in file_path:
+            # Skip Windows drive letter colons (position 1), only split on zip-style colons
+            colon_pos = file_path.find(':', 2)
+            resolved_path = file_path if colon_pos == -1 else file_path[:colon_pos]
+        else:
+            resolved_path = file_path
         matched = False
         for repo_root in repo_roots:
             try:
-                abs_file = os.path.abspath(file_path.split(':')[0])
+                abs_file = os.path.abspath(resolved_path)
                 abs_repo = os.path.abspath(repo_root)
                 common = os.path.commonpath([abs_file, abs_repo])
                 if common == abs_repo:
@@ -858,11 +921,11 @@ def _map_files_to_repos(file_list: list, repo_roots: list) -> dict:
                 continue
         if not matched:
             unmapped.append(item)
-    
+
     # Assign unmapped files to the first repo (as fallback)
     if unmapped and repo_roots:
         mapping[repo_roots[0]].extend(unmapped)
-    
+
     # Remove empty repos from mapping
     return {k: v for k, v in mapping.items() if v}
 
@@ -927,6 +990,81 @@ def _find_candidate_project_roots(base_path: str) -> list:
         return candidates
     return candidates
 
+# Find ALL project roots under base_path: git repos AND non-git project directories
+# Combines `_find_all_git_roots()` with `_find_candidate_project_roots()` to catch non-git subdirectories
+def _find_all_project_roots(base_path: str) -> list:
+
+    git_roots = _find_all_git_roots(base_path)
+    candidate_roots = _find_candidate_project_roots(base_path)
+
+    if not candidate_roots:
+        return git_roots
+    if not git_roots:
+        # Only treat as multi-project if >1 candidates
+        return candidate_roots if len(candidate_roots) > 1 else []
+
+    abs_git_roots = [os.path.abspath(g) for g in git_roots]
+
+    all_roots = list(git_roots)
+    for candidate in candidate_roots:
+        abs_candidate = os.path.abspath(candidate)
+
+        # Determine candidate's relationship to known git roots
+        is_inside_git = False
+        contains_git = False
+        for abs_git in abs_git_roots:
+            try:
+                common = os.path.commonpath([abs_candidate, abs_git])
+                if common == abs_git:
+                    # Candidate is inside a git root, skip
+                    is_inside_git = True
+                    break
+                if common == abs_candidate:
+                    # Candidate is a parent of a git root, scan subdirs for non-git siblings instead
+                    contains_git = True
+            except (ValueError, TypeError):
+                continue
+
+        if is_inside_git:
+            continue
+
+        if contains_git:
+            # Container directory, check immediate subdirs for non-git project folders
+            try:
+                for entry in os.scandir(candidate):
+                    if not entry.is_dir() or _is_macos_junk(entry.name):
+                        continue
+                    abs_sub = os.path.abspath(entry.path)
+                    # Skip if this subdir is already a known git root
+                    if abs_sub in abs_git_roots:
+                        continue
+                    # Skip subdirs inside any git root
+                    inside = False
+                    for abs_git in abs_git_roots:
+                        try:
+                            if os.path.commonpath([abs_sub, abs_git]) == abs_git:
+                                inside = True
+                                break
+                        except (ValueError, TypeError):
+                            continue
+                    if inside:
+                        continue
+                    # Only add if subdir contains files
+                    has_files = False
+                    for _, _, files in os.walk(entry.path):
+                        if files:
+                            has_files = True
+                            break
+                    if has_files:
+                        all_roots.append(entry.path)
+            except Exception:
+                pass
+        else:
+            # Standalone non-git directory, add it
+            all_roots.append(candidate)
+
+    return all_roots
+
 
 def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: list,
                                detected_languages: list = None, detected_skills: list = None,
@@ -964,15 +1102,15 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
             # Detect languages, frameworks, and skills PER PROJECT
             try:
                 project_langs_res, _, _ = _run_with_progress(
-                    detect_languages_and_frameworks, args=(repo_root,), label=f"Detect languages ({project_name})", total_steps=40
+                    detect_languages_and_frameworks, args=(repo_root,), total_steps=40
                 )
                 project_langs = project_langs_res.get('languages', []) if project_langs_res else []
             except Exception:
                 project_langs = []
-            
+
             try:
                 project_skills_res, _, _ = _run_with_progress(
-                    detect_skills, args=(repo_root,), label=f"Detect skills ({project_name})", total_steps=40
+                    detect_skills, args=(repo_root,), total_steps=40
                 )
                 project_skills = project_skills_res.get('skills', []) if project_skills_res else []
             except Exception:
@@ -998,7 +1136,7 @@ def _persist_multi_repo_scans(scan_source: str, file_list: list, repo_roots: lis
             summary_updated_at = None
             if generate_llm_summary:
                 try:
-                    print(f"LLM summary: generating for {project_name}...")
+                    print(f"    [-] LLM summary: generating for {project_name}...")
                     summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
                         project_name=project_name,
                         project_root=repo_root,
@@ -1123,6 +1261,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     if not path:
         print("Directory does not exist.")
         return
+
+    # Convert relative paths to absolute
+    path = os.path.abspath(path)
 
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
@@ -1257,7 +1398,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         # Detect project-level metadata and persist with the scan
         try:
             langs_res, langs_out, langs_err = _run_with_progress(
-                detect_languages_and_frameworks, args=(path,), label="Detect languages", total_steps=40
+                detect_languages_and_frameworks, args=(path,),  total_steps=40
             )
             langs = langs_res.get('languages', []) if langs_res else []
         except Exception:
@@ -1265,7 +1406,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
         try:
             skills_res, skills_out, skills_err = _run_with_progress(
-                detect_skills, args=(path,), label="Detect skills", total_steps=40
+                detect_skills, args=(path,),  total_steps=40
             )
             skills = skills_res.get('skills', []) if skills_res else []
         except Exception:
@@ -1304,13 +1445,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 lang = None
             file_meta[display] = {'owner': owner, 'language': lang}
 
-        # Check for multiple git repos (or multiple top-level project folders) in the directory
-        repo_roots = _find_all_git_roots(path)
-        if not repo_roots:
-            candidate_roots = _find_candidate_project_roots(path)
-            if len(candidate_roots) > 1:
-                repo_roots = candidate_roots
-        
+        # Check for multiple project roots (git repos + non-git project folders)
+        repo_roots = _find_all_project_roots(path)
+
         try:
             if repo_roots and len(repo_roots) > 1:
                 # Multiple repos/projects detected - save each separately
@@ -1343,7 +1480,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
                 summary_updated_at = None
                 if generate_llm_summary:
                     try:
-                        print(f"LLM summary: generating for {project_name}...")
+                        print(f"    [-] LLM summary: generating for {project_name}...")
                         summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
                             project_name=project_name,
                             project_root=path,
@@ -1419,7 +1556,7 @@ def run_headless_scan(
 
     Intended for internal callers (e.g. resume regeneration).
     """
-
+    path = os.path.abspath(path)
     return list_files_in_directory(
         path,
         recursive=recursive,
@@ -1464,7 +1601,18 @@ def run_with_saved_settings(
     # Merge for current run
     final = merge_settings(settings_to_save, config)
 
+    # scan_path_input = final.get("directory")
     scan_path_input = final.get("directory")
+    if not scan_path_input:
+        print("Error: No directory provided.")
+        return
+
+    # Make sure path works for relative and absolute paths
+    scan_path_input = os.path.abspath(scan_path_input)
+    if not os.path.exists(scan_path_input):
+        print(f"Error: Path does not exist: {scan_path_input}")
+        return
+    
     zip_extract_ctx = None
     zip_extract_path = None
     if scan_path_input and os.path.isfile(scan_path_input) and scan_path_input.lower().endswith('.zip'):
@@ -1513,10 +1661,10 @@ def run_with_saved_settings(
                 
                 # Detect languages for this project
                 langs_res, langs_out, langs_err = _run_with_progress(
-                    detect_languages_and_frameworks, args=(repo_root,), label=f"Detect languages ({project_name})", total_steps=40
+                    detect_languages_and_frameworks, args=(repo_root,), total_steps=40
                 )
                 langs_summary = langs_res or {}
-                
+
                 if langs_summary.get("languages"):
                     print("Languages Detected:")
                     if langs_summary.get("high_confidence"):
@@ -1532,7 +1680,7 @@ def run_with_saved_settings(
 
                 # Detect skills for this project
                 skills_res, skills_out, skills_err = _run_with_progress(
-                    detect_skills, args=(repo_root,), label=f"Detect skills ({project_name})", total_steps=40
+                    detect_skills, args=(repo_root,), total_steps=40
                 )
                 skills_summary = skills_res or {}
                 
@@ -1544,7 +1692,7 @@ def run_with_saved_settings(
             # Single project - detect as before
             print("\n=== Detecting Languages ===")
             langs_res, langs_out, langs_err = _run_with_progress(
-                detect_languages_and_frameworks, args=(scan_target,), label="Detect languages", total_steps=40
+                detect_languages_and_frameworks, args=(scan_target,),  total_steps=40
             )
             langs_summary = langs_res or {}
             if langs_summary.get("languages"):
@@ -1562,7 +1710,7 @@ def run_with_saved_settings(
 
             print("\n=== Detecting Skills ===")
             skills_res, skills_out, skills_err = _run_with_progress(
-                detect_skills, args=(scan_target,), label="Detect skills", total_steps=40
+                detect_skills, args=(scan_target,),  total_steps=40
             )
             skills_summary = skills_res or {}
 
@@ -1596,32 +1744,417 @@ def run_with_saved_settings(
             zip_extract_ctx.cleanup()
 
 
+# =============================================================================
+# PER-PROJECT SCAN HELPERS [used by scan_with_clean_output()]
+# =============================================================================
+
+def _scan_single_project_phases(project_root: str, progress: ScanProgress) -> dict:
+    """Run language/skill/contributor detection for a single project root.
+
+    Returns dict with detection results for CLI display and DB persistence.
+    """
+    # Phase: Detecting Languages & Frameworks
+    progress.header("Detecting Languages & Frameworks")
+    langs_res, _, _ = _run_with_progress(
+        detect_languages_and_frameworks, args=(project_root,), total_steps=25
+    )
+    langs_summary = langs_res or {}
+
+    high_conf_langs = langs_summary.get('high_confidence', [])
+    languages_all = langs_summary.get('languages', [])
+    high_conf_frameworks = langs_summary.get('high_confidence_frameworks', [])
+    frameworks_all = langs_summary.get('frameworks', [])
+
+    if high_conf_langs:
+        progress.item(f"Languages: {', '.join(high_conf_langs[:5])}")
+    elif languages_all:
+        progress.item(f"Languages: {', '.join(languages_all[:3])} (low confidence)")
+    else:
+        progress.item("Languages: None detected")
+    if high_conf_frameworks:
+        progress.item(f"Frameworks: {', '.join(high_conf_frameworks[:5])}")
+    elif frameworks_all:
+        progress.item(f"Frameworks: {', '.join(frameworks_all[:3])} (low confidence)")
+
+    # Phase: Detecting Skills
+    progress.header("Detecting Skills")
+    skills_res, _, _ = _run_with_progress(
+        detect_skills, args=(project_root,), total_steps=25
+    )
+    skills_summary = skills_res or {}
+    skills = skills_summary.get('skills', [])
+    if skills:
+        progress.item(", ".join(skills[:5]))
+    else:
+        progress.item("None detected")
+
+    # Phase: Analyzing Project
+    progress.header("Analyzing Project")
+    metrics = None
+    contributors = []
+    collab_status = "Individual"
+
+    try:
+        contrib_data = identify_contributions(project_root, write_output=False)
+        if contrib_data:
+            if contrib_data.get('type') == 'multi_git':
+                all_contribs = set()
+                for repo in contrib_data.get('repos', []):
+                    all_contribs.update(repo.get('contributions', {}).keys())
+                contributors = list(all_contribs)
+            elif 'contributions' in contrib_data:
+                contributors = list(contrib_data['contributions'].keys())
+
+        if analyze_repo is not None:
+            metrics = analyze_repo_path(project_root)
+
+        collab_status = _determine_project_collaboration(project_root)
+    except Exception:
+        pass
+
+    # Prompt manual contributor assignment for non-git projects
+    has_real_contributors = contributors and contributors != ['Unknown']
+    if not has_real_contributors and _find_git_root(project_root) is None:
+        manual = _prompt_manual_contributors(os.path.basename(os.path.abspath(project_root)))
+        if manual:
+            contributors = manual
+
+    for i in range(25):
+        progress.progress(i + 1, 25)
+        time.sleep(0.02)
+
+    if contributors:
+        progress.item(f"Contributors: {len(contributors)} found")
+    else:
+        progress.item("Contributors: None detected")
+    progress.item(f"Project Type: {collab_status}")
+
+    return {
+        'langs_res': langs_res,
+        'skills_res': skills_res,
+        'high_conf_langs': high_conf_langs,
+        'languages_all': languages_all,
+        'high_conf_frameworks': high_conf_frameworks,
+        'frameworks_all': frameworks_all,
+        'skills': skills,
+        'contributors': contributors,
+        'collab_status': collab_status,
+        'metrics': metrics,
+    }
+
+# Persist a single project's scan results to the database
+def _persist_single_project(repo_root: str, project_name: str, files_for_repo: list, proj_result: dict, file_meta: dict, generate_llm_summary: bool, project_thumbnail_path: str = None):
+    
+    skills_res = proj_result.get('skills_res')
+    tech_summary = {}
+    if skills_res:
+        tech_summary = {
+            "languages": skills_res.get("languages", []),
+            "frameworks": skills_res.get("frameworks", []),
+            "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+            "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+            "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+            "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+            "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+            "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+        }
+
+    project_created_at, project_repo_url = _get_repo_info(repo_root)
+
+    summary_text = summary_input_hash = summary_model = summary_updated_at = None
+    if generate_llm_summary:
+        try:
+            print(f"\nGenerating LLM Summary")
+            print("-" * 20)
+            print(f"    [-] Generating summary for {project_name}...")
+            summary_text, summary_input_hash, summary_model, _ = get_or_generate_summary(
+                project_name=project_name,
+                project_root=repo_root,
+                files_found=files_for_repo,
+                languages=tech_summary.get("languages", []),
+                frameworks=tech_summary.get("frameworks", []),
+                skills=proj_result['skills'],
+            )
+            if summary_text:
+                summary_updated_at = summary_timestamp()
+        except Exception:
+            summary_text = None
+
+    try:
+        _persist_scan(
+            repo_root, files_for_repo, project=project_name, notes=None,
+            file_metadata=file_meta,
+            detected_languages=proj_result['languages_all'],
+            detected_skills=proj_result['skills'],
+            contributors=proj_result['contributors'],
+            project_created_at=project_created_at,
+            project_repo_url=project_repo_url,
+            project_thumbnail_path=project_thumbnail_path,
+            git_metrics=proj_result['metrics'],
+            tech_summary=tech_summary,
+            summary_text=summary_text, summary_input_hash=summary_input_hash,
+            summary_model=summary_model, summary_updated_at=summary_updated_at,
+        )
+    except Exception:
+        init_db()
+        _persist_scan(repo_root, files_for_repo, project=project_name)
+
+
+# =============================================================================
+# CLEAN SCAN ORCHESTRATOR (New unified entry point)
+# =============================================================================
+
+def scan_with_clean_output(
+    directory: str,
+    recursive: bool = True,
+    file_type: str = None,
+    save_to_db: bool = True,
+    thumbnail_source: str = None,
+    generate_llm_summary: bool = False,
+) -> dict:
+    
+    # Unified scan entry point with clean CLI output (returns dict with scan results)
+    progress = get_scan_progress(reset=True)
+
+    if not directory:
+        print("Error: No directory provided.")
+        return {'success': False, 'error': 'No directory provided'}
+
+    # Handle zip files
+    zip_extract_ctx = None
+    zip_extract_path = None
+    if os.path.isfile(directory) and directory.lower().endswith('.zip'):
+        zip_extract_ctx = tempfile.TemporaryDirectory()
+        zip_extract_path = zip_extract_ctx.name
+
+    # Validate thumbnail
+    project_thumbnail_path = None
+    if save_to_db and thumbnail_source and not zip_extract_path:
+        if os.path.isfile(thumbnail_source) and is_image_file(thumbnail_source):
+            project_thumbnail_path = thumbnail_source
+
+    scan_target = directory
+    project_name = os.path.basename(os.path.abspath(directory))
+
+    try:
+        # PHASE 1: Scanning Files
+        progress.header("Scanning Files")
+
+        # Count files for progress display
+        if zip_extract_path:
+            # Extract zip contents first
+            with zipfile.ZipFile(directory) as zf:
+                zf.extractall(zip_extract_path)
+            scan_target = _resolve_extracted_root(zip_extract_path)
+
+        # Collect files with progress bar
+        total_to_scan = sum(1 for r, _, fs in os.walk(scan_target) for f in fs if not _is_macos_junk(f) and is_valid_format(f) and (file_type is None or f.lower().endswith(file_type.lower())))
+        files_found, skipped_count, scan_count = [], 0, 0
+        for root, dirs, files in os.walk(scan_target):
+            dirs[:] = [d for d in dirs if d != '__MACOSX']
+            for file in files:
+                if _is_macos_junk(file):
+                    continue
+                if not is_valid_format(file):
+                    skipped_count += 1
+                    continue
+                if file_type is None or file.lower().endswith(file_type.lower()):
+                    full_path = os.path.join(root, file)
+                    size = os.path.getsize(full_path) if os.path.exists(full_path) else None
+                    mtime = os.path.getmtime(full_path) if os.path.exists(full_path) else None
+                    files_found.append((full_path, size, mtime))
+                    scan_count += 1
+                    progress.progress(scan_count, total_to_scan)
+        progress.item(f"{len(files_found)} files found, {skipped_count} skipped")
+
+        progress.store('files_found', len(files_found))
+        progress.store('files_skipped', skipped_count)
+
+        if not files_found:
+            print("\nNo files found matching your criteria.")
+            return {'success': False, 'error': 'No files found'}
+
+        # Detect project roots early so we can branch to either the single or multi-project path
+        repo_roots = _find_all_project_roots(scan_target)
+        is_multi = repo_roots and len(repo_roots) > 1
+
+        if is_multi:
+            progress.item(f"Multiple projects detected ({len(repo_roots)})! Scan times may vary.")
+
+        # Build file metadata shared by single and multi-project paths
+        file_meta = {}
+        for item in files_found:
+            display = item[0] if isinstance(item, tuple) else item
+            owner = get_collaboration_info(display) if os.path.exists(display) else None
+            _, ext = os.path.splitext(display)
+            lang = LANGUAGE_MAP.get(ext.lower()) if ext else None
+            file_meta[display] = {'owner': owner, 'language': lang}
+
+        if not is_multi:
+            # =================================================================
+            # SINGLE PROJECT PATH
+            # =================================================================
+            result_data = _scan_single_project_phases(scan_target, progress)
+
+            # Store results for progress.complete() summary
+            progress.store('languages', result_data['high_conf_langs'] or result_data['languages_all'])
+            progress.store('frameworks', result_data['high_conf_frameworks'] or result_data['frameworks_all'])
+            progress.store('skills', result_data['skills'])
+            progress.store('contributors', result_data['contributors'])
+            progress.store('project_type', result_data['collab_status'])
+
+            if save_to_db:
+                _persist_single_project(
+                    scan_target, project_name, files_found,
+                    result_data, file_meta, generate_llm_summary,
+                    project_thumbnail_path=project_thumbnail_path,
+                )
+
+            output_dir = os.path.join("output", project_name)
+
+            # Generate TXT/JSON summary
+            if output_project_info is not None:
+                try:
+                    skills_res = result_data.get('skills_res') or {}
+                    contrib_data = identify_contributions(scan_target, write_output=False)
+                    proj_info = {
+                        "project_name": project_name,
+                        "project_path": os.path.abspath(scan_target),
+                        "detected_type": "coding_project",
+                        "languages": skills_res.get("languages", []),
+                        "frameworks": skills_res.get("frameworks", []),
+                        "skills": skills_res.get("skills", []),
+                        "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+                        "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+                        "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+                        "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+                        "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+                        "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+                        "contributions": contrib_data,
+                        "git_metrics": result_data.get('metrics'),
+                        "generated_at": datetime.now().isoformat(timespec="seconds"),
+                    }
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_project_info(proj_info, output_dir=output_dir, quiet=True)
+                except Exception:
+                    pass
+
+            progress.complete(project_name, output_dir)
+
+            return {
+                'success': True,
+                'is_multi_project': False,
+                'project_name': project_name,
+                'project_names': [project_name],
+                'output_dir': output_dir,
+                'files_found': len(files_found),
+                'languages': result_data['high_conf_langs'] or result_data['languages_all'],
+                'frameworks': result_data['high_conf_frameworks'] or result_data['frameworks_all'],
+                'skills': result_data['skills'],
+                'contributors': result_data['contributors'],
+                'project_type': result_data['collab_status'],
+            }
+
+        else:
+            # =================================================================
+            # MULTI-PROJECT PATH
+            # =================================================================
+
+            # Map files to their project roots
+            repo_file_map = _map_files_to_repos(files_found, repo_roots)
+
+            detected_project_names = []
+
+            for idx, repo_root in enumerate(repo_roots):
+                proj_name = os.path.basename(os.path.abspath(repo_root))
+                files_for_repo = repo_file_map.get(repo_root, [])
+
+                # Print project banner
+                print(f"\n{'=' * 50}")
+                print(f"  Project {idx + 1}/{len(repo_roots)}: {proj_name}")
+                print(f"{'=' * 50}")
+                progress.item(f"{len(files_for_repo)} files in this project")
+
+                # Run language/skill/contributor detection for this project
+                proj_result = _scan_single_project_phases(repo_root, progress)
+
+                # Update file ownership for non-git projects with manual contributors
+                if proj_result['contributors'] and _find_git_root(repo_root) is None:
+                    owner_val = _format_owner_from_names(proj_result['contributors'])
+                    for f_item in files_for_repo:
+                        f_display = f_item[0] if isinstance(f_item, tuple) else f_item
+                        if f_display in file_meta and isinstance(file_meta[f_display], dict):
+                            file_meta[f_display]['owner'] = owner_val
+
+                detected_project_names.append(proj_name)
+
+                # Save this project to DB
+                if save_to_db:
+                    _persist_single_project(
+                        repo_root, proj_name, files_for_repo,
+                        proj_result, file_meta, generate_llm_summary,
+                    )
+                    progress.item(f"Saved to database: {proj_name}")
+
+                # Generate TXT/JSON summary
+                if output_project_info is not None:
+                    try:
+                        skills_res = proj_result.get('skills_res') or {}
+                        contrib_data = identify_contributions(repo_root, write_output=False)
+                        proj_info = {
+                            "project_name": proj_name,
+                            "project_path": os.path.abspath(repo_root),
+                            "detected_type": "coding_project",
+                            "languages": skills_res.get("languages", []),
+                            "frameworks": skills_res.get("frameworks", []),
+                            "skills": skills_res.get("skills", []),
+                            "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+                            "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+                            "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+                            "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+                            "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+                            "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+                            "contributions": contrib_data,
+                            "git_metrics": proj_result.get('metrics'),
+                            "generated_at": datetime.now().isoformat(timespec="seconds"),
+                        }
+                        proj_output_dir = os.path.join("output", proj_name)
+                        os.makedirs(proj_output_dir, exist_ok=True)
+                        output_project_info(proj_info, output_dir=proj_output_dir, quiet=True)
+                        progress.item(f"Summary files written to output/{proj_name}/")
+                    except Exception:
+                        pass
+
+                # Prompt before next project (skip after the last one)
+                if idx < len(repo_roots) - 1:
+                    next_name = os.path.basename(os.path.abspath(repo_roots[idx + 1]))
+                    if not ask_yes_no(f"\nReady to proceed with next project? ({next_name}) (y/n): ", default=True):
+                        progress.item("Remaining projects skipped by user.")
+                        break
+
+            # Print overall completion summary
+            progress.header("All Scans Complete!")
+            progress.item(f"{len(detected_project_names)} of {len(repo_roots)} projects scanned")
+            for pn in detected_project_names:
+                progress.item(pn)
+
+            return {
+                'success': True,
+                'is_multi_project': True,
+                'project_name': project_name,
+                'project_names': detected_project_names,
+                'output_dir': None,
+                'files_found': len(files_found),
+                'languages': [],
+                'frameworks': [],
+                'skills': [],
+                'contributors': [],
+                'project_type': 'Multiple Projects',
+            }
+
+    finally:
+        if zip_extract_ctx is not None:
+            zip_extract_ctx.cleanup()
+
 if __name__ == "__main__":
-    """
-    This module is now integrated into the main menu system.
-    To run scanning operations, please use the main menu:
-    
-    python -m src.main_menu
-    or
-    python src/main_menu.py
-    
-    The main menu provides access to all scanning features along with
-    other project analysis tools.
-    """
-    import sys
-    print("\n" + "=" * 60)
-    print("  SCAN MODULE - INTEGRATED INTO MAIN MENU")
-    print("=" * 60)
-    print("\nThis module is now part of the unified main menu system.")
-    print("To access scanning features, please run the main menu:\n")
-    print("  python -m src.main_menu")
-    print("  or")
-    print("  python src/main_menu.py\n")
-    print("The main menu provides access to:")
-    print("  - Directory/archive scanning")
-    print("  - Database inspection")
-    print("  - Project ranking")
-    print("  - Project summaries")
-    print("  - And more...\n")
-    print("=" * 60)
-    sys.exit(0)
+    print("Run 'python -m src.main_menu' to access scanning features.")

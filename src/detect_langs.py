@@ -824,8 +824,8 @@ def detect_languages_and_frameworks(directory):
                 framework_data[framework]["pattern_count"] += match_count
                 # print(f"Detected {framework} from code patterns ({match_count} matches): {file_path}")
 
-    # Log filtering statistics
-    print(f"\n[Filtering Stats] Scanned: {files_scanned} files | Skipped: {files_skipped} files, {dirs_skipped} directories")
+    # Log filtering statistics (silenced for clean CLI output)
+    # print(f"\n[Filtering Stats] Scanned: {files_scanned} files | Skipped: {files_skipped} files, {dirs_skipped} directories")
 
     # Calculate confidence for each detected language
     for language in language_data:

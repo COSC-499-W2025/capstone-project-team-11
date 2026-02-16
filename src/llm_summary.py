@@ -174,6 +174,39 @@ def generate_summary_text(payload: Dict, model: str = DEFAULT_MODEL) -> Optional
     return result.strip()
 
 
+def generate_resume_summary_text(payload: Dict, model: str = DEFAULT_MODEL) -> Optional[str]:
+    prompt = (
+        "You are given structured contributor and project metadata.\n"
+        "Write a concise resume summary (3-6 sentences) that:\n"
+        "1) Summarizes the contributor's overall work across projects\n"
+        "2) Highlights key skills and technologies\n"
+        "3) Explicitly mentions every project name provided\n\n"
+        "Rules:\n"
+        "- Use plain language.\n"
+        "- Output only the summary text. Do not add any preface or label.\n"
+        "- Do not mention consent, scanning, or LLMs.\n"
+        "- If information is missing, state that it is not specified.\n\n"
+        "Contributor metadata (JSON):\n"
+        f"{json.dumps(payload, indent=2, ensure_ascii=True)}\n"
+    )
+    result = _run_ollama(prompt, model=model)
+    if not result:
+        return None
+    lowered = result.strip().lower()
+    prefixes = (
+        "here is a concise",
+        "here is a brief",
+        "summary:",
+        "resume summary:",
+    )
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            lines = result.splitlines()
+            if len(lines) > 1:
+                return "\n".join(lines[1:]).strip()
+    return result.strip()
+
+
 def get_or_generate_summary(
     project_name: str,
     project_root: str,

@@ -37,10 +37,12 @@ class TestConsentHelpers(unittest.TestCase):
     # Tests that ask_yes_no() returns correct boolean for accepted inputs, and reprompts until a valid input is given
     def test_ask_yes_no_accepts_valid_and_reprompts(self):
         # Pass in an invalid input first, then a valid one (y).
-        with patch('builtins.input', side_effect=['', 'maybe', 'honey', 'buyant', 'y']):
+        with patch.dict(os.environ, {"SCANNER_FORCE_INTERACTIVE": "1"}), \
+             patch('builtins.input', side_effect=['', 'maybe', 'honey', 'buyant', 'y']):
             self.assertTrue(ask_yes_no("Prompt: "))
         # Pass in a direct no
-        with patch('builtins.input', return_value='n'):
+        with patch.dict(os.environ, {"SCANNER_FORCE_INTERACTIVE": "1"}), \
+             patch('builtins.input', return_value='n'):
             self.assertFalse(ask_yes_no("Prompt: "))
 
     # Tests that ask_for_data_consent() correctly saves user preference when requested
@@ -48,7 +50,8 @@ class TestConsentHelpers(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             config = os.path.join(td, "config.json")
             # Simulates granting consent and choosing to save preference.
-            with patch('builtins.input', return_value='y'):
+            with patch.dict(os.environ, {"SCANNER_FORCE_INTERACTIVE": "1"}), \
+                 patch('builtins.input', return_value='y'):
                 out = self.capture(ask_for_data_consent, config_path=config)
             # Verify config file was written and contains data_consent=true
             loaded = load_config(config)
@@ -59,7 +62,8 @@ class TestConsentHelpers(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             config = os.path.join(td, "config.json")
             # Simulates not granting consent and not saving
-            with patch('builtins.input', side_effect=['n', 'n']):
+            with patch.dict(os.environ, {"SCANNER_FORCE_INTERACTIVE": "1"}), \
+                 patch('builtins.input', side_effect=['n', 'n']):
                 out = self.capture(ask_for_data_consent, config_path=config)
             # Since we didn't save, config file shouldn't exist, so load_config() returns default values
             loaded = load_config(config)

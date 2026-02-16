@@ -2,6 +2,7 @@ import os
 import sqlite3
 import sys
 import unittest
+import tempfile
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import patch
@@ -107,3 +108,44 @@ class TestRankProjects(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _make_custom_db():
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    conn = sqlite3.connect(tmp.name)
+    conn.row_factory = sqlite3.Row
+    rank_projects._ensure_custom_ranking_tables(conn)
+    conn.close()
+    return tmp.name
+
+
+def _conn_factory(db_path):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def test_custom_ranking_save_load_and_list():
+    db_path = _make_custom_db()
+    try:
+        with patch('rank_projects.get_connection', lambda: _conn_factory(db_path)):
+            rank_projects.save_custom_ranking("Favorites", ["project-a", "project-b"])
+            assert rank_projects.get_custom_ranking("Favorites") == ["project-a", "project-b"]
+            names = [r["name"] for r in rank_projects.list_custom_rankings()]
+            assert "Favorites" in names
+    finally:
+        os.remove(db_path)
+
+
+def test_custom_ranking_rename_and_delete():
+    db_path = _make_custom_db()
+    try:
+        with patch('rank_projects.get_connection', lambda: _conn_factory(db_path)):
+            rank_projects.save_custom_ranking("OldName", ["project-a"])
+            assert rank_projects.rename_custom_ranking("OldName", "NewName") is True
+            assert rank_projects.get_custom_ranking("NewName") == ["project-a"]
+            assert rank_projects.delete_custom_ranking("NewName") is True
+            assert rank_projects.get_custom_ranking("NewName") == []
+    finally:
+        os.remove(db_path)

@@ -21,10 +21,11 @@ import subprocess
 from datetime import datetime
 import re
 
+from cli_output import print_error
 from db import list_projects_for_display, set_project_display_name
 from cli_validators import prompt_project_path, validate_project_path
 # Import all feature modules
-from scan import run_with_saved_settings
+from scan import scan_with_clean_output
 from config import load_config, is_default_config, config_path as default_config_path
 from consent import ask_for_data_consent, ask_yes_no
 from rank_projects import (
@@ -34,7 +35,13 @@ from rank_projects import (
     print_projects_contribution_summary,
     rank_projects_by_contributor,
     print_projects_by_contributor,
-    _get_all_contributors
+    _get_all_contributors,
+    list_custom_rankings,
+    get_custom_ranking,
+    save_custom_ranking,
+    delete_custom_ranking,
+    rename_custom_ranking,
+    print_custom_ranking
 )
 from summarize_projects import summarize_top_ranked_projects, db_is_initialized
 from contrib_metrics import canonical_username
@@ -50,12 +57,6 @@ from detect_roles import (
     format_roles_report,
     display_all_roles
 )
-
-# Print a standardized error message (message: The main error description | hint: Optional hint for how to resolve the issue)
-def print_error(message: str, hint: str = None):
-    print(f"\nError: {message}")
-    if hint:
-        print(f"  Hint: {hint}")
 
 def print_main_menu():
     """Display the main menu options."""
@@ -84,9 +85,46 @@ def print_main_menu():
     print("12. Manage Database")
     print("0. Exit")
 
+# Show post-scan action menu (View new summary, manage other projects, return to main menu)
+def _show_post_scan_menu() -> str:
+    print("\nWhat would you like to do? (1-3)")
+    print("1. View scanned project summary")
+    print("2. Manage scanned projects")
+    print("3. Return to main menu")
+    return input("\nSelect an option: ").strip()
+
+# Display the TXT summary for a project
+def _view_project_summary(project_name: str):
+    output_root = os.path.join(os.path.dirname(__file__), '..', 'output')
+    output_root = os.path.abspath(output_root)
+    folder_path = os.path.join(output_root, project_name)
+
+    if not os.path.isdir(folder_path):
+        print_error(f"No output folder found for project '{project_name}'.")
+        return
+
+    # Find the most recent TXT summary file
+    txt_files = []
+    for fname in os.listdir(folder_path):
+        if '_summary_' in fname and fname.endswith('.txt'):
+            txt_files.append(os.path.join(folder_path, fname))
+
+    if not txt_files:
+        print_error("No summary file found for this project.")
+        return
+
+    txt_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    txt_path = txt_files[0]
+
+    print(f"\n--- Summary for {project_name} ---\n")
+    try:
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            print(f.read())
+    except Exception as e:
+        print_error(f"Failed to read summary: {e}")
 
 def handle_scan_directory():
-    """Handle directory/archive scanning."""
+    """Handle directory/archive scanning with clean output."""
     print("\n=== Scan Directory/Archive ===")
 
     # Check data consent first
@@ -106,6 +144,9 @@ def handle_scan_directory():
     # Check if user wants to use saved settings
     current = load_config(None)
     use_saved = False
+    selected_dir = None
+    file_type = None
+
     if not is_default_config(current):
         use_saved = ask_yes_no(
             "Would you like to use the settings from your saved scan parameters?\n"
@@ -114,22 +155,8 @@ def handle_scan_directory():
         )
 
     if use_saved and current.get("directory"):
-        llm_summary = bool(current.get("llm_summary_consent"))
-        save_db = True
-        thumbnail_source = None
-        run_with_saved_settings(
-            directory=current.get("directory"),
-            recursive_choice=True,
-            file_type=None,
-            show_collaboration=True,
-            show_contribution_metrics=True,
-            show_contribution_summary=True,
-            save=False,
-            save_to_db=save_db,
-            thumbnail_source=thumbnail_source,
-            generate_llm_summary=llm_summary,
-        )
         selected_dir = current.get("directory")
+        file_type = current.get("file_type")
     else:
         while True:
             directory = input("Enter directory path or zip file path: ").strip()
@@ -138,51 +165,53 @@ def handle_scan_directory():
                 continue
             break
 
-        recursive_choice = True
-        show_collab = True
-        show_metrics = True
-        show_summary = True
         remember = ask_yes_no("Save these settings for next time? (y/n): ")
-        save_db = True
-        thumbnail_source = None
-        llm_summary = bool(current.get("llm_summary_consent"))
-
-        run_with_saved_settings(
-            directory=directory,
-            recursive_choice=recursive_choice,
-            file_type=None,
-            show_collaboration=show_collab,
-            show_contribution_metrics=show_metrics,
-            show_contribution_summary=show_summary,
-            save=remember,
-            save_to_db=save_db,
-            thumbnail_source=thumbnail_source,
-            generate_llm_summary=llm_summary,
-        )
         selected_dir = directory
 
-    try:
-        info = gather_project_info(selected_dir)
-        project_name = info.get("project_name") or os.path.basename(os.path.abspath(selected_dir))
-        out_dir = os.path.join("output", project_name)
-        os.makedirs(out_dir, exist_ok=True)
-        json_paths, txt_paths = output_project_info(info, output_dir=out_dir)
-        # Display saved report files
-        try:
-            if isinstance(json_paths, list) and isinstance(txt_paths, list):
-                print(f"Summary reports saved to: {out_dir}")
-                for jp in json_paths:
-                    if jp:
-                        print(f"  JSON: {jp}")
-                for tp in txt_paths:
-                    if tp:
-                        print(f"  TXT : {tp}")
-            else:
-                print(f"Summary reports saved to: {out_dir}")
-        except Exception:
-            print(f"Summary reports saved to: {out_dir}")
-    except Exception as e:
-        print_error(f"Failed to generate summary report: {e}", "Check that the directory exists and contains valid project files.")
+        # Save settings if requested
+        if remember:
+            from config import save_config
+            save_config({
+                "directory": directory,
+                "recursive_choice": True,
+                "file_type": file_type,
+            }, None)
+
+    # Run the clean scan
+    llm_summary = bool(current.get("llm_summary_consent"))
+    result = scan_with_clean_output(
+        directory=selected_dir,
+        recursive=True,
+        file_type=file_type,
+        save_to_db=True,
+        generate_llm_summary=llm_summary,
+    )
+
+    if not result.get('success'):
+        return
+
+    project_name = result.get('project_name', os.path.basename(os.path.abspath(selected_dir)))
+    project_names = result.get('project_names', [project_name])
+    is_multi = result.get('is_multi_project', False)
+
+    # Show post-scan menu
+    choice = _show_post_scan_menu()
+
+    if choice == "1":
+        if is_multi and len(project_names) > 1:
+            # Let user pick which project summary to view (multi-project scans)
+            print("\nMultiple projects were scanned:")
+            for idx, pn in enumerate(project_names, start=1):
+                print(f"  {idx}. {pn}")
+            pick = input("\nEnter number to view summary (blank to cancel): ").strip()
+            if pick.isdigit() and 1 <= int(pick) <= len(project_names):
+                _view_project_summary(project_names[int(pick) - 1])
+            elif pick:
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(project_names)}.")
+        else:
+            _view_project_summary(project_names[0] if project_names else project_name)
+    elif choice == "2":
+        handle_manage_scanned_projects()
 
 
 
@@ -337,6 +366,199 @@ def handle_rank_projects():
                     print_projects_by_contributor(user_projects, name)
     except Exception as e:
         print_error(f"Failed to rank projects by contributor: {e}")
+
+    # Custom ranking flow (user-defined ordering)
+    try:
+        print()
+        print("Custom rankings let you order projects however you want (e.g., favorites).")
+        print("Example order input: 3,1,2")
+        action = input("Custom rankings: (v)iew, (c)reate, (e)dit, (d)elete, (s)kip [s]: ").strip().lower() or "s"
+        if action == "v":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to view (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            projects = get_custom_ranking(selected)
+            print(f"\n=== Custom Ranking: {selected} ===")
+            print_custom_ranking(selected, projects)
+
+        elif action == "c":
+            projects = list_projects_for_display()
+            if not projects:
+                print_error("No projects found in the database.", "Run a directory scan first (Option 1) to populate the database.")
+                return
+
+            print("\nProjects:")
+            for idx, p in enumerate(projects, start=1):
+                custom = (p["custom_name"] or "").strip()
+                default = p["name"]
+                display = custom or default
+                if custom:
+                    print(f"  {idx}. {display}  [default: {default}]")
+                else:
+                    print(f"  {idx}. {display}")
+
+            name = input("\nName this custom ranking: ").strip()
+            if not name:
+                print_error("No name provided.", "Enter a name to save the custom ranking.")
+                return
+
+            existing_names = {r["name"] for r in list_custom_rankings()}
+            if name in existing_names:
+                overwrite = input("A ranking with this name already exists. Overwrite? (y/n): ").strip().lower()
+                if overwrite != "y":
+                    print("Cancelled.")
+                    return
+
+            order_input = input(
+                "Enter project numbers in your desired order (comma-separated, e.g., 3,1,2): "
+            ).strip()
+            if not order_input:
+                print_error("No order provided.", "Enter at least one project number.")
+                return
+
+            parts = [p for p in order_input.replace(",", " ").split() if p]
+            if not all(part.isdigit() for part in parts):
+                print_error("Invalid order.", "Use numbers only, separated by commas.")
+                return
+
+            indices = [int(p) for p in parts]
+            if len(indices) != len(set(indices)):
+                print_error("Invalid order.", "Each project number can only appear once.")
+                return
+
+            if not all(1 <= i <= len(projects) for i in indices):
+                print_error("Invalid order.", f"Use numbers between 1 and {len(projects)}.")
+                return
+
+            ordered_projects = [projects[i - 1]["name"] for i in indices]
+            save_custom_ranking(name, ordered_projects)
+            print(f"\nCustom ranking saved: {name}")
+            print_custom_ranking(name, ordered_projects)
+        elif action == "d":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to delete (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            confirm = input(f"Delete custom ranking '{selected}'? (y/n): ").strip().lower()
+            if confirm != "y":
+                print("Cancelled.")
+                return
+
+            if delete_custom_ranking(selected):
+                print("Deleted.")
+            else:
+                print_error("Delete failed.")
+        elif action == "e":
+            rankings = list_custom_rankings()
+            if not rankings:
+                print("No custom rankings saved yet.")
+                return
+
+            print("\nSaved custom rankings:")
+            for idx, r in enumerate(rankings, 1):
+                created = human_ts(r.get("created_at") or "")
+                print(f"  {idx}. {r['name']}  (created: {created})")
+
+            choice = input("\nEnter number to edit (blank to cancel): ").strip()
+            if not choice:
+                return
+            if not choice.isdigit() or not (1 <= int(choice) <= len(rankings)):
+                print_error("Invalid selection.", f"Enter a number between 1 and {len(rankings)}.")
+                return
+
+            selected = rankings[int(choice) - 1]["name"]
+            edit_action = input("Edit: (r)ename, (o)rder, (b)oth, (c)ancel [c]: ").strip().lower() or "c"
+            if edit_action == "c":
+                return
+
+            new_name = selected
+            if edit_action in ("r", "b"):
+                candidate = input("New name: ").strip()
+                if not candidate:
+                    print_error("No name provided.", "Enter a name to rename the ranking.")
+                    return
+                existing_names = {r["name"] for r in list_custom_rankings()}
+                if candidate in existing_names and candidate != selected:
+                    print_error("Name already exists.", "Choose a different name.")
+                    return
+                if candidate != selected:
+                    if not rename_custom_ranking(selected, candidate):
+                        print_error("Rename failed.")
+                        return
+                    new_name = candidate
+
+            if edit_action in ("o", "b"):
+                projects = list_projects_for_display()
+                if not projects:
+                    print_error("No projects found in the database.", "Run a directory scan first (Option 1) to populate the database.")
+                    return
+
+                print("\nProjects:")
+                for idx, p in enumerate(projects, start=1):
+                    custom = (p["custom_name"] or "").strip()
+                    default = p["name"]
+                    display = custom or default
+                    if custom:
+                        print(f"  {idx}. {display}  [default: {default}]")
+                    else:
+                        print(f"  {idx}. {display}")
+
+                order_input = input(
+                    "Enter project numbers in your desired order (comma-separated, e.g., 3,1,2): "
+                ).strip()
+                if not order_input:
+                    print_error("No order provided.", "Enter at least one project number.")
+                    return
+
+                parts = [p for p in order_input.replace(",", " ").split() if p]
+                if not all(part.isdigit() for part in parts):
+                    print_error("Invalid order.", "Use numbers only, separated by commas.")
+                    return
+
+                indices = [int(p) for p in parts]
+                if len(indices) != len(set(indices)):
+                    print_error("Invalid order.", "Each project number can only appear once.")
+                    return
+
+                if not all(1 <= i <= len(projects) for i in indices):
+                    print_error("Invalid order.", f"Use numbers between 1 and {len(projects)}.")
+                    return
+
+                ordered_projects = [projects[i - 1]["name"] for i in indices]
+                save_custom_ranking(new_name, ordered_projects)
+                print(f"\nCustom ranking updated: {new_name}")
+                print_custom_ranking(new_name, ordered_projects)
+    except Exception as e:
+        print_error(f"Failed to manage custom rankings: {e}")
 
 
 def handle_summarize_contributor_projects():
@@ -549,18 +771,16 @@ def _print_resume_list(resumes):
         print(f"     path: {r['resume_path']}")
 
 
-def _preview_resume(path: str, lines: int = 30):
-    """Return a preview (first N lines) of a resume file, lightly rendered."""
+def _preview_resume(path: str, lines: int = None):
+    """Return a preview of a resume file, lightly rendered."""
     try:
         with open(path, 'r', encoding='utf-8') as fh:
             content = fh.read().splitlines()
     except Exception as e:
         return None, f"Failed to read resume file: {e}"
 
-    preview_lines = content[:lines]
-    truncated = len(content) > lines
-    rendered = _markdown_to_plain("\n".join(preview_lines))
-    return rendered, truncated
+    rendered = _markdown_to_plain("\n".join(content))
+    return rendered, False
 
 
 def _markdown_to_plain(text: str) -> str:
@@ -665,11 +885,8 @@ def handle_view_resumes():
             print(truncated_or_error)
             return
 
-        truncated = truncated_or_error is True
         print("\n--- Preview ---\n")
         print(preview)
-        if truncated:
-            print(f"\n... [Preview truncated - full file at: {path}]")
 
     except sqlite3.OperationalError as e:
         print_error(f"Resumes table not available: {e}", "Run a scan first to initialize the database.")
@@ -784,16 +1001,13 @@ def handle_view_portfolios():
 
         # Default: view
         print(f"\nOpening portfolio for {uname}: {portfolio_file_path}")
-        preview, truncated_or_error = _preview_resume(portfolio_file_path, lines=500)
+        preview, truncated_or_error = _preview_resume(portfolio_file_path)
         if preview is None:
             print(truncated_or_error)
             return
 
-        truncated = truncated_or_error is True or (isinstance(truncated_or_error, bool) and truncated_or_error)
         print("\n--- Preview ---\n")
         print(preview)
-        if truncated:
-            print(f"\n... [Preview truncated - full file at: {portfolio_file_path}]")
 
     except sqlite3.OperationalError as e:
         print_error(f"Portfolios table not available: {e}", "Run a scan first to initialize the database.")
@@ -1113,7 +1327,7 @@ def database_management_menu():
             return
 
         else:
-            print("Invalid selection.")
+            print_error("Invalid selection.", "Enter a number from the list or 'q' to cancel.")
 
 def remove_project_menu():
     """
@@ -1135,7 +1349,7 @@ def remove_project_menu():
         return
 
     if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
-        print("Invalid selection.")
+        print_error("Invalid selection.", "Enter a number from the list or 'q' to cancel.")
         return
 
     project = projects[int(choice) - 1]
@@ -1211,7 +1425,7 @@ def main():
     """Main menu loop."""
     while True:
         print_main_menu()
-        choice = input("\nSelect an option (0-13): ").strip()
+        choice = input("\nSelect an option (0-12): ").strip()
 
         if choice == "1":
             handle_scan_directory()
@@ -1241,7 +1455,7 @@ def main():
             print("\nExiting program. Goodbye!")
             sys.exit(0)
         else:
-            print("\nInvalid option. Please select 0-13.")
+            print("\nInvalid option. Please select 0-12.")
 
         input("\nPress Enter to return to main menu...")
 

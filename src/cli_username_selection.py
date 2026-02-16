@@ -8,6 +8,8 @@ Used by:
 
 from __future__ import annotations
 
+from cli_output import print_error
+
 def get_non_git_projects(projects: dict) -> list[str]:
     """
     Non-git projects = projects with no usable contribution map.
@@ -42,7 +44,7 @@ def prompt_select_non_git_projects(non_git_projects: list[str]) -> list[str] | N
     Blank input cancels -> None
     """
     if not non_git_projects:
-        print("No non-git projects found in the database.")
+        print_error("No non-git projects found in the database.")
         return []
 
     print("\nNon-git projects found:")
@@ -53,25 +55,24 @@ def prompt_select_non_git_projects(non_git_projects: list[str]) -> list[str] | N
     choice = input("Enter selection (blank to cancel): ").strip()
 
     if choice == "":
-        print("No selection made. Aborting.")
         return None
 
     parts = [p.strip() for p in choice.split(",") if p.strip()]
     if not parts:
-        print("Invalid input.")
+        print_error("Invalid selection.", "Enter project numbers like 1,3,4 or press Enter to cancel.")
         return None
 
     nums = []
     for p in parts:
         if not p.isdigit():
-            print("Invalid input. Use numbers only.")
+            print_error("Invalid selection.", "Use numbers only (example: 1,3,4).")
             return None
         nums.append(int(p))
 
     selected = []
     for n in nums:
         if n < 1 or n > len(non_git_projects):
-            print(f"Invalid choice. Enter numbers 1-{len(non_git_projects)}.")
+            print_error("Selection out of range.", f"Enter numbers between 1 and {len(non_git_projects)}.")
             return None
         selected.append(non_git_projects[n - 1])
 
@@ -85,48 +86,6 @@ def prompt_select_non_git_projects(non_git_projects: list[str]) -> list[str] | N
 
     return out
 
-
-
-# Legacy helper ,kept for backward compatibility
-# New code should use select_identity_from_projects instead
-
-
-
-def get_candidate_usernames(projects: dict, root_repo_jsons: dict | None = None, blacklist=None):
-    blacklist = set(blacklist or [])
-    candidates = set()
-
-    for info in (projects or {}).values():
-        if not isinstance(info, dict):
-            continue
-
-        contribs = info.get("contributions") or {}
-        if isinstance(contribs, dict) and isinstance(contribs.get("contributions"), dict):
-            contribs = contribs["contributions"]
-
-        if isinstance(contribs, dict):
-            for uname, entry in contribs.items():
-                if isinstance(entry, dict):
-                    candidates.add(uname)
-
-    if root_repo_jsons:
-        for data in root_repo_jsons.values():
-            if not isinstance(data, dict):
-                continue
-            for key in (
-                "commits_per_author",
-                "lines_added_per_author",
-                "lines_removed_per_author",
-                "files_changed_per_author",
-            ):
-                per_author = data.get(key)
-                if isinstance(per_author, dict):
-                    candidates.update(per_author.keys())
-
-    return sorted(
-        c for c in candidates
-        if c and c not in blacklist and c.lower() not in {"unknown", "n/a", "none"}
-    )
 
 
 def select_username_from_projects(projects: dict, root_repo_jsons: dict | None = None, blacklist=None):
@@ -177,8 +136,7 @@ def select_username_from_projects(projects: dict, root_repo_jsons: dict | None =
     )
 
     if not candidates:
-        print("No contributor usernames found.")
-        print("Please run a scan first to populate contributor data.")
+        print_error("No contributor usernames found.", "Run a scan first to populate contributor data.")
         return None
 
     print("\nDetected contributor usernames:")
@@ -189,11 +147,10 @@ def select_username_from_projects(projects: dict, root_repo_jsons: dict | None =
         choice = input("\nSelect a user by number (blank to cancel): ").strip()
 
         if choice == "":
-            print("No selection made. Aborting.")
             return None
 
         if not choice.isdigit():
-            print("Invalid input. Please enter a number.")
+            print_error("Invalid selection.", "Enter a number or press Enter to cancel.")
             continue
 
         idx = int(choice)
@@ -263,8 +220,7 @@ def select_identity_from_projects(
     non_git_projects = get_non_git_projects(projects)
 
     if not usernames and not non_git_projects:
-        print("No usernames or non-git projects found.")
-        print("Please run a scan first to populate data.")
+        print_error("No usernames or non-git projects found.", "Run a scan first to populate data.")
         return (None, [])
 
     print("\nChoose a GitHub username from the list below:")
@@ -277,11 +233,10 @@ def select_identity_from_projects(
         choice = input("\nSelect by number (blank to cancel): ").strip()
 
         if choice == "":
-            print("No selection made. Aborting.")
             return (None, [])
 
         if not choice.isdigit():
-            print("Invalid input. Please enter a number.")
+            print_error("Invalid selection.", "Enter a number or press Enter to cancel.")
             continue
 
         idx = int(choice)
@@ -305,4 +260,5 @@ def select_identity_from_projects(
 
             return (username, [])
 
-        print(f"Invalid choice. Enter a number 0-{len(usernames)}.")
+        print_error("Selection out of range.", f"Enter a number between 0 and {len(usernames)}, or press Enter to cancel.")
+

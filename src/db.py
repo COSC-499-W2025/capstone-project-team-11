@@ -388,6 +388,10 @@ def load_projects_for_generation():
             select_cols.append("git_metrics_json")
         if "tech_json" in project_cols:
             select_cols.append("tech_json")
+        if "summary_text" in project_cols:
+            select_cols.append("summary_text")
+        if "summary_model" in project_cols:
+            select_cols.append("summary_model")
 
         cur.execute(f"SELECT {', '.join(select_cols)} FROM projects ORDER BY name COLLATE NOCASE")
         project_rows = cur.fetchall()
@@ -494,6 +498,8 @@ def load_projects_for_generation():
                 "languages": languages,
                 "frameworks": frameworks,
                 "skills": skills,
+                "summary_text": row["summary_text"] if "summary_text" in row.keys() else None,
+                "summary_model": row["summary_model"] if "summary_model" in row.keys() else None,
                 "high_confidence_languages": tech_summary.get("high_confidence_languages", []),
                 "medium_confidence_languages": tech_summary.get("medium_confidence_languages", []),
                 "low_confidence_languages": tech_summary.get("low_confidence_languages", []),
@@ -875,6 +881,27 @@ def _ensure_schema(conn):
         )
     """)
 
+    # --- Custom rankings ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS custom_rankings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS custom_ranking_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ranking_id INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            project_name TEXT NOT NULL,
+            FOREIGN KEY (ranking_id) REFERENCES custom_rankings(id) ON DELETE CASCADE,
+            UNIQUE (ranking_id, position),
+            UNIQUE (ranking_id, project_name)
+        )
+    """)
+
     # --- Generated outputs ---
     cur.execute("""
         CREATE TABLE IF NOT EXISTS resumes (
@@ -913,5 +940,7 @@ def _ensure_schema(conn):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_username ON portfolios (username)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_generated_at ON portfolios (generated_at)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_project_evidence_project_id ON project_evidence (project_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_rankings_name ON custom_rankings (name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_ranking_items_rank ON custom_ranking_items (ranking_id)")
 
     conn.commit()

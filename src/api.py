@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 # Ensure local imports work when running via uvicorn from repo root.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from config import load_config, save_config, config_path as default_config_path
@@ -16,17 +16,25 @@ from generate_portfolio import (
     aggregate_projects_for_portfolio,
     build_portfolio,
 )
-from generate_resume import collect_projects, aggregate_for_user, render_markdown
+from generate_resume import (
+    collect_projects,
+    aggregate_for_user,
+    render_markdown,
+    maybe_generate_resume_summary,
+)
 from project_info_output import gather_project_info, output_project_info
+from rank_projects import rank_projects_by_importance
 from scan import run_with_saved_settings
 
 
 app = FastAPI(title="MDA API")
+web_router = APIRouter(prefix="/web/portfolio", tags=["web-portfolio"])
 
 
 class PrivacyConsentRequest(BaseModel):
     data_consent: bool
     llm_summary_consent: Optional[bool] = None
+    llm_resume_consent: Optional[bool] = None
 
 
 class ProjectUploadRequest(BaseModel):
@@ -47,6 +55,7 @@ class ResumeGenerateRequest(BaseModel):
     resume_dir: str = "resumes"
     allow_bots: bool = False
     save_to_db: bool = False
+    llm_summary: bool = False
 
 
 class ResumeEditRequest(BaseModel):
@@ -65,6 +74,13 @@ class PortfolioGenerateRequest(BaseModel):
 class PortfolioEditRequest(BaseModel):
     content: str
     metadata: Optional[Dict[str, Any]] = None
+
+
+class WebPortfolioCustomizeRequest(BaseModel):
+    is_public: Optional[bool] = None
+    selected_project_ids: Optional[List[int]] = None
+    showcase_project_ids: Optional[List[int]] = None
+    hidden_skills: Optional[List[str]] = None
 
 
 def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
@@ -111,6 +127,58 @@ def _portfolio_payload(row: Any) -> Dict[str, Any]:
     }
 
 
+def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
+            (portfolio_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    return row
+
+
+def _web_cfg_from_row(row: Any) -> Dict[str, Any]:
+    metadata = _parse_metadata(row["metadata_json"])
+    cfg = metadata.get("web_dashboard")
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def _ensure_mode_allowed(cfg: Dict[str, Any], mode: str) -> None:
+    if mode == "public" and not cfg.get("is_public", True):
+        raise HTTPException(status_code=403, detail="Portfolio is currently in private mode")
+
+
+def _resolve_project_names_for_web(
+    username: str,
+    cfg: Dict[str, Any],
+    mode: str,
+) -> List[str]:
+    all_projects, root_repo_jsons = collect_projects(None)
+    portfolio_projects = aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons)
+    default_names = [p.get("project_name") for p in portfolio_projects if p.get("project_name")]
+
+    selected_ids = cfg.get("selected_project_ids") or []
+    if not isinstance(selected_ids, list) or not selected_ids:
+        return default_names
+
+    with get_connection() as conn:
+        placeholders = ",".join("?" for _ in selected_ids)
+        rows = conn.execute(
+            f"SELECT id, name FROM projects WHERE id IN ({placeholders})",
+            selected_ids,
+        ).fetchall()
+    id_to_name = {row["id"]: row["name"] for row in rows}
+    selected_names = [id_to_name[item_id] for item_id in selected_ids if item_id in id_to_name]
+
+    # In public mode, show only explicit selected/published projects.
+    if mode == "public":
+        return selected_names
+
+    # In private mode, use drafts; fallback to generated set when invalid.
+    return selected_names or default_names
+
+
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
@@ -118,13 +186,21 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
     llm_value = payload.llm_summary_consent
     if llm_value is None:
         llm_value = current.get("llm_summary_consent", False)
+    resume_llm_value = payload.llm_resume_consent
+    if resume_llm_value is None:
+        resume_llm_value = current.get("llm_resume_consent", False)
     save_config(
-        {"data_consent": payload.data_consent, "llm_summary_consent": llm_value},
+        {
+            "data_consent": payload.data_consent,
+            "llm_summary_consent": llm_value,
+            "llm_resume_consent": resume_llm_value,
+        },
         path=default_config_path(),
     )
     return {
         "data_consent": payload.data_consent,
         "llm_summary_consent": llm_value,
+        "llm_resume_consent": resume_llm_value,
         "config_path": default_config_path(),
     }
 
@@ -329,13 +405,18 @@ def generate_resume(payload: ResumeGenerateRequest):
             detail=f"Generation disabled for user '{username}'.",
         )
 
+    config = load_config(default_config_path())
+    if payload.llm_summary and not config.get("llm_resume_consent"):
+        raise HTTPException(status_code=403, detail="LLM resume summary consent not granted")
+
     projects, root_repo_jsons = collect_projects(payload.output_root)
     agg = aggregate_for_user(username, projects, root_repo_jsons)
 
     os.makedirs(payload.resume_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     ts_fname = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    md = render_markdown(agg, generated_ts=ts_iso)
+    llm_summary = maybe_generate_resume_summary(agg, use_llm=payload.llm_summary)
+    md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary)
 
     out_path = os.path.join(payload.resume_dir, f"resume_{username}_{ts_fname}.md")
     with open(out_path, "w", encoding="utf-8") as fh:
@@ -473,3 +554,252 @@ def edit_portfolio(portfolio_id: int, payload: PortfolioEditRequest):
         ).fetchone()
 
     return _portfolio_payload(updated)
+
+
+@web_router.get("/{portfolio_id}/timeline")
+def get_web_timeline(
+    portfolio_id: int,
+    granularity: str = Query("month", pattern="^(week|month)$"),
+    mode: str = Query("public", pattern="^(public|private)$"),
+):
+    row = _load_portfolio_row_or_404(portfolio_id)
+    cfg = _web_cfg_from_row(row)
+    _ensure_mode_allowed(cfg, mode)
+    project_names = _resolve_project_names_for_web(row["username"], cfg, mode)
+
+    if not project_names:
+        return {
+            "portfolio_id": portfolio_id,
+            "username": row["username"],
+            "granularity": granularity,
+            "timeline": [],
+        }
+
+    bucket = "%Y-W%W" if granularity == "week" else "%Y-%m"
+    placeholders = ",".join("?" for _ in project_names)
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT strftime('{bucket}', s.scanned_at) AS period,
+                   sk.name AS skill,
+                   COUNT(*) AS occurrences,
+                   COUNT(DISTINCT p.id) AS project_count
+            FROM scans s
+            JOIN projects p ON p.name = s.project
+            JOIN project_skills ps ON ps.project_id = p.id
+            JOIN skills sk ON sk.id = ps.skill_id
+            WHERE p.name IN ({placeholders})
+            GROUP BY period, sk.name
+            ORDER BY period ASC, sk.name ASC
+            """,
+            project_names,
+        ).fetchall()
+
+    hidden_skills = set(cfg.get("hidden_skills") or [])
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for item in rows:
+        skill_name = item["skill"]
+        if skill_name in hidden_skills:
+            continue
+        occ = int(item["occurrences"] or 0)
+        project_count = int(item["project_count"] or 0)
+        grouped.setdefault(item["period"], []).append(
+            {
+                "name": skill_name,
+                "occurrences": occ,
+                "project_count": project_count,
+                "expertise_score": round((0.7 * occ) + (0.3 * project_count), 2),
+            }
+        )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "username": row["username"],
+        "granularity": granularity,
+        "timeline": [{"period": period, "skills": skills} for period, skills in grouped.items()],
+    }
+
+
+@web_router.get("/{portfolio_id}/heatmap")
+def get_web_heatmap(
+    portfolio_id: int,
+    granularity: str = Query("day", pattern="^(day|week|month)$"),
+    metric: str = Query("files", pattern="^(scans|files)$"),
+    mode: str = Query("public", pattern="^(public|private)$"),
+):
+    row = _load_portfolio_row_or_404(portfolio_id)
+    cfg = _web_cfg_from_row(row)
+    _ensure_mode_allowed(cfg, mode)
+    project_names = _resolve_project_names_for_web(row["username"], cfg, mode)
+
+    if not project_names:
+        return {
+            "portfolio_id": portfolio_id,
+            "granularity": granularity,
+            "metric": metric,
+            "cells": [],
+            "max_value": 0,
+        }
+
+    bucket_map = {
+        "day": "%Y-%m-%d",
+        "week": "%Y-W%W",
+        "month": "%Y-%m",
+    }
+    bucket = bucket_map[granularity]
+    placeholders = ",".join("?" for _ in project_names)
+    with get_connection() as conn:
+        if metric == "scans":
+            rows = conn.execute(
+                f"""
+                SELECT strftime('{bucket}', s.scanned_at) AS period,
+                       COUNT(*) AS value
+                FROM scans s
+                WHERE s.project IN ({placeholders})
+                GROUP BY period
+                ORDER BY period ASC
+                """,
+                project_names,
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"""
+                SELECT strftime('{bucket}', s.scanned_at) AS period,
+                       COUNT(f.id) AS value
+                FROM scans s
+                JOIN files f ON f.scan_id = s.id
+                WHERE s.project IN ({placeholders})
+                GROUP BY period
+                ORDER BY period ASC
+                """,
+                project_names,
+            ).fetchall()
+
+    cells = [{"period": item["period"], "value": int(item["value"] or 0)} for item in rows]
+    return {
+        "portfolio_id": portfolio_id,
+        "granularity": granularity,
+        "metric": metric,
+        "cells": cells,
+        "max_value": max((cell["value"] for cell in cells), default=0),
+    }
+
+
+@web_router.get("/{portfolio_id}/showcase")
+def get_web_showcase(
+    portfolio_id: int,
+    limit: int = Query(3, ge=1, le=3),
+    mode: str = Query("public", pattern="^(public|private)$"),
+):
+    row = _load_portfolio_row_or_404(portfolio_id)
+    cfg = _web_cfg_from_row(row)
+    _ensure_mode_allowed(cfg, mode)
+    username = row["username"]
+    allowed_projects = set(_resolve_project_names_for_web(username, cfg, mode))
+
+    ranked = rank_projects_by_importance(mode="contributor", contributor_name=username, limit=None)
+    ranked = [item for item in ranked if item.get("project") in allowed_projects]
+
+    showcase_project_ids = cfg.get("showcase_project_ids") or []
+    if isinstance(showcase_project_ids, list) and showcase_project_ids:
+        with get_connection() as conn:
+            placeholders = ",".join("?" for _ in showcase_project_ids)
+            selected_rows = conn.execute(
+                f"SELECT id, name FROM projects WHERE id IN ({placeholders})",
+                showcase_project_ids,
+            ).fetchall()
+        selected_names = [item["name"] for item in selected_rows]
+        selected_set = set(selected_names)
+        ranked_map = {item["project"]: item for item in ranked}
+        ordered = [ranked_map[name] for name in selected_names if name in ranked_map]
+        for item in ranked:
+            if item["project"] not in selected_set:
+                ordered.append(item)
+        ranked = ordered
+
+    top = ranked[:limit]
+    projects_payload = []
+    with get_connection() as conn:
+        for item in top:
+            name = item["project"]
+            project_row = conn.execute(
+                "SELECT id, name, thumbnail_path FROM projects WHERE name = ?",
+                (name,),
+            ).fetchone()
+            if not project_row:
+                continue
+
+            evidence_rows = conn.execute(
+                """
+                SELECT type, description, value, source, url, created_at
+                FROM project_evidence
+                WHERE project_id = ?
+                ORDER BY created_at DESC
+                LIMIT 3
+                """,
+                (project_row["id"],),
+            ).fetchall()
+            scan_rows = conn.execute(
+                """
+                SELECT id, scanned_at, notes
+                FROM scans
+                WHERE project = ?
+                ORDER BY scanned_at ASC
+                """,
+                (name,),
+            ).fetchall()
+            projects_payload.append(
+                {
+                    "project_id": project_row["id"],
+                    "name": project_row["name"],
+                    "thumbnail_path": project_row["thumbnail_path"],
+                    "score": round(float(item.get("score") or 0.0), 4),
+                    "contrib_files": int(item.get("contrib_files") or 0),
+                    "total_files": int(item.get("total_files") or 0),
+                    "role": "collaborative" if int(item.get("contributors_count") or 0) > 1 else "individual",
+                    "evidence": [dict(row_item) for row_item in evidence_rows],
+                    "evolution": [dict(row_item) for row_item in scan_rows],
+                }
+            )
+
+    return {
+        "portfolio_id": portfolio_id,
+        "username": username,
+        "projects": projects_payload,
+    }
+
+
+@web_router.patch("/{portfolio_id}/customize")
+def patch_web_customize(portfolio_id: int, payload: WebPortfolioCustomizeRequest):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, metadata_json FROM portfolios WHERE id = ?",
+            (portfolio_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        metadata = _parse_metadata(row["metadata_json"])
+        web_cfg = metadata.get("web_dashboard")
+        if not isinstance(web_cfg, dict):
+            web_cfg = {}
+
+        for key, value in payload.model_dump(exclude_none=True).items():
+            web_cfg[key] = value
+        web_cfg["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+        metadata["web_dashboard"] = web_cfg
+
+        conn.execute(
+            "UPDATE portfolios SET metadata_json = ? WHERE id = ?",
+            (json.dumps(metadata), portfolio_id),
+        )
+        conn.commit()
+
+    return {
+        "portfolio_id": portfolio_id,
+        "web_config": web_cfg,
+        "updated_at": web_cfg["updated_at"],
+    }
+
+
+app.include_router(web_router)
