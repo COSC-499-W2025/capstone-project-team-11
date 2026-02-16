@@ -19,7 +19,7 @@ from cli_username_selection import (
     get_candidate_usernames,
 )
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from textwrap import dedent
 from db import save_resume
 from project_evidence import get_project_id_by_name, get_evidence_for_project, format_evidence_for_resume
@@ -328,7 +328,7 @@ def render_markdown(agg, generated_ts=None, llm_summary: str = None):
     if generated_ts:
         date = generated_ts
     else:
-        date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+        date = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
     md = []
     md.append(f"# Resume — {username}")
     md.append('')
@@ -493,8 +493,11 @@ def main():
     # (re)aggregate for the chosen username
     agg = aggregate_for_user(username, projects, root_repo_jsons, selected_non_git)
     # Use a single UTC timestamp for both content and filename
-    ts_iso = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
-    ts_fname = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+    # Current UTC time as ISO-like string
+    ts_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
+
+    # UTC timestamp for filename
+    ts_fname = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     llm_summary = maybe_generate_resume_summary(agg, use_llm=use_llm)
     md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary)
 

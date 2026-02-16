@@ -1262,6 +1262,9 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
         print("Directory does not exist.")
         return
 
+    # Convert relative paths to absolute
+    path = os.path.abspath(path)
+
     # If the path points to a zip file, handle via zip scanning
     if os.path.isfile(path) and path.lower().endswith('.zip'):
         return list_files_in_zip(
@@ -1553,7 +1556,7 @@ def run_headless_scan(
 
     Intended for internal callers (e.g. resume regeneration).
     """
-
+    path = os.path.abspath(path)
     return list_files_in_directory(
         path,
         recursive=recursive,
@@ -1598,7 +1601,18 @@ def run_with_saved_settings(
     # Merge for current run
     final = merge_settings(settings_to_save, config)
 
+    # scan_path_input = final.get("directory")
     scan_path_input = final.get("directory")
+    if not scan_path_input:
+        print("Error: No directory provided.")
+        return
+
+    # Make sure path works for relative and absolute paths
+    scan_path_input = os.path.abspath(scan_path_input)
+    if not os.path.exists(scan_path_input):
+        print(f"Error: Path does not exist: {scan_path_input}")
+        return
+    
     zip_extract_ctx = None
     zip_extract_path = None
     if scan_path_input and os.path.isfile(scan_path_input) and scan_path_input.lower().endswith('.zip'):
