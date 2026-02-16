@@ -6,7 +6,7 @@ Main_menu.py calls this to overwrite a resume without prompting.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import load_config, config_path as default_config_path
 from db import save_resume, load_projects_for_generation
@@ -53,7 +53,12 @@ def regenerate_resume(username: str, resume_path: str, output_root: str = "outpu
 
     projects = collect_projects(output_root)
     agg = aggregate_for_user(username, projects)
-    ts_iso = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+    # Use a single UTC timestamp for both content and filename
+    # Current UTC time as ISO-like string
+    ts_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
+
+    # UTC timestamp for filename
+    ts_fname = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 
     config = load_config(default_config_path())
     use_llm = bool(config.get("llm_resume_consent"))
