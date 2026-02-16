@@ -74,4 +74,3 @@ def validate_username(raw: str) -> str:
     if not _USERNAME_RE.match(u):
         raise ValueError("Username must be 3–32 chars and only use letters, numbers, _, -, or .")
     return u
-

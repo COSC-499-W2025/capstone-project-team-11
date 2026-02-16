@@ -21,6 +21,7 @@ import subprocess
 from datetime import datetime
 import re
 
+from cli_output import print_error
 from db import list_projects_for_display, set_project_display_name
 from cli_validators import prompt_project_path, validate_project_path
 # Import all feature modules
@@ -56,12 +57,6 @@ from detect_roles import (
     format_roles_report,
     display_all_roles
 )
-
-# Print a standardized error message (message: The main error description | hint: Optional hint for how to resolve the issue)
-def print_error(message: str, hint: str = None):
-    print(f"\nError: {message}")
-    if hint:
-        print(f"  Hint: {hint}")
 
 def print_main_menu():
     """Display the main menu options."""
@@ -1332,7 +1327,7 @@ def database_management_menu():
             return
 
         else:
-            print("Invalid selection.")
+            print_error("Invalid selection.", "Enter a number from the list or 'q' to cancel.")
 
 def remove_project_menu():
     """
@@ -1354,7 +1349,7 @@ def remove_project_menu():
         return
 
     if not choice.isdigit() or not (1 <= int(choice) <= len(projects)):
-        print("Invalid selection.")
+        print_error("Invalid selection.", "Enter a number from the list or 'q' to cancel.")
         return
 
     project = projects[int(choice) - 1]
