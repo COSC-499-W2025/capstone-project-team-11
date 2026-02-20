@@ -29,8 +29,14 @@ services:
     tty: true
     volumes:
       - ./:/app:rw
+      - /Users:/host/Users:rw
+      - config-data:/root/.mda
     command: python -m src.main_menu
     restart: "no"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
 
   # API mode - FastAPI REST server
   api:
@@ -42,10 +48,16 @@ services:
     working_dir: /app
     volumes:
       - ./:/app:rw
+      - /Users:/host/Users:rw
+      - config-data:/root/.mda
     ports:
       - "8000:8000"
     command: uvicorn src.api:app --host 0.0.0.0 --port 8000
     restart: "no"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
 
   # Test runner
   tests:
@@ -59,3 +71,17 @@ services:
       - ./:/app:rw
     command: python -m pytest test/ -q
     # Note: Do not set SCANNER_NONINTERACTIVE so unit tests that patch input() still work.
+
+  # LLM service (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: capstone-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: "no"
+
+volumes:
+  ollama-data:
+  config-data:

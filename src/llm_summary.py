@@ -1,6 +1,6 @@
 import json
 import os
-import subprocess
+import httpx
 import hashlib
 from collections import Counter
 from datetime import datetime
@@ -10,6 +10,7 @@ from db import get_connection, _ensure_projects_column
 
 
 DEFAULT_MODEL = "llama3.2:3b"
+DEFAULT_OLLAMA_HOST = os.environ.get("OLLAMA_HOST")
 README_CANDIDATES = (
     "README.md",
     "README.txt",
@@ -119,24 +120,35 @@ def _get_cached_summary(project_name: str, input_hash: str, model: str) -> Optio
 
 
 def _run_ollama(prompt: str, model: str, timeout: int = 120) -> Optional[str]:
-    try:
-        res = subprocess.run(
-            ["ollama", "run", model],
-            input=prompt,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-    except Exception:
-        return None
+    hosts = []
+    if DEFAULT_OLLAMA_HOST:
+        hosts.append(DEFAULT_OLLAMA_HOST)
+    else:
+        # Prefer Docker service name first, then local Ollama.
+        hosts.extend(["http://ollama:11434", "http://localhost:11434"])
 
-    if res.returncode != 0:
-        return None
-    output = (res.stdout or "").strip()
-    return output or None
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+    }
+
+    for host in hosts:
+        url = f"{host.rstrip('/')}/api/generate"
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                res = client.post(url, json=payload)
+                if res.status_code != 200:
+                    continue
+                data = res.json()
+        except Exception:
+            continue
+
+        output = (data.get("response") or "").strip()
+        if output:
+            return output
+
+    return None
 
 
 def generate_summary_text(payload: Dict, model: str = DEFAULT_MODEL) -> Optional[str]:
