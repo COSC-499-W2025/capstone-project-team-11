@@ -29,7 +29,7 @@ services:
     tty: true
     volumes:
       - ./:/app:rw
-      - /Users:/host/Users:rw
+      - ${HOST_ROOT:-/Users}:/host:rw
       - config-data:/root/.mda
     command: python -m src.main_menu
     restart: "no"
@@ -40,15 +40,12 @@ services:
 
   # API mode - FastAPI REST server
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: capstone-app:latest
     container_name: capstone-api
     working_dir: /app
     volumes:
       - ./:/app:rw
-      - /Users:/host/Users:rw
+      - ${HOST_ROOT:-/Users}:/host:rw
       - config-data:/root/.mda
     ports:
       - "8000:8000"
@@ -61,9 +58,6 @@ services:
 
   # Test runner
   tests:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: capstone-app:latest
     container_name: capstone-tests
     working_dir: /app
