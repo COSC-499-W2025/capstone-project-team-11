@@ -20,6 +20,11 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Application code
 COPY src/ /app/src
+COPY init_db.sql /app/init_db.sql
+COPY test/ /app/test
+
+# Ensure output directories exist for volume mounts / standalone runs
+RUN mkdir -p /app/resumes /app/portfolios /app/output
 
 # Default command (CLI mode) - overridden by docker-compose.yml
 CMD ["python", "-m", "src.main_menu"]
