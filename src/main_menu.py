@@ -165,7 +165,7 @@ def handle_scan_directory():
                 continue
             break
 
-        remember = ask_yes_no("Save these settings for next time? (y/n): ")
+        remember = ask_yes_no("Save this path for next time? (y/n): ")
         selected_dir = directory
 
         # Save settings if requested
