@@ -122,7 +122,7 @@ def test_overwrite_flag(tmp_path):
 
         content = overwrite_file.read_text()
         assert "# Portfolio — user" in content
-        assert "proj1" in content
+        assert "Proj1" in content
 
 def test_section_rendering():
     sections = {
