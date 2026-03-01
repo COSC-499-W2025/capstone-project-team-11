@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#semester-2--weeks-4--5-personal-log-january-26th--february-8th-2026)
 - [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
 - [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
@@ -415,4 +416,42 @@ In Week 5, my focus shifted toward UX polish and clarity in Milestone 2 features
 - Complete UX polish tasks for Milestone 2 features  
 - Finalize and merge file extension filtering workflow changes  
 - Support continued LLM integration and downstream summary generation  
-- Assist with final testing, review, and stabilization ahead of Milestone 2 submission  
+- Assist with final testing, review, and stabilization ahead of Milestone 2 submission
+
+---
+
+# Semester 2 – Weeks 6–8 Personal Log (February 9th – March 1st, 2026)
+
+During Weeks 6 through 8, the team transitioned from stabilizing Milestone 2 features toward beginning early groundwork for Milestone 3. Week 7 was our Reading Break (counted as a bonus week), during which development slowed, but planning and research continued. Across this period, my focus shifted toward preparing our system for frontend integration and ensuring backend endpoints were structured appropriately for visualization and external access.
+
+In Week 6, I contributed to backend improvements supporting milestone transition work (PR #385). This included refining API-related functionality to ensure it remained consistent and reliable as we prepared to expose more structured data externally.
+
+During Week 8, I completed PR #392, which involved scaffolding an initial Electron + Vite frontend and testing backend connectivity. Alongside implementation, I spent time researching best practices for structuring a successful frontend architecture that cleanly connects to our FastAPI backend. This research focused on project structure, API routing patterns, and separation of concerns to ensure our frontend remains maintainable as Milestone 3 visualization features expand.
+
+In addition to development work, we prepared and delivered our Milestone 2 presentation, reviewing system improvements, demonstration flows, and integration decisions made throughout the milestone.
+
+<img width="1062" height="632" alt="Screenshot 2026-02-28 at 6 08 20 PM" src="https://github.com/user-attachments/assets/b623b702-c2f4-4aad-9169-c4a2d31dc06b" />
+
+## Coding Tasks
+- Contributed backend improvements supporting milestone transition work (PR #385)  
+- Scaffolded initial **Electron + Vite frontend** and validated backend connectivity (PR #392)  
+- Researched frontend architecture patterns to support scalable Milestone 3 visualization features  
+
+## Testing Tasks
+- Verified backend endpoint behavior after frontend integration scaffolding  
+- Manually tested API responses through frontend connectivity checks  
+- Confirmed no regressions introduced during backend transition updates  
+
+## Reviewing / Collaboration Tasks
+- Reviewed multiple PRs related to milestone stabilization and LLM integration
+- Participated in team discussions around frontend direction and API structure  
+- Prepared and delivered **Milestone 2 presentation**  
+- Coordinated next steps for Milestone 3 visualization work  
+
+<img width="1067" height="116" alt="Screenshot 2026-02-28 at 6 10 16 PM" src="https://github.com/user-attachments/assets/08272027-a710-42a3-81ec-8fc0751243a8" />
+
+### Plans Going Forward
+- Continue building and refining the frontend in preparation for **Milestone 3**  
+- Strengthen frontend-to-backend integration and API reliability  
+- Expand dashboard endpoints to support richer visual components  
+- Prepare for upcoming quiz
