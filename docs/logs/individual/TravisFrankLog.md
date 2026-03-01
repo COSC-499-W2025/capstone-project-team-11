@@ -1,7 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
-- [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-6-8-personal-log-february-9th--march-1st-2026)
+- [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#semester-2--weeks-4--5-personal-log-january-26th--february-8th-2026)
 - [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
 - [Week 2 (Jan 12 – Jan 18, 2026)](#semester-2--week-2-personal-log-january-12th--18th-2026)
