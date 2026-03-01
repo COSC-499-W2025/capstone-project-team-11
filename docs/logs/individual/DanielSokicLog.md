@@ -3,6 +3,8 @@
 - [T2 Week 2](#t2-week-2-logs-january-12th---18th)
 - [T2 Week 3](#t2-week-3-january-19th-25th)
 - [T2 Week 4 and 5](#t2-week-4-and-5-january-26th--february-8th-2026)
+- [T2 Weeks 6–8](#t2--weeks-6-7-and-8-february-9th---march-1st)
+  
 
 
 # Week 3 Personal Log (15th-21st of September)
@@ -394,13 +396,81 @@ Overall, the team worked really well these past two weeks and showed professiona
 ## Issues and Blockers
 No issues or blockers.
 
-# Plans for week 6
+## Plans for week 6
 - Add per user filtering for git contributions.
 - Work on customizing what information a user wants (ie. being able to customize the order of rankings)
 
 
+# T2 # Weeks #6, #7, and #8 (February 9th - March 1st)
+
+<img width="797" height="467" alt="image" src="https://github.com/user-attachments/assets/a0b4bc5f-7ba5-4655-b366-476f4f5bb74e" />
+
+## Overview:
+The last 3 weeks have been a long haul with plenty of new additions and progress made to the project. In week 6 I spent my time working on the deliverable that allows user to customize what information they see. For this I made a feature in rank projects that allows a user to make their own custoom rankings of projects. They can make a ranking in any order they want and give that ranking a name. An example of this is a user ranking their favourite projects. In week 7 I did not have any code contributions because of reading week. Moving forward to week 8, I worked on getting ready for the Milestone 2 presentation and introducing some basic UI designs for the future. 
+
+Closed issue #232, #393
+
+## Reflection
+Overall the team worked pretty well together for the past 3 weeks. Some people were working extra hard especially Jaxson since he was doing some work over the break. The team communicated very well and had several meetings outlining the plans for the week and to coordinate the Milestone 2 presentation. All in all, the team worked hard and collaborated effectively to get to the end of Milestone 2. 
+
+## Coding Tasks
+- Added custom rankings [PR #383](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/383)
+     - Added support for custom project rankings so users can create their own ordered project lists (e.g., favorites) without affecting existing automated ranking logic.
+     - Implemented helper functions to manage rankings, including creating, retrieving, renaming, deleting, listing, and displaying custom rankings. These operate independently from the current ranking systems
+     - Users can:
+       -  View saved rankings.
+       -  Create rankings by specifying project order.
+       -  Edit rankings (rename and/or reorder).
+       -  Delete rankings with confirmation.
+- Added basic main menu UI template [PR #394](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/394)
+   - Implemented hash-based page routing in App.jsx (#/main-menu switches between Home and Main Menu)
+   - Added Main Menu dashboard layout with:
+       - Header: “Capstone MDA Dashboard”
+       - Left menu actions: Scan Project, View/Manage Scanned Projects, Generate Resume, Generate Portfolio, Rank Projects, Summarize Contributor Projects
+       - “Back to Connection Test” button
+       - Right-side overview cards: Scanned Projects, Contributors, Generated Outputs
+       - Quick Help, Project Information, and Suggested First Steps panels
+    - Added “Go to Main Menu” button on the Home/connection page.
+    - Full styling applied in index.css for dashboard layout, including grid layout, sidebar/content cards, buttons, responsive design, and theme/background.
+ 
+
+## Tests and Debugging
+
+- `App.test.jsx` Navigation tests: 
+    -  Navigate to Main Menu when “Go to Main Menu” is clicked
+    -  Render Main Menu directly when initial hash is #/main-menu.
+    -  Navigate back to Home when “Back to Connection Test” is clicked.
+- `test_rank_projects.py:
+    -  `test_custom_ranking_save_load_and_list`: Creates a temporary DB, saves a custom ranking, reloads it to verify the order is preserved, and checks that it shows up in the saved rankings list.
+    -  `test_custom_ranking_rename_and_delete`: Saves a ranking, renames it and verifies the renamed entry is retrievable, then deletes it and confirms it’s removed.
+
 
  
+## Reviewing and Collaboration
+- Tanner's New scan entry point improvements and bug-fixes [PR #380](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/380)
+- Tanner's Updated scan.py test suite to cover new functionalities [PR #381](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/381)
+- Pri's Improve CLI username selection retry flow and standardize error output [PR #384](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/384)
+- Travis' Frontend: Initial Electron + Vite scaffold + backend connection test [PR #392](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/392)
+- Pri's Add toast notifications and active sidebar highlight to dashboard UI [PR #403](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/403)
+
+  
+## Issues or Blockers
+No issues or blockers
+
+## Plans for Milestone 3
+- Continue work on designing the UI
+- Integrate the visualization of our backend
+- Have a fully functional application 
+
+
+
+
+       
+
+
+
+ 
+
 
 
 
