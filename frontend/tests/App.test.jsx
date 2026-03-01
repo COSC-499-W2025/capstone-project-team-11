@@ -74,3 +74,19 @@ describe('App Component', () => {
     expect(await screen.findByText(/Status: Failed: Network Error/i)).toBeInTheDocument();
   });
 });
+it('shows toast and highlights sidebar item when clicked', async () => {
+  window.location.hash = '#/main-menu';
+  render(<App />);
+
+  // Click a sidebar button
+  const resumeButton = screen.getByRole('button', { name: /Generate Resume/i });
+  fireEvent.click(resumeButton);
+
+  // Toast should appear
+  expect(
+    await screen.findByText(/Generate Resume clicked \(coming soon\)/i)
+  ).toBeInTheDocument();
+
+  // Button should have active class
+  expect(resumeButton.className).toMatch(/is-active/);
+});
