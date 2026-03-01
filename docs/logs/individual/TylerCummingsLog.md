@@ -420,7 +420,7 @@ Focus of the past two weeks was on **the last peer request improvements**, **pre
 
 These changes improve flexibility, user experience, and clean up the user interface for project management. Additionally they worked towards completing mandatory parts of the capstone project
 
-**Still need image of here from peer review**
+<img width="1187" height="687" alt="image" src="https://github.com/user-attachments/assets/c36f99c5-2621-4b4f-8dd9-891c7e2abb48" />
 
 ---
 
@@ -482,10 +482,9 @@ These changes improve flexibility, user experience, and clean up the user interf
 ## T2 Week 9 Plans
 
 - Start work on milestone 3 specifically start with the front end and dashboard
-- **specific task here**
-- **specific task here**
+- Create Figma Design for Dashboard
 
-**need to put image in here of my items**
+<img width="1888" height="890" alt="image" src="https://github.com/user-attachments/assets/6aa35175-2be2-4095-b200-2a7a915d2778" />
 
 
 
