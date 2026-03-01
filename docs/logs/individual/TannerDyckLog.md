@@ -1,6 +1,7 @@
 # Tanner Dyck's Personal Log
 
 ### Term 2 (Milestone #2)
+- [Weeks #6, #7, and #8 - February 9th-March 1st](#weeks-6-7-and-8---february-9th---march-1st)
 - [Weeks #4 and #5 - January 26th-February 2nd](#weeks-4-and-5---january-26th---february-2nd)
 - [Week #3 - January 19th-25th](#week-3---january-19th---25th)
 - [Week #2 - January 12th-18th](#week-2---january-12th---18th)
@@ -710,3 +711,114 @@ These two weeks were productive and featured a good mix of polishing and new fea
 
 ## Kanban Board at End of T2 Weeks 4 & 5
 <img width="1875" height="893" alt="t2weeks4+5-kanban" src="https://github.com/user-attachments/assets/011041ef-9386-4fa1-973f-1522b2f92ad0" />
+
+---
+
+# Weeks #6, #7, and #8 - February 9th - March 1st
+
+<img width="689" height="535" alt="t2weeks6+7+8-tasks" src="https://github.com/user-attachments/assets/c7eb77d2-e820-4250-bc2d-fa5dad7b8d65" />
+
+## Connection to T2 Week 5
+T2 Week 5 ended with one of my major PRs caught up in a "changes requested" state. So T2 Week 6 naturally became a continuation of my progress from the week before: address the changes requested -> fix additional bugs/inconsistencies -> update testing suite, and all of my contributions revolved around my overhaul of the scan entrypoint, including formatting, error handling, multi-project scanning, and general interaction loop improvements. T2 Week 7 was reading break, and I did not contribute to the project in any way other than reviewing Jaxson's PR. T2 Week 8 marked our in-class milestone 2 presentation, and the due date for all milestone 2 requirements. I spent the early portion of the week refreshing my memory on some of our contributions made during milestone 2, creating slides for the presentation, and recording/editing the video demo alongside Tyler. Unfortunately I did not contribute code or tests nearly as much as I had hoped due to some personal family events. I hope to contribute more next week.
+
+## Coding Tasks
+
+### [T2 Week 6 - February 9th to 15th]
+
+### 1. Improved scan progress CLI output [PR #354](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/354)
+*This PR was opened during T2 Week 5 but was not merged until Week 6 due to requested changes (see Week 5 entry for additional context)*
+
+After addressing the requested changes, my PR was finalized and merged. The changes revamp how scan progress output is formatted in the CLI, addressing peer testing feedback about the overwhelming volume of text printed during scans:
+- `scan.py`:
+    - Added `ScanProgress` class for centralized, clean CLI output management
+    - Added `scan_with_clean_output()` as the unified scan entry point with phased/modularized progress display
+    - Added helper functions `get_scan_progress()` and `reset_scan_progress()` for global progress instance management
+- `main_menu.py`:
+    - Replaced `run_with_saved_settings` import with `scan_with_clean_output`
+    - Added `_show_post_scan_menu()` for post-scan action selection (view summary, manage other projects, return to main menu)
+    - Added `_view_project_summary()` to display TXT summaries for scanned projects
+    - Refactored `handle_scan_directory()` to use the new clean scan system
+- `project_info_output.py`:
+    - Added quiet parameters to `gather_project_info()` and `output_project_info()` to suppress progress messages
+    - Added confidence categorization (high/medium/low) for languages/frameworks in TXT summary and during CLI progress reporting
+- `detect_langs.py`: Commented out "Log filtering statistics" code for cleaner output
+
+### 2. New scan entry point improvements and bug-fixes [PR #380](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/380)
+This PR addressed a breaking change introduced by PR #354, where `scan_with_clean_output()` always routed through single-project logic even for multi-project inputs. It also resolves some of our long-standing issues with non-git project detection and Windows path handling:
+- `scan.py`:
+    - Created `_find_all_project_roots()` to consolidate detection of both git and non-git project directories
+    - Introduced `_scan_single_project_phases()` to run language, skill, and contributor detection per-project with proper CLI progress
+    - Added `_persist_single_project()` to fix metric merging bugs (previously all multi-project data was collapsed into one DB entry)
+    - Split `scan_with_clean_output()` into distinct single-project and multi-project branches
+    - Moved TXT/JSON summary generation into the scan orchestrator
+    - Fixed a Windows path bug in `_map_files_to_repos()` where `split(':')` on drive letters (e.g. `C:\`) caused incorrect repo assignments
+- `main_menu.py`:
+    - Removed deprecated `gather_project_info()` call
+    - Added multi-project selection prompts for post-scan summary viewing
+
+### 3. Updated scan.py test suite to cover new functionalities [PR #381](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/381)
+Updated the test suite following the scan engine changes introduced in PRs #354 and #380:
+- **7 tests added:**
+    - `test_store_and_complete_summary` — validates `ScanProgress` stores and displays results correctly
+    - `test_get_scan_progress_singleton_and_reset` — ensures singleton behavior and proper reset functionality
+    - `test_find_all_project_roots_merges_git_and_nongit` — confirms both git and non-git projects are detected
+    - `test_find_candidate_roots_skips_empty_and_macos_junk` — validates filtering of empty and macOS system directories
+    - `test_map_files_to_repos_handles_drive_letter_paths` — ensures Windows path compatibility in repo mapping
+    - `test_empty_directory_returns_error` — confirms proper error handling for empty input directories
+    - `test_single_project_returns_success` — validates end-to-end single-project scan success
+- **3 tests removed** (redundant/deprecated after scan engine rework):
+    - `test_file_statistics`, `test_nested_zip_with_multiple_levels`, `test_mixed_nested_folders_in_zip`
+
+### [T2 Week 7 - February 16th to 22nd]
+- No coding contributions due to reading week
+
+### [T2 Week 8 - February 23rd to March 1st]
+
+### 1. End of milestone 2 bug fixes [PR #390](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/390)
+Addressed several bugs and inconsistencies discovered near the end of Milestone 2:
+- `main_menu.py`: Updated the "remember settings" prompt wording — since most scan preferences were removed during the scan entry point rework, only the project path is now saved; the prompt has been reworded to "save PATH for next time" to accurately reflect this
+- `generate_portfolio.py`:
+    - Removed unnecessary project path display from generated portfolios
+    - Refined framework display logic to only show high-confidence frameworks (section is omitted entirely if none exist)
+- `test_regenerate_portfolio.py` & `test_generate_portfolio.py`: Fixed fragile tests that relied on hardcoded project path logic; updated assertions to properly check normalized section titles
+- All 260 tests passing locally
+
+## Testing & Debugging Tasks
+
+### Test Updates
+### [T2 Week 6 - February 9th to 15th]
+- [PR #381](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/381): 
+    - Added 7 new tests covering the new scan pipeline entrypoint and multi-project root detection. I also removed 3 deprecated tests
+### [T2 Week 7 - February 16th to 22nd]
+- No testing contribuitons this week due to reading break
+### [T2 Week 8 - February 23rd to March 1st]
+- [PR #390](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/390): 
+    - Fixed a few fragile tests in `test_regenerate_portfolio.py` and `test_generate_portfolio.py` that relied on deprecated and hardcoded project path logic
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the three weeks in our Discord server
+- Completed individual log and peer review for T2 Weeks 6, 7, and 8
+- Participated in and helped prepare for our Milestone 2 presentation
+- Filmed and edited half of the Milestone 2 video demo
+- Reviewed and approved:
+    - Code PRs:
+        - [#382 - Added LLM Integration for Resume Generation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/382) (Jaxson)
+        - [#383 - Added custom rankings](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/383) (Daniel)
+        - [#386 - Fixed paths and resume depreciation](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/386) (Tyler)
+        - [#388 - Added Docker Updates for LLM use](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/388) (Jaxson)
+        - [#391 - Api/Architecture Doc Updates](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/391) (Jaxson)
+    - Log PRs:
+        - I plan on reviewing at least a log PR or two, but I am submitting this log before Sunday, so I cannot confirm which ones
+
+## Issues & Blockers
+We didn't run into any major issues or blockers over these three weeks. It would have been nice if we were able to contribute towards the project over reading break, but everyone was busy with their personal lives, myself included, and understandably so. But it would have been nice to take some of the pressure off of T2 Week 8, where we had to revamp documentation, build a presentation, build a video demo, contribute code, tests and reviews, and submit three weeks worth of individual and team logs. Some of us will likely take a hit in marks this week due to the workload and how we decided to split it up, so my only improvement for the future is to be more aware and proactive towards the end of milestones, as there is always a lot to do so we can make it easier on ourselves by starting earlier.   
+
+## Reflection Points
+I am once again happy with our team's performance over the past three weeks, and over the milestone as a whole. Our communication is strong, and we have been getting better and better at sharing tasks and actively supporting each other with development. I mentioned above I think we can be more proactive to limit stress and impossible workload occurrences, but overall, we still handled the pressure well and distributed work efficiently. One more milestone to go!
+
+## Goals for Next Week (T2 Week 9)
+- Take another look at our API endpoints, ensure all of our projects functionalities are accessible via an endpoint, and ensure that any new endpoints receive proper tests
+- Get involved with the frontend design. I personally MUCH prefer frontend programming over backend, so I'm excited to have the opportunity to finally sink my teeth into our long-awaited frontend
+
+## Kanban Board at End of T2 Week 8
+<img width="1875" height="891" alt="t2weeks6+7+8-kanban" src="https://github.com/user-attachments/assets/8534bb99-0827-4b06-a73f-c4ef06c4eeb8" />
