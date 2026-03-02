@@ -1,3 +1,33 @@
+
+## Weekly Navigation
+
+### Semester 2
+- [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
+- [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#t2-week-45-personal-logs-jan-26th---feb-8th)
+- [Week 3 (Jan 19 – Jan 25, 2026)](#t2-week-3-january-19th-25th)
+- [Week 2 (Jan 12 – Jan 18, 2026)](#t2-week-2-personal-logs-jan-12th---18th)
+- [Week 1 (Jan 5 – Jan 11, 2026)](#week-1-january-5th---11th)
+
+### Semester 1
+- [Week 14 (Dec 1 – Dec 7, 2025)](#week-14-december-1st---7th)
+- [Week 13 (Nov 24 – Nov 30, 2025)](#week-13-november-24th---30th)
+- [Week 12 (Nov 17 – Nov 23, 2025)](#week-12-november-17th---23rd)
+- [Week 10 (Nov 3 – Nov 9, 2025)](#week-10-personal-log-nov-3rd--nov-9th)
+- [Week 9 (Oct 27 – Nov 2, 2025)](#week-9-october-27th---november-2nd)
+- [Week 8 (Oct 20 – Oct 26, 2025)](#week-8-personal-log-20th-26th-of-october)
+- [Week 7 (Oct 13 – Oct 19, 2025)](#week-7-personal-log-13th-19th-of-october)
+- [Week 6 (Oct 6 – Oct 12, 2025)](#week-6-personal-log-6th-12th-of-october)
+- [Week 5 (Sep 29 – Oct 5, 2025)](#week-5-personal-log-29th-5th-of-october)
+- [Week 4 (Sep 22 – Sep 28, 2025)](#week-4-personal-log-22nd-28th-of-september)
+- [Week 3 (Sep 15 – Sep 21, 2025)](#week-3-personal-log-15th-21st-of-september)
+
+
+
+
+
+
+
+
 # Week 3 Personal Log (15th-21st of September)
 
 The big focus of this week was creating some of the requirements for our project as well and creating the repository. 
@@ -483,3 +513,53 @@ Build on the identity selection flow to support more granular project selection.
 Continue tightening CLI UX edge cases now that a stable validation base is in place.
 
 Assist with final Milestone 2 polish and testing as features converge.
+
+# Semester 2 – Weeks 6–8 Personal Log (February 9th – March 1st, 2026)
+
+During Weeks 6–8, my work focused on improving overall system usability and documentation alignment across both the CLI and the new Electron dashboard. This period involved strengthening input robustness in the CLI, finalizing architectural documentation for Milestone 2, and improving frontend interactivity to make the dashboard feel more responsive and state-aware.
+
+In Week 6, I completed PR #384, which improved the CLI username selection retry flow. Previously, invalid input during username selection would return the user to the main menu, which disrupted workflow. I refactored this logic so the system now re-prompts users until valid input is provided. I also introduced a shared `print_error()` helper to standardize CLI error output across modules, removed duplicated `get_candidate_usernames` logic, and cleaned minor wording inconsistencies in resume and portfolio flows. I added a test covering the invalid -> valid retry case to ensure stability.
+
+During this period, I also finalized PR #399, updating the Milestone 2 Data Flow Diagram. This required reviewing our actual architecture and ensuring the diagram accurately reflected LLM integration, Docker interaction, and updated data pathways between CLI, API, and storage components. The goal was to align documentation with implementation rather than leaving it conceptual.
+
+In Week 8, I completed PR #403, which introduced UI improvements to the Electron dashboard. I implemented active sidebar highlighting so the most recently selected menu item remains visually indicated. I also added a lightweight toast notification system that provides temporary feedback when sidebar actions are triggered. Toasts automatically dismiss after approximately 2.5 seconds and stack properly if multiple actions are triggered. I added frontend test coverage verifying toast rendering and active state behavior to ensure no regressions were introduced.
+
+In addition to coding, I contributed to Milestone 2 documentation alignment and participated in team reviews and discussions to ensure stability before merging.
+
+<img width="1167" height="610" alt="Screenshot 2026-03-01 at 12 38 52 PM" src="https://github.com/user-attachments/assets/c12482b4-847c-4d6f-b215-f07375d6559f" />
+
+
+
+## Coding Tasks
+- Refactored CLI username selection retry flow (PR #384)  
+- Introduced shared `print_error()` helper for standardized error output  
+- Removed duplicate username selection logic  
+- Updated Milestone 2 Data Flow Diagram to reflect current architecture (PR #399)  
+- Implemented active sidebar highlighting in dashboard (PR #403)  
+- Added toast notification system with auto-dismiss behavior (PR #403)  
+- Added frontend test verifying toast rendering and active state logic  
+
+## Testing Tasks
+- Added automated test covering invalid → valid CLI retry scenario  
+- Ran `npm test` to confirm all frontend tests pass  
+- Manually tested dashboard interactions via `npm start`  
+- Verified toast stacking and auto-dismiss behavior  
+- Confirmed no regressions in CLI flow or frontend behavior  
+
+## Reviewing / Collaboration Tasks
+- Reviewed peer PRs related to milestone stabilization and UI improvements  
+- Participated in discussions regarding frontend direction and architecture  
+- Contributed to Milestone 2 documentation refinement and verification  
+
+
+
+### Plans Going Forward
+- Continue refining dashboard interactivity as backend endpoints become functional  
+- Expand frontend-to-backend integration for Milestone 3  
+- Maintain and expand automated test coverage  
+- Support visualization feature planning for upcoming milestone
+- prepare for upcoming quiz 
+
+
+
+
