@@ -33,6 +33,12 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
 
+  // NEW: active sidebar item
+  const [activeMenuItem, setActiveMenuItem] = useState(null);
+
+  // NEW: toast state
+  const [toasts, setToasts] = useState([]);
+
   useEffect(() => {
     const onHashChange = () => {
       setPage(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
@@ -48,6 +54,22 @@ function App() {
       return;
     }
     window.location.hash = '';
+  };
+
+  // NEW: helper to show a toast (auto dismiss)
+  const addToast = (message) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message }]);
+
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2500);
+  };
+
+  // NEW: click handler for sidebar buttons
+  const handleMenuClick = (title) => {
+    setActiveMenuItem(title);
+    addToast(`${title} clicked (coming soon)`);
   };
 
   const testConnection = async () => {
@@ -67,6 +89,15 @@ function App() {
   if (page === 'main-menu') {
     return (
       <div className="page-shell main-menu-page">
+        {/* NEW: Toast stack */}
+        <div className="toast-stack" aria-live="polite" aria-atomic="true">
+          {toasts.map((t) => (
+            <div key={t.id} className="toast" role="status">
+              {t.message}
+            </div>
+          ))}
+        </div>
+
         <header className="app-header">
           <h1>Capstone MDA Dashboard</h1>
           <p>Project analysis and portfolio generation toolkit</p>
@@ -78,7 +109,14 @@ function App() {
             <p className="subtitle">Choose an action</p>
             <div className="menu-grid">
               {MENU_ITEMS.map((item) => (
-                <button key={item.title} type="button" className="menu-action-button">
+                <button
+                  key={item.title}
+                  type="button"
+                  className={`menu-action-button ${
+                    activeMenuItem === item.title ? 'is-active' : ''
+                  }`}
+                  onClick={() => handleMenuClick(item.title)}
+                >
                   <span className="menu-action-title">{item.title}</span>
                   <span className="menu-action-detail">{item.detail}</span>
                 </button>
@@ -111,8 +149,8 @@ function App() {
             <article className="info-panel">
               <h2>Quick Help</h2>
               <p>
-                Start with <strong>Scan Project</strong> to import a project folder or zip.
-                Once scanned, you can generate resumes/portfolios and run ranking or summary tools.
+                Start with <strong>Scan Project</strong> to import a project folder or zip. Once
+                scanned, you can generate resumes/portfolios and run ranking or summary tools.
               </p>
             </article>
 
