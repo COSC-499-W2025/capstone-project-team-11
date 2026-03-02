@@ -3,7 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #2)
-- [T2 Weeks #6 and #7 - February 9th–March 1st](#t2-weeks-6-7)
+- [T2 Weeks #6 - #8 - February 9th–March 1st](#t2-weeks-6-8)
 - [T2 Weeks #4 and #5 - January 26th-February 5th](#team-11---t2-weeks-4-and-5-team-log-january-26th---february-8th)
 - [T2 Week #3 - January 19th-25th](#team-11---t2-week-3-team-log-january-19th---january-25th)
 - [T2 Week #2 - January 12th-18th](#team-11---t2-week-2-team-log-january-12th---january-18th)
@@ -1520,8 +1520,8 @@ The team will continue moving towards a stable build for presentations/completio
 <img width="1908" height="841" alt="image" src="https://github.com/user-attachments/assets/e9f979c4-5961-4cfa-bc07-82fc26135be1" />
 
 
-<a id="t2-weeks-6-7"></a>
-# Team #11 – T2 Weeks 6 & 7 Team Log (February 9 – March 1)
+<a id="t2-weeks-6-8"></a>
+# Team #11 – T2 Weeks 6 - 8 Team Log (February 9 – March 1)
 
 Team Members --> GitHub Username
 - Daniel Sokic --> danielsokic
@@ -1536,11 +1536,11 @@ Team Members --> GitHub Username
 
 ## Overview
 
-Weeks 6 and 7 were largely focused on finalizing and polishing Milestone 2 while also beginning the transition into Milestone 3. During this period, the team stabilized LLM integration, improved Docker usability, strengthened CLI behavior, introduced a new custom ranking feature, and started building the foundation of the Electron-based frontend.
+Weeks 6 - 8 were largely focused on finalizing and polishing Milestone 2 while also beginning the transition into Milestone 3. During this period, the team stabilized LLM integration, improved Docker usability, strengthened CLI behavior, introduced a new custom ranking feature, and started building the foundation of the Electron-based frontend.
 
 A large portion of this time was spent ensuring that existing features were reliable and well-documented before moving forward. This included refining user input handling, cleaning up timestamp deprecation warnings, fixing path resolution issues, and aligning our documentation (README, API documentation, diagrams) with the current state of the system.
 
-By the end of Week 7, Milestone 2 deliverables (LLM integration, Docker support, updated diagrams, and demo video) were complete, and early frontend dashboard work for Milestone 3 had begun.
+By the end of Week 8, Milestone 2 deliverables (LLM integration, Docker support, updated diagrams, and demo video) were complete, and early frontend dashboard work for Milestone 3 had begun.
 
 ---
 
@@ -1800,7 +1800,7 @@ The custom ranking feature was the largest new backend addition during this peri
 
 ---
 
-## Plans Moving Forward (Week 8+)
+## Plans Moving Forward (Week 9+)
 
 - Continue frontend development using the newly scaffolded dashboard.
 - Connect frontend components to `/web/portfolio` endpoints.
@@ -1810,7 +1810,7 @@ The custom ranking feature was the largest new backend addition during this peri
 
 ---
 
-Overall, Weeks 6 and 7 marked the transition from backend-heavy Milestone 2 work into early-stage frontend integration for Milestone 3, while ensuring our existing system is stable, documented, and test-covered.
+Overall, Weeks 6 - 8  marked the transition from backend-heavy Milestone 2 work into early-stage frontend integration for Milestone 3, while ensuring our existing system is stable, documented, and test-covered.
 
 ## Burnup Chart
 <img width="995" height="501" alt="burnup" src="https://github.com/user-attachments/assets/d303cffc-2999-4ee3-bb91-a0c7857612b8" />
