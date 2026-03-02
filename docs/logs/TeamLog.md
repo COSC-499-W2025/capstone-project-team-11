@@ -1798,6 +1798,17 @@ We also noticed the importance of keeping diagrams and documentation in sync wit
 
 The custom ranking feature was the largest new backend addition during this period and required careful schema design and validation logic to avoid introducing inconsistent data.
 
+
+### Milestone 2 Demo Contributions
+
+In addition to development work,
+
+Daniel recorded the frontend walkthrough, demonstrating the Electron dashboard and explaining the UI functionality and system flow.
+
+Jaxson compiled all video clips, performed the final editing, ensured the demo stayed within the 10-minute time limit, and handled the final submission.
+
+These contributions were essential to delivering a polished and organized milestone presentation.
+
 ---
 
 ## Plans Moving Forward (Week 9+)
