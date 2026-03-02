@@ -3,6 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #2)
+- [T2 Weeks #6 - #8 - February 9th–March 1st](#t2-weeks-6-8)
 - [T2 Weeks #4 and #5 - January 26th-February 5th](#team-11---t2-weeks-4-and-5-team-log-january-26th---february-8th)
 - [T2 Week #3 - January 19th-25th](#team-11---t2-week-3-team-log-january-19th---january-25th)
 - [T2 Week #2 - January 12th-18th](#team-11---t2-week-2-team-log-january-12th---january-18th)
@@ -1517,4 +1518,328 @@ The team will continue moving towards a stable build for presentations/completio
 
 ## Kanban Board
 <img width="1908" height="841" alt="image" src="https://github.com/user-attachments/assets/e9f979c4-5961-4cfa-bc07-82fc26135be1" />
+
+
+<a id="t2-weeks-6-8"></a>
+# Team #11 – T2 Weeks 6 - 8 Team Log (February 9 – March 1)
+
+Team Members --> GitHub Username
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+
+---
+
+## Overview
+
+Weeks 6 - 8 were largely focused on finalizing and polishing Milestone 2 while also beginning the transition into Milestone 3. During this period, the team stabilized LLM integration, improved Docker usability, strengthened CLI behavior, introduced a new custom ranking feature, and started building the foundation of the Electron-based frontend.
+
+A large portion of this time was spent ensuring that existing features were reliable and well-documented before moving forward. This included refining user input handling, cleaning up timestamp deprecation warnings, fixing path resolution issues, and aligning our documentation (README, API documentation, diagrams) with the current state of the system.
+
+By the end of Week 8, Milestone 2 deliverables (LLM integration, Docker support, updated diagrams, and demo video) were complete, and early frontend dashboard work for Milestone 3 had begun.
+
+---
+
+## Completed Work by Member
+
+### Priyanshu
+
+**PR #384 – Improve CLI Username Selection Retry Flow and Standardize Error Output**  
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/384
+
+- Refactored username selection flow to re-prompt users on invalid input instead of returning to the main menu.
+- Introduced a shared `print_error()` helper to standardize CLI error messaging across modules.
+- Removed duplicate `get_candidate_usernames` logic.
+- Cleaned minor wording inconsistencies in resume/portfolio flows.
+- Added a test covering the invalid → valid retry case.
+- Focused on UX consistency and input robustness without altering core functionality.
+
+**PR #399 – Milestone 2 DFD**  
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/399
+
+- Updated the Data Flow Diagram to reflect Milestone 2 architecture.
+- Incorporated LLM integration flow, Docker interaction, and updated data pathways.
+- Ensured diagrams matched actual API behavior and CLI interactions.
+
+
+#### PR #403 – Add Toast Notifications and Active Sidebar Highlight to Dashboard UI
+
+This PR introduces small but meaningful UI improvements to the Electron dashboard to improve interactivity and user feedback.
+
+**Changes implemented:**
+
+- Added active sidebar highlighting so the most recently selected menu item remains visually indicated.
+- Implemented a lightweight toast notification system that displays when sidebar actions are clicked.
+- Toasts auto-dismiss after ~2.5 seconds and stack properly if multiple actions are triggered.
+- Added frontend test coverage verifying:
+  - Toast rendering on sidebar click
+  - Correct application of the active state class
+- No backend logic or routing behavior was modified.
+
+
+Additional:
+- Contributed to Milestone 2 documentation alignment and diagram verification.
+
+---
+
+### Daniel
+
+**PR #383 – Added Custom Rankings**  
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/383
+
+- Implemented a full custom ranking feature allowing users to create, edit, rename, and delete personal project orderings.
+- Added new database tables:
+  - `custom_rankings`
+  - `custom_ranking_items`
+- Added constraints and indexes to prevent duplicate positions/projects and improve lookup speed.
+- Extended CLI with a dedicated custom rankings menu (view, create, edit, delete).
+- Added validation for ordering input and overwrite confirmation.
+- Added automated tests:
+  - Save/load/list custom rankings
+  - Rename and delete behavior
+- Closes #232.
+
+**PR #394 – Added Basic Main Menu UI Template**  
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/394
+
+- Implemented hash-based routing for frontend navigation.
+- Added main dashboard layout with sidebar actions and overview panels.
+- Added navigation tests and manual validation via Electron.
+- Introduced structured styling and responsive layout in `index.css`.
+
+---
+
+### Jaxson
+
+**PR #382 – LLM Resume Integration**
+
+- Integrated LLM-generated summaries into resume generation.
+- Added consent gating to ensure LLM use is opt-in.
+- Ensured fallback behavior if LLM is disabled or unavailable.
+- Kept core resume generation logic intact.
+
+**PR #388 – Docker + Ollama Updates**
+
+- Configured Ollama as a Docker service.
+- Improved container-to-host path handling.
+- Ensured LLM works consistently in Docker environments.
+
+**PR #391 – API / Architecture Documentation Updates**
+
+- Updated API documentation to reflect current endpoints.
+- Refreshed system architecture diagram to match actual implementation.
+
+**PR #396 – Milestone 2 README Update**
+
+- Reorganized README to clearly explain setup, Docker usage, and LLM flow.
+- Ensured documentation aligned with real CLI and API behavior.
+
+Additional (Non-PR Contributions):
+- Completed Milestone 2 README documentation.
+- Created and updated the System Architecture Diagram.
+
+---
+
+### Travis
+
+**PR #385 – Web Portfolio JSON Endpoints**
+
+- Added `/web/portfolio/{id}` endpoints for:
+  - Timeline
+  - Heatmap
+  - Showcase
+  - Customization
+- Reused existing ranking and aggregation logic.
+- Structured endpoints specifically for frontend dashboard use.
+
+**PR #392 – Frontend Electron + Vite Scaffold**
+
+- Bootstrapped Electron + Vite + React frontend.
+- Implemented backend connection test UI.
+- Added CORS middleware for local development.
+- Added initial frontend tests (Vitest + Testing Library).
+- Established base structure for Milestone 3 dashboard.
+
+---
+
+### Tanner
+
+**PR #377, #380, #381, #390**
+
+- Continued backend stabilization and feature refinements.
+- Assisted with Milestone 2 feature validation.
+- Reviewed and tested LLM and ranking flows.
+
+Additional:
+- Worked with Tyler on the Milestone 2 demo video.
+- Contributed to presentation preparation and feature walkthrough scripting.
+
+---
+
+### Tyler
+
+**PR #386 – Fixed Paths and Resume Deprecation Warnings**  
+https://github.com/COSC-499-W2025/capstone-project-team-11/pull/386
+
+- Normalized scan paths using `os.path.abspath()` to ensure consistent behavior for relative and absolute paths.
+- Fixed UTC timestamp deprecation warnings in resume generation.
+- Added `test_relative_paths.py` to validate behavior across directory contexts.
+- Verified full test suite passes.
+- Closes #328 and #342.
+
+Additional:
+- Worked with Tanner on recording and editing the Milestone 2 demo video.
+
+---
+
+---
+
+### All Members
+- Code reviews and verification of all major PRs prior to merge
+- Active collaboration and coordination via Discord and GitHub
+- Participation in in-class meetings and milestone discussions
+- Completion of individual logs and peer reviews
+
+
+
+
+## Testing Report
+
+All **new and existing unit tests pass successfully**.  
+Testing during Weeks 6–7 focused on **custom ranking persistence, CLI interaction stability, relative path handling, resume timestamp correctness, Docker compatibility, and early frontend navigation flows**. The goal was to ensure Milestone 2 features were stable before transitioning further into frontend development.
+
+### Tests Added / Updated:
+
+`test_rank_projects.py`  
+Added comprehensive tests for the new custom ranking feature:
+- Saving a new custom ranking and verifying ordered persistence
+- Listing saved rankings
+- Renaming an existing ranking
+- Deleting rankings and confirming cleanup  
+These tests run against a temporary database to ensure isolation and prevent side effects.
+
+`test_relative_paths.py`  
+New tests validating relative vs absolute path behavior:
+- Scanning projects using relative paths from different working directories
+- Confirming identical results between absolute and relative paths
+- Ensuring consistent recursive file detection  
+This directly validates the fixes introduced in PR #386.
+
+`test_cli_identity_selection.py`  
+Expanded coverage for contributor selection flows:
+- Invalid -> valid retry handling
+- Proper re-prompt behavior instead of main menu fallback
+- Cancellation behavior via blank input  
+Confirms CLI input handling is now consistent and user-friendly.
+
+`test_generate_resume.py`  
+Validated resume generation after:
+- Timestamp deprecation fixes (`timezone.utc`)
+- LLM integration with consent gating
+- Regeneration behavior  
+Ensures no regressions in resume content formatting or aggregation.
+
+`frontend/tests/App.test.jsx`  
+Added navigation and connection tests for the Electron + React frontend:
+- Navigation to Main Menu via hash routing
+- Direct rendering when hash is pre-set
+- Back navigation to connection screen
+- Backend connection success and failure states  
+These tests verify that the frontend shell behaves correctly before deeper API integration.
+
+---
+
+The full backend test suite was executed using:
+
+`pytest -q`
+
+All tests pass locally on Development.  
+
+Frontend tests were executed using:
+
+`npm test`
+
+All Vitest tests pass successfully.
+
+<img width="1047" height="429" alt="Screenshot 2026-03-01 at 8 08 13 PM" src="https://github.com/user-attachments/assets/4975eabe-afc0-4e3e-903d-bdd424c092c1" />
+
+
+<img width="1037" height="543" alt="Screenshot 2026-03-01 at 8 08 41 PM" src="https://github.com/user-attachments/assets/1c5139a2-83e4-4ae3-854e-79f02d0fcdee" />
+
+
+
+
+
+No new warnings were introduced during this testing cycle.
+---
+
+## Milestone 2 Deliverables Completed
+
+- LLM Resume Integration
+- Docker + Ollama Support
+- Updated README
+- Updated System Architecture Diagram
+- Updated Data Flow Diagram
+- Milestone 2 Demo Video
+
+All required Milestone 2 artifacts were completed and aligned with implementation.
+
+---
+
+## Reflection
+
+These two weeks were focused more on refinement and stabilization than adding completely new systems. Several improvements came directly from peer feedback, particularly around CLI consistency and documentation clarity.
+
+We also noticed the importance of keeping diagrams and documentation in sync with implementation. Earlier diagrams became outdated as the architecture evolved, so correcting that before submission was necessary.
+
+The custom ranking feature was the largest new backend addition during this period and required careful schema design and validation logic to avoid introducing inconsistent data.
+
+
+### Milestone 2 Demo Contributions
+
+In addition to development work,
+
+Daniel recorded the frontend walkthrough, demonstrating the Electron dashboard and explaining the UI functionality and system flow.
+
+Jaxson compiled all video clips, performed the final editing, ensured the demo stayed within the 10-minute time limit, and handled the final submission.
+
+These contributions were essential to delivering a polished and organized milestone presentation.
+
+---
+
+## Plans Moving Forward (Week 9+)
+
+- Continue frontend development using the newly scaffolded dashboard.
+- Connect frontend components to `/web/portfolio` endpoints.
+- Expand integration testing between API and frontend.
+- Improve UI polish and add dynamic data to dashboard overview cards.
+- Begin preparing for Milestone 3 feature completion.
+
+---
+
+Overall, Weeks 6 - 8  marked the transition from backend-heavy Milestone 2 work into early-stage frontend integration for Milestone 3, while ensuring our existing system is stable, documented, and test-covered.
+
+## Burnup Chart
+<img width="995" height="501" alt="burnup" src="https://github.com/user-attachments/assets/d303cffc-2999-4ee3-bb91-a0c7857612b8" />
+
+
+
+## Kanban Board
+
+<img width="1501" height="702" alt="kanban" src="https://github.com/user-attachments/assets/e7426d09-25c6-449d-9dc0-b350c39cfd3d" />
+
+
+
+
+
+
+
+
+
+
+
 
