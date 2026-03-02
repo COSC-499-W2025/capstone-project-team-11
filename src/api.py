@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from config import load_config, save_config, config_path as default_config_path
@@ -29,6 +30,19 @@ from scan import run_with_saved_settings
 
 app = FastAPI(title="MDA API")
 web_router = APIRouter(prefix="/web/portfolio", tags=["web-portfolio"])
+
+# Allow local frontend origins (Vite/Electron dev) to read API responses.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class PrivacyConsentRequest(BaseModel):

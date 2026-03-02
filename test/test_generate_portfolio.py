@@ -379,7 +379,7 @@ class RobustGeneratePortfolioTests(unittest.TestCase):
         md = portfolio.render_markdown()
 
         self.assertIn('# Portfolio — john', md)
-        self.assertIn('test-project-john', md.lower())
+        self.assertIn('test project john', md.lower())
 
     # Verify CLI subprocess creates valid portfolio markdown file
     def test_cli_generates_portfolio_file(self):

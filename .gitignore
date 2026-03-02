@@ -1,8 +1,14 @@
+# OS/editor
+.DS_Store
+tempCodeRunnerFile.py
+
+# Python
 __pycache__*
 /src/__pycache__
 /test/__pycache__
 *.pyc
-*.DS_Store
+
+# Local app data/artifacts
 /file_data.db
 /output
 
@@ -10,4 +16,40 @@ __pycache__*
 resumes/
 portfolios/
 
-tempCodeRunnerFile.py
+# Node/Electron/Vite
+node_modules/
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+pids
+*.pid
+*.seed
+*.pid.lock
+coverage
+*.lcov
+.nyc_output
+build/Release
+jspm_packages/
+typings/
+*.tsbuildinfo
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
+.env
+.env.test
+.cache
+.next
+.nuxt
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.webpack/
+.vite/
+/frontend/out/

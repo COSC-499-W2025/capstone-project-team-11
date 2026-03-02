@@ -189,7 +189,8 @@ def build_project_section(project_data, index, username, confidence_level='high'
     path = project_data.get('path', 'N/A')
 
     # Use confidence-filtered technologies
-    languages, frameworks = get_filtered_technologies(project_data, confidence_level)
+    languages = get_filtered_technologies(project_data, confidence_level)[0]
+    frameworks = project_data.get('high_confidence_frameworks', [])
     skills = project_data.get('skills', [])
     git_metrics = project_data.get('git_metrics', {})
 
@@ -200,8 +201,6 @@ def build_project_section(project_data, index, username, confidence_level='high'
     content_lines = [
         f"_({project_type} Project)_",
         "",
-        f"**Project Path:** `{path}`",
-        ""
     ]
 
     # Build 'Languages' summary
