@@ -1,6 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
+- [T2 Week 6/8 (Feb 9th - Mar 1st)](#t2-week-68-personal-logs-feb-9th---mar-1st)
 - [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-45-personal-logs-jan-26th---feb-8th)
 - [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
 - [T2 Week 2 (Jan 12 – Jan 18)](#t2-week-2-personal-logs-jan-12th---18th)
@@ -506,4 +507,47 @@ Over the past two weeks, I focused on improving the usability, structure, and ou
 - Prepare for the end of Milestone 2
 
 <img width="835" height="738" alt="Screenshot 2026-02-08 at 6 14 45 PM" src="https://github.com/user-attachments/assets/88d735c7-e8ef-4241-9175-db312bc0b563" />
+
+# T2 Week 6/8 Personal Logs (Feb 9th - Mar 1st)
+
+<img width="950" height="563" alt="Screenshot 2026-03-01 at 6 50 45 PM" src="https://github.com/user-attachments/assets/3dab7537-3526-4ee0-907f-bfb8d5ce0a82" />
+
+## Overview
+Over the last period, I focused on advancing resume generation and LLM support, improving deployment tooling for LLM use, polishing documentation, and updating API architecture docs. Key work included integrating LLM-generated resume summaries with proper consent handling (PR #382), enhancing Docker support for the LLM workflow (PR #388), updating API and architecture documentation (PR #391), and updating Milestone 2 README documentation (PR #396). These changes together improve the system’s usability, LLM feature integration, and project documentation.
+
+## Coding Tasks
+- Integrated LLM-generated resume summaries into the resume generation code, with user opt-in consent and fallback behavior when LLM use is denied (PR #382).  
+- Updated `generate_resume.py`, `llm_summary.py`, database persistence for summaries, and API consent handling to support enhanced LLM resume functionality (PR #382).  
+- Expanded resume output to filter high-confidence languages/frameworks and produce cleaner, natural language project bullets (PR #382).  
+- Added Docker support for LLM workflows, including Ollama HTTP API integration, improved host file mounts, and container setup for the CLI and API (PR #388).  
+- Modified Docker configuration (docker-compose.yml, Dockerfile) and summary service integration for containerized environments, enabling consistent runs across local and container setups (PR #388).  
+- Updated API and architecture documentation (`api.md` and architecture diagrams) to reflect recent changes and new endpoints/features (PR #391).  
+- Updated the project README as part of Milestone 2 deliverables, ensuring documentation aligns with the current state of features and project progress (PR #396).
+
+## Testing and Debugging
+- Ran the full automated test suite after each major change to confirm no regressions (PRs #382, #388).  
+- Manually tested resume generation with LLM enabled and disabled, validating that summaries are added only when consent is given and that the output remains well-formatted (PR #382).  
+- Verified Docker container builds, Ollama service start, model pulls, and CLI scanning in the containerized setup, ensuring resume/portfolio generation behavior matches expectations (PR #388).  
+- Confirmed API documentation accuracy with updated endpoints and verified diagrams and text updates for clarity (PR #391).  
+- Ensured updated README reflects correct build and usage instructions, reducing potential user confusion (PR #396).\
+
+## Reviewing and Collaboration
+- Tanner's New scan entry point improvements and bug-fixes (PR #380)
+- Tanner's Updated scan.py test suite to cover new functionalities (PR #381)
+- Pri's Milestone 2 DFD (PR #399)
+- Tyler's Individual Logs (PR #402)
+- Pri's Add toast notifications and active sidebar highlight to dashboard UI (PR #403)
+- Pri's Individual Logs (PR #404) 
+ 
+## Issues / Blockers
+- No major technical blockers; the LLM consent handling now gracefully defaults to normal behavior when declined (PR #382).  
+- Minor platform-specific Docker issues were noted during testing on Windows (path mounts and scanning behavior), but were addressed through configuration updates and documented in PR #388.  
+- One minor UX improvement identified: while LLM summaries integrate into the resume output, immediate display of summaries post-generation could be polished further in future work (observed during testing in PR #382).
+
+## Plan for Next Week
+- Split up Milestone 3 Tasks
+- Work on the frontend UI
+
+<img width="937" height="724" alt="Screenshot 2026-03-01 at 6 51 55 PM" src="https://github.com/user-attachments/assets/09489efb-ea99-400f-bd76-d0e9ae8ef999" />
+
 
