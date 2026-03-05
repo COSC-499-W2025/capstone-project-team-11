@@ -9,7 +9,12 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+import contextlib
+import queue
+import threading
+import glob
 
 from config import load_config, save_config, config_path as default_config_path
 from db import get_connection, save_portfolio, save_resume
@@ -25,7 +30,7 @@ from generate_resume import (
 )
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects_by_importance
-from scan import run_with_saved_settings
+from scan import run_with_saved_settings, scan_with_clean_output
 
 
 app = FastAPI(title="MDA API")
@@ -193,6 +198,46 @@ def _resolve_project_names_for_web(
     return selected_names or default_names
 
 
+def _load_latest_project_summary(project_name: str) -> Optional[Dict[str, Any]]:
+    if not project_name:
+        return None
+    out_dir = os.path.join("output", project_name)
+    if not os.path.isdir(out_dir):
+        return None
+    pattern = os.path.join(out_dir, f"{project_name}_info_*.json")
+    candidates = glob.glob(pattern)
+    if not candidates:
+        return None
+    latest = max(candidates, key=lambda p: os.path.getmtime(p))
+    try:
+        with open(latest, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+            if payload and "high_confidence_skills" not in payload:
+                skills = payload.get("skills")
+                if isinstance(skills, list):
+                    payload["high_confidence_skills"] = skills
+            return payload
+    except Exception:
+        return None
+
+
+def _load_llm_summary(project_name: str) -> Optional[Dict[str, Any]]:
+    if not project_name:
+        return None
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT summary_text, summary_model, summary_updated_at FROM projects WHERE name = ?",
+            (project_name,),
+        ).fetchone()
+    if not row or not row["summary_text"]:
+        return None
+    return {
+        "text": row["summary_text"],
+        "model": row["summary_model"],
+        "updated_at": row["summary_updated_at"],
+    }
+
+
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
@@ -272,6 +317,91 @@ def upload_project(payload: ProjectUploadRequest):
         "saved_to_db": payload.save_to_db,
         "output_summary_path": output_summary_path,
     }
+
+
+@app.post("/projects/scan-stream")
+def stream_project_scan(payload: ProjectUploadRequest):
+    # Enforce the same consent gate used by the CLI scanner.
+    config = load_config(default_config_path())
+    if not config.get("data_consent"):
+        raise HTTPException(status_code=403, detail="Data consent not granted")
+    if payload.llm_summary and not config.get("llm_summary_consent"):
+        raise HTTPException(status_code=403, detail="LLM summary consent not granted")
+
+    if not os.path.exists(payload.project_path):
+        raise HTTPException(status_code=400, detail="project_path not found")
+
+    q: "queue.Queue[Optional[str]]" = queue.Queue()
+
+    class StreamWriter:
+        def __init__(self):
+            self.buffer = ""
+
+        def write(self, data: str) -> int:
+            if not data:
+                return 0
+            # Convert carriage returns (progress updates) into line breaks.
+            data = data.replace("\r", "\n")
+            self.buffer += data
+            while "\n" in self.buffer:
+                line, self.buffer = self.buffer.split("\n", 1)
+                q.put(line)
+            return len(data)
+
+        def flush(self) -> None:
+            return None
+
+    def run_scan() -> None:
+        try:
+            writer = StreamWriter()
+            with contextlib.redirect_stdout(writer), contextlib.redirect_stderr(writer):
+                result = scan_with_clean_output(
+                    directory=payload.project_path,
+                    recursive=True,
+                    file_type=None,
+                    save_to_db=True,
+                    thumbnail_source=payload.thumbnail_path,
+                    generate_llm_summary=payload.llm_summary,
+                )
+            if writer.buffer:
+                q.put(writer.buffer)
+
+            project_names = result.get("project_names") or []
+            if not project_names and result.get("project_name"):
+                project_names = [result.get("project_name")]
+
+            summaries: List[Dict[str, Any]] = []
+            for name in project_names:
+                summary = _load_latest_project_summary(name) or {"project_name": name}
+                llm = _load_llm_summary(name)
+                if llm:
+                    summary["llm_summary"] = llm
+                summaries.append(summary)
+
+            summary = {
+                "success": bool(result.get("success")),
+                "project_name": result.get("project_name"),
+                "project_names": result.get("project_names"),
+                "output_dir": result.get("output_dir"),
+                "error": result.get("error"),
+                "summaries": summaries,
+            }
+            q.put(f"SCAN_DONE::{json.dumps(summary)}")
+        except Exception as exc:
+            q.put(f"SCAN_DONE::{json.dumps({'success': False, 'error': str(exc)})}")
+        finally:
+            q.put(None)
+
+    threading.Thread(target=run_scan, daemon=True).start()
+
+    def generate():
+        while True:
+            item = q.get()
+            if item is None:
+                break
+            yield f"{item}\n"
+
+    return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
 
 
 @app.get("/projects")

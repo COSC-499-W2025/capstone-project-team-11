@@ -1,6 +1,6 @@
 import os
 import re
-from detect_langs import detect_languages_and_frameworks, should_skip_artifact
+from detect_langs import detect_languages_and_frameworks, should_skip_artifact, IGNORED_DIRECTORIES
 
 # Maps patterns in code or text to potential human or technical skills.
 # Helps us figure out what someone might be good at based on their files.
@@ -97,7 +97,7 @@ def detect_skills(directory):
     all_skills = set()
 
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d != "__MACOSX"]
+        dirs[:] = [d for d in dirs if d != "__MACOSX" and d not in IGNORED_DIRECTORIES]
         files = [f for f in files if not should_skip_artifact(os.path.join(root, f))]
         for file in files:
             path = os.path.join(root, file)
