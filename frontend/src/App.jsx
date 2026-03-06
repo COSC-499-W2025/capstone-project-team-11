@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import ScanPage from './ScanPage.jsx';
 
 const MENU_ITEMS = [
   {
@@ -28,20 +29,26 @@ const MENU_ITEMS = [
   },
 ];
 
+const getPageFromHash = () => {
+  if (window.location.hash === '#/main-menu') {
+    return 'main-menu';
+  }
+  if (window.location.hash === '#/scan') {
+    return 'scan';
+  }
+  return 'home';
+};
+
 function App() {
   const [status, setStatus] = useState('Not tested');
   const [isLoading, setIsLoading] = useState(false);
-  const [page, setPage] = useState(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
-
-  // NEW: active sidebar item
+  const [page, setPage] = useState(getPageFromHash());
   const [activeMenuItem, setActiveMenuItem] = useState(null);
-
-  // NEW: toast state
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
     const onHashChange = () => {
-      setPage(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
+      setPage(getPageFromHash());
     };
 
     window.addEventListener('hashchange', onHashChange);
@@ -53,10 +60,13 @@ function App() {
       window.location.hash = '/main-menu';
       return;
     }
+    if (target === 'scan') {
+      window.location.hash = '/scan';
+      return;
+    }
     window.location.hash = '';
   };
 
-  // NEW: helper to show a toast (auto dismiss)
   const addToast = (message) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts((prev) => [...prev, { id, message }]);
@@ -66,9 +76,12 @@ function App() {
     }, 2500);
   };
 
-  // NEW: click handler for sidebar buttons
   const handleMenuClick = (title) => {
     setActiveMenuItem(title);
+    if (title === 'Scan Project') {
+      navigateTo('scan');
+      return;
+    }
     addToast(`${title} clicked (coming soon)`);
   };
 
@@ -86,10 +99,13 @@ function App() {
     }
   };
 
+  if (page === 'scan') {
+    return <ScanPage onBack={() => navigateTo('main-menu')} />;
+  }
+
   if (page === 'main-menu') {
     return (
       <div className="page-shell main-menu-page">
-        {/* NEW: Toast stack */}
         <div className="toast-stack" aria-live="polite" aria-atomic="true">
           {toasts.map((t) => (
             <div key={t.id} className="toast" role="status">

@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
@@ -27,6 +27,20 @@ const createWindow = () => {
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 };
+
+ipcMain.handle('dialog:openProject', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'openDirectory'],
+    filters: [
+      { name: 'Projects', extensions: ['zip'] },
+    ],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+  return result.filePaths[0];
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
