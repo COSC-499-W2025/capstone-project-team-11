@@ -459,6 +459,20 @@ Response:
 }
 ```
 
+---
+
+### GET /health
+
+Simple readiness/liveness endpoint used by Electron startup checks.
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
 ## Notes
 
 - `/projects/upload` supports filesystem paths only (zip upload planned later).
