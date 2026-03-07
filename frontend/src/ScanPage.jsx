@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from './api';
 
 const PHASE_ORDER = [
   'Scanning Files',
@@ -26,7 +27,7 @@ function ScanPage({ onBack }) {
 
   const fetchRecentProjects = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/projects');
+      const res = await axios.get(`${API_BASE_URL}/projects`)
       setRecentProjects(res.data || []);
     } catch {
       setRecentProjects([]);
@@ -92,7 +93,7 @@ function ScanPage({ onBack }) {
     setScanPhase('Scanning Files');
 
     try {
-      const response = await fetch('http://localhost:8000/projects/scan-stream', {
+      const response = await fetch(`${API_BASE_URL}/projects/scan-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -258,20 +259,28 @@ function ScanPage({ onBack }) {
         ) : null}
 
         <section className="scan-recent">
-          <h2>Recent Scans</h2>
-          {recentProjects.length === 0 ? (
-            <p>No recent scans yet.</p>
-          ) : (
-            <div className="recent-list">
-              {recentProjects.map((project) => (
-                <div key={project.id} className="recent-item">
-                  <div className="recent-title">{project.name}</div>
-                  <div className="recent-meta">Last scan: {project.latest_scan_at || 'Not available'}</div>
-                </div>
-              ))}
+  <h2>Recent Scans</h2>
+  {recentProjects.length === 0 ? (
+    <p>No recent scans yet.</p>
+  ) : (
+    <div className="recent-list">
+      {recentProjects.map((project) => {
+        const projectId = project.project_id ?? project.id;
+        const projectName =
+          project.display_name ?? project.name ?? project.project_name ?? `Project ${projectId}`;
+
+        return (
+          <div key={projectId} className="recent-item">
+            <div className="recent-title">{projectName}</div>
+            <div className="recent-meta">
+              Last scan: {project.latest_scan_at || 'Not available'}
             </div>
-          )}
-        </section>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</section>
       </div>
     </div>
   );
