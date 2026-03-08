@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
+import ResumePage from './ResumePage.jsx';
 
 const MENU_ITEMS = [
   {
@@ -36,6 +37,7 @@ const getPageFromHash = () => {
   if (window.location.hash === '#/scan') {
     return 'scan';
   }
+  if (window.location.hash === '#/resume') return 'resume';
   return 'home';
 };
 
@@ -64,6 +66,10 @@ function App() {
       window.location.hash = '/scan';
       return;
     }
+    if (target === 'resume') {
+      window.location.hash = '/resume';
+      return;
+    }
     window.location.hash = '';
   };
 
@@ -80,6 +86,10 @@ function App() {
     setActiveMenuItem(title);
     if (title === 'Scan Project') {
       navigateTo('scan');
+      return;
+    }
+    if (title === 'Generate Resume') {
+      navigateTo('resume');
       return;
     }
     addToast(`${title} clicked (coming soon)`);
@@ -101,6 +111,10 @@ function App() {
 
   if (page === 'scan') {
     return <ScanPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'resume') {
+    return <ResumePage onBack={() => navigateTo('main-menu')} />;
   }
 
   if (page === 'main-menu') {

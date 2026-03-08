@@ -17,6 +17,7 @@ import threading
 import glob
 
 from config import load_config, save_config, config_path as default_config_path
+from cli_username_selection import get_candidate_usernames
 from db import get_connection, save_portfolio, save_resume
 from generate_portfolio import (
     aggregate_projects_for_portfolio,
@@ -519,6 +520,14 @@ def list_skills():
     with get_connection() as conn:
         rows = conn.execute("SELECT name FROM skills ORDER BY name").fetchall()
     return [row["name"] for row in rows]
+
+
+@app.get("/contributors")
+def list_contributors():
+    projects, root_repo_jsons = collect_projects(None)
+    blacklist = {"githubclassroombot", "Unknown"}
+    usernames = get_candidate_usernames(projects, root_repo_jsons, blacklist=blacklist)
+    return sorted(set(usernames))
 
 
 @app.get("/resume/{resume_id}")
