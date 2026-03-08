@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
+import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
 import PortfolioPage from './PortfolioPage.jsx';
 import { API_BASE_URL } from './api';
@@ -40,6 +41,8 @@ const getPageFromHash = () => {
   if (window.location.hash === '#/scan') {
     return 'scan';
   }
+  if (window.location.hash === '#/rank-projects') {
+    return 'rank-projects';
   if (window.location.hash === '#/projects') {
     return 'projects';
   }
@@ -74,6 +77,8 @@ function App() {
       window.location.hash = '/scan';
       return;
     }
+    if (target === 'rank-projects') {
+      window.location.hash = '/rank-projects';
     if (target === 'projects') {
       window.location.hash = '/projects';
       return;
@@ -99,6 +104,10 @@ function App() {
 
     if (title === 'Scan Project') {
       navigateTo('scan');
+      return;
+    }
+    if (title === 'Rank Projects') {
+      navigateTo('rank-projects');
       return;
     }
 
@@ -133,6 +142,8 @@ function App() {
     return <ScanPage onBack={() => navigateTo('main-menu')} />;
   }
 
+  if (page === 'rank-projects') {
+    return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
   if (page === 'projects') {
     return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
   }
