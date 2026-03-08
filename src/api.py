@@ -526,6 +526,15 @@ def list_skills():
     return [row["name"] for row in rows]
 
 
+@app.get("/contributors")
+def list_contributors():
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name"
+        ).fetchall()
+    return [row["name"] for row in rows]
+
+
 @app.get("/resume/{resume_id}")
 def get_resume(resume_id: int):
     with get_connection() as conn:
