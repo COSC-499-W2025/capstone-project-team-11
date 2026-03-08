@@ -31,8 +31,12 @@ describe('App Component', () => {
     fireEvent(window, new HashChangeEvent('hashchange'));
 
     expect(window.location.hash).toBe('#/main-menu');
-    expect(await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })).toBeInTheDocument();
-    expect(screen.getByText(/Project analysis and portfolio generation toolkit/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Project analysis and portfolio generation toolkit/i)
+    ).toBeInTheDocument();
   });
 
   it('renders main menu directly when hash is set before render', () => {
@@ -41,7 +45,9 @@ describe('App Component', () => {
     render(<App />);
 
     expect(screen.getByRole('heading', { name: /Main Menu/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Back to Connection Test/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Back to Connection Test/i })
+    ).toBeInTheDocument();
   });
 
   it('navigates back to connection view from main menu', async () => {
@@ -53,7 +59,9 @@ describe('App Component', () => {
 
     expect(window.location.hash).toBe('');
     expect(await screen.findByText(/Capstone MDA App/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Test Backend Connection/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Test Backend Connection/i })
+    ).toBeInTheDocument();
   });
 
   it('updates status on successful backend connection', async () => {
@@ -73,19 +81,43 @@ describe('App Component', () => {
 
     expect(await screen.findByText(/Status: Failed: Network Error/i)).toBeInTheDocument();
   });
-});
-it('shows toast and highlights sidebar item when clicked', async () => {
-  window.location.hash = '#/main-menu';
-  render(<App />);
 
-  // Click a sidebar button
-  const resumeButton = screen.getByRole('button', { name: /Generate Resume/i });
-  fireEvent.click(resumeButton);
+  it('shows toast and highlights sidebar item when clicked', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
 
-  // Toast should appear
-  expect(
-    await screen.findByText(/Generate Resume clicked \(coming soon\)/i)
-  ).toBeInTheDocument();
+    const resumeButton = screen.getByRole('button', { name: /Generate Resume/i });
+    fireEvent.click(resumeButton);
+
+    expect(
+      await screen.findByText(/Generate Resume clicked \(coming soon\)/i)
+    ).toBeInTheDocument();
+
+    expect(resumeButton.className).toMatch(/is-active/);
+  });
+
+  it('navigates to scanned projects page when clicking View/Manage Scanned Projects', async () => {
+    vi.spyOn(axios, 'get')
+      .mockResolvedValueOnce({
+        data: [{ id: 1, name: 'Test Project' }],
+      })
+      .mockResolvedValueOnce({
+        data: {
+          project: {
+            id: 1,
+            name: 'Test Project',
+            created_at: '2026-03-06 12:00:00',
+            repo_url: null,
+            thumbnail_path: null,
+          },
+          skills: [],
+          languages: [],
+          contributors: [],
+          scans: [],
+          files_summary: { total_files: 0, extensions: {} },
+          evidence: [],
+        },
+      });
 
   // Button should have active class
   expect(resumeButton.className).toMatch(/is-active/);
@@ -122,4 +154,20 @@ it('shows coming soon toast for unimplemented menu actions', async () => {
   fireEvent.click(screen.getByRole('button', { name: /Generate Portfolio/i }));
 
   expect(await screen.findByText(/Generate Portfolio clicked \(coming soon\)/i)).toBeInTheDocument();
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    const manageButton = screen.getByRole('button', {
+      name: /View\/Manage Scanned Projects/i,
+    });
+
+    fireEvent.click(manageButton);
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/projects');
+    expect(
+      await screen.findByRole('heading', { name: /Scanned Projects/i })
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Test Project/i)).toBeInTheDocument();
+  });
 });
