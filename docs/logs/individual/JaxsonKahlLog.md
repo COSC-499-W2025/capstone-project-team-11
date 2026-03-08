@@ -1,6 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
+- [T2 Week 9 (Mar 2nd – Mar 8th)](#t2-week-9-personal-logs-mar-2nd---8th)
 - [T2 Week 6/8 (Feb 9th - Mar 1st)](#t2-week-68-personal-logs-feb-9th---mar-1st)
 - [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-45-personal-logs-jan-26th---feb-8th)
 - [T2 Week 3 (Jan 13 – Jan 25)](#t2-week-3-personal-logs-jan-19th---25th)
@@ -548,6 +549,41 @@ Over the last period, I focused on advancing resume generation and LLM support, 
 - Split up Milestone 3 Tasks
 - Work on the frontend UI
 
-<img width="937" height="724" alt="Screenshot 2026-03-01 at 6 51 55 PM" src="https://github.com/user-attachments/assets/09489efb-ea99-400f-bd76-d0e9ae8ef999" />
+# T2 Week 9 Personal Logs (Mar 2nd - 8th)
+
+### Overview
+This week I focused on improving the resume generation workflow by strengthening how scanned project data moves through the system and is used in the final output. A major part of this work involved building out the functionality needed to handle project scanning and summary use more cleanly, while also improving the connection between the backend logic and the frontend-facing workflow. The goal was to make sure contributor-specific project data could be scanned, processed, retrieved from the database, and then displayed in the correct resume format, regardless of whether LLM use was enabled or disabled.
+
+### Coding Tasks
+- Worked on the functionality that supports scanning projects and making the resulting project data available for resume generation (PR #409).
+- Improved how contributor-specific project information is collected and passed through the backend so the correct projects are connected to the selected contributor during resume generation (PR #409).
+- Integrated stored LLM-generated project summaries into the resume generation workflow so scanned project summaries can be reused instead of regenerated unnecessarily (PR #409).
+- Strengthened the connection between backend processing and the frontend-facing resume flow so the generated output matches the existing resume structure and displays the correct contributor data (PR #409).
+- Added handling for cases where a project may have been scanned without LLM access, but resume generation later occurs with LLM use enabled by the user (PR #410).
+- Ensured the program continues through the normal resume generation path when LLM access is denied, so the user still receives a valid result without breaking the workflow (PR #410).
+- Improved the flow of project data from database retrieval through backend formatting into the final resume output seen by the user (PR #410).
+
+### Testing and Debugging
+- Tested the scanning-to-resume workflow to confirm that project data is correctly carried from the backend into the generated resume output (PR #409).
+- Verified that contributor-specific project records are retrieved and displayed correctly when generating a resume for a selected user (PR #409).
+- Tested resume generation with LLM summaries available in the database to confirm they are included properly in the output (PR #409).
+- Tested fallback behavior when LLM access is denied to ensure the backend still completes resume generation normally and the frontend-facing result remains usable (PR #410).
+- Confirmed that the generated resume still matches the existing format while using the updated backend data flow (PRs #409, #410).
+
+## Reviewing and Collaboration
+- Travis's Electron backend auto-spawn and /health endpoint (PR #417)
+- Pri's Add scanned projects page and navigation test (PR #418)
+- Daniel's Created Rank Projects Page (PR #419)
+
+### Issues / Blockers
+- No major blockers occurred during implementation.
+- One key challenge was handling cases where scanned projects did not already contain LLM-generated summaries, but resume generation later requested LLM-enhanced output (PR #410).
+- Another important consideration was making sure backend changes to project scanning and resume data handling did not break the structure or consistency of the final output shown to the user.
+- Multi-project directories are not scanning properly
+
+## Plan for Next Week
+- Update scanning feature to handle multi-project directories properly
+- Update the dashboard to reflect actual information 
+
 
 
