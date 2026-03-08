@@ -148,6 +148,7 @@ function App() {
   if (page === 'rank-projects') {
     return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
   }
+
   if (page === 'projects') {
     return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
   }
