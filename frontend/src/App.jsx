@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
+import RankProjectsPage from './RankProjectsPage.jsx';
 
 const MENU_ITEMS = [
   {
@@ -36,6 +37,9 @@ const getPageFromHash = () => {
   if (window.location.hash === '#/scan') {
     return 'scan';
   }
+  if (window.location.hash === '#/rank-projects') {
+    return 'rank-projects';
+  }
   return 'home';
 };
 
@@ -64,6 +68,10 @@ function App() {
       window.location.hash = '/scan';
       return;
     }
+    if (target === 'rank-projects') {
+      window.location.hash = '/rank-projects';
+      return;
+    }
     window.location.hash = '';
   };
 
@@ -80,6 +88,10 @@ function App() {
     setActiveMenuItem(title);
     if (title === 'Scan Project') {
       navigateTo('scan');
+      return;
+    }
+    if (title === 'Rank Projects') {
+      navigateTo('rank-projects');
       return;
     }
     addToast(`${title} clicked (coming soon)`);
@@ -101,6 +113,10 @@ function App() {
 
   if (page === 'scan') {
     return <ScanPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'rank-projects') {
+    return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
   }
 
   if (page === 'main-menu') {
