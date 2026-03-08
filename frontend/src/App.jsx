@@ -42,6 +42,7 @@ const getPageFromHash = () => {
   }
   if (window.location.hash === '#/rank-projects') {
     return 'rank-projects';
+  }
   if (window.location.hash === '#/projects') {
     return 'projects';
   }
@@ -75,6 +76,8 @@ function App() {
     }
     if (target === 'rank-projects') {
       window.location.hash = '/rank-projects';
+      return;
+    }
     if (target === 'projects') {
       window.location.hash = '/projects';
       return;
@@ -131,6 +134,8 @@ function App() {
 
   if (page === 'rank-projects') {
     return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
   if (page === 'projects') {
     return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
   }
