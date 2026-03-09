@@ -148,8 +148,20 @@ def test_human_ts_none():
 
 def test_handle_inspect_database_works(monkeypatch, capsys):
     temp_conn = create_temp_db()
+    cur = temp_conn.cursor()
 
-    # Make main_menu use the in-memory DB instead of the real DB_PATH
+    # Minimal data so all sections print
+    cur.execute("INSERT INTO scans(scanned_at, project, notes) VALUES ('2026-03-08', 'TestProj', 'note')")
+    cur.execute("INSERT INTO projects(name, created_at) VALUES ('TestProj', '2026-03-08')")
+    cur.execute("INSERT INTO files(file_name, file_path, file_extension, file_size, modified_at, scan_id) VALUES ('file1.py','/tmp/file1.py','.py',100,'2026-03-08',1)")
+    cur.execute("INSERT INTO skills(name) VALUES ('Skill1')")
+    cur.execute("INSERT INTO project_skills(project_id, skill_id) VALUES (1,1)")
+    cur.execute("INSERT INTO languages(name) VALUES ('Python')")
+    cur.execute("INSERT INTO file_languages(file_id, language_id) VALUES (1,1)")
+    cur.execute("INSERT INTO contributors(name) VALUES ('Alice')")
+    cur.execute("INSERT INTO file_contributors(file_id, contributor_id) VALUES (1,1)")
+    temp_conn.commit()
+
     monkeypatch.setattr("main_menu.get_connection", lambda: temp_conn)
     monkeypatch.setattr("main_menu.DB_PATH", ":memory:")
 
@@ -157,13 +169,15 @@ def test_handle_inspect_database_works(monkeypatch, capsys):
 
     out = capsys.readouterr().out
 
+    # Match actual printed strings in inspect_db.py
     assert "Inspecting DB" in out
     assert "Tables in database" in out
     assert "Recent scans" in out
     assert "Projects and skills" in out
-    assert "Project thumbnails" in out
-    assert "Top languages" in out
-    assert "Contributors" in out
+    assert "Project thumbnails, languages, contributors, sample scan" in out
+    # Confirm sample data prints
+    assert "Python: 1" in out   # Language count
+    assert "Contributor 1: Alice" in out
 
 
 def test_preview_resume_reads_file(tmp_path):

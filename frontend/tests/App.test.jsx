@@ -148,7 +148,11 @@ describe('App Component', () => {
         },
       });
 
-    // Button should have active class
+    render(<App />); // render the component first
+
+    const resumeButton = screen.getByRole('button', { name: /Generate Resume/i });
+    fireEvent.click(resumeButton);
+
     expect(resumeButton.className).toMatch(/is-active/);
   });
 
@@ -234,7 +238,6 @@ describe('App Component', () => {
     expect(window.location.hash).toBe('#/main-menu');
     expect(await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })).toBeInTheDocument();
   });
-});
 });
 
 // Portfolio Page Tests
