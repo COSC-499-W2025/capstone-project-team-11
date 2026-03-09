@@ -680,3 +680,14 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* Danger button (Delete Project) */
+.danger {
+  border: 1px solid #8b1e1e;
+  background: linear-gradient(180deg, #e05252 0%, #b42318 100%);
+  color: #ffffff;
+}
+
+.danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #d64545 0%, #8f1a14 100%);
+}

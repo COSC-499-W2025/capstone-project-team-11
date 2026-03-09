@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from io import StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -31,6 +32,7 @@ from generate_resume import (
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects, rank_projects_by_importance
 from scan import run_with_saved_settings, scan_with_clean_output
+from inspect_db import inspect_connection
 
 
 app = FastAPI(title="MDA API")
@@ -1001,5 +1003,10 @@ def patch_web_customize(portfolio_id: int, payload: WebPortfolioCustomizeRequest
         "updated_at": web_cfg["updated_at"],
     }
 
+from inspect_db import inspect_database_json
+
+@app.get("/database/inspect")
+def api_inspect_database():
+    return inspect_database_json()
 
 app.include_router(web_router)

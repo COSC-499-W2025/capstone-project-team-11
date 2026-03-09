@@ -3,6 +3,7 @@ import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
 import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
+import DatabaseMaintenance from "./DatabaseMaintenance.jsx";
 import { API_BASE_URL } from './api';
 
 
@@ -31,6 +32,11 @@ const MENU_ITEMS = [
     title: 'Summarize Contributor Projects',
     detail: 'Generate short summaries for a selected contributor’s strongest projects.',
   },
+  {
+    title: 'Manage Database',
+    detail:
+      'Access database tools to inspect stored data, remove projects, or clear database contents.',
+  },
 ];
 
 const getPageFromHash = () => {
@@ -45,6 +51,9 @@ const getPageFromHash = () => {
   }
   if (window.location.hash === '#/projects') {
     return 'projects';
+  }
+  if (window.location.hash === '#/database') {
+    return 'database';
   }
   return 'home';
 };
@@ -82,6 +91,10 @@ function App() {
       window.location.hash = '/projects';
       return;
     }
+    if (target === 'database') {
+      window.location.hash = '/database';
+      return;
+    }
     window.location.hash = '';
   };
 
@@ -108,6 +121,11 @@ function App() {
 
     if (title === 'View/Manage Scanned Projects') {
       navigateTo('projects');
+      return;
+    }
+
+    if (title === 'Manage Database') {
+      navigateTo('database');
       return;
     }
 
@@ -138,6 +156,10 @@ function App() {
 
   if (page === 'projects') {
     return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === "database") {
+    return <DatabaseMaintenance onBack={() => navigateTo("main-menu")} />;
   }
 
   if (page === 'main-menu') {
