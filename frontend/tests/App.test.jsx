@@ -148,7 +148,12 @@ describe('App Component', () => {
         },
       });
 
-    // Button should have active class
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    const resumeButton = screen.getByRole('button', { name: /Generate Resume/i });
+    fireEvent.click(resumeButton);
+
     expect(resumeButton.className).toMatch(/is-active/);
   });
 
@@ -177,14 +182,14 @@ describe('App Component', () => {
   });
 
   it('shows coming soon toast for unimplemented menu actions', async () => {
+    vi.spyOn(axios, 'get').mockResolvedValue({ data: [{ id: 1, name: 'Test Project' }] });
+
     window.location.hash = '#/main-menu';
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Generate Portfolio/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Summarize Contributor Projects/i }));
 
-    expect(await screen.findByText(/Generate Portfolio clicked \(coming soon\)/i)).toBeInTheDocument();
-    window.location.hash = '#/main-menu';
-    render(<App />);
+    expect(await screen.findByText(/Summarize Contributor Projects clicked \(coming soon\)/i)).toBeInTheDocument();
 
     const manageButton = screen.getByRole('button', {
       name: /View\/Manage Scanned Projects/i,
@@ -234,7 +239,6 @@ describe('App Component', () => {
     expect(window.location.hash).toBe('#/main-menu');
     expect(await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })).toBeInTheDocument();
   });
-});
 });
 
 // Portfolio Page Tests

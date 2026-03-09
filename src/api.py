@@ -531,10 +531,53 @@ def list_skills():
 
 @app.get("/contributors")
 def list_contributors():
-    projects, root_repo_jsons = collect_projects(None)
-    blacklist = {"githubclassroombot", "Unknown"}
-    usernames = get_candidate_usernames(projects, root_repo_jsons, blacklist=blacklist)
-    return sorted(set(usernames))
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name"
+        ).fetchall()
+    return [row["name"] for row in rows]
+
+
+@app.get("/rank-projects")
+def get_rank_projects(
+    mode: str = Query("project", pattern="^(project|contributor)$"),
+    contributor_name: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None, ge=1, le=200),
+    sort_mode: str = Query("importance", pattern="^(importance|chronological)$"),
+    chronological_order: str = Query("desc", pattern="^(asc|desc)$"),
+):
+    if mode == "contributor" and not (contributor_name and contributor_name.strip()):
+        raise HTTPException(status_code=400, detail="contributor_name is required for contributor mode")
+
+    ranked = rank_projects_by_importance(
+        mode=mode,
+        contributor_name=(contributor_name.strip() if contributor_name else None),
+        limit=None,
+    )
+
+    # Attach creation/scan chronology metadata for each project.
+    timeline_by_project = {
+        item.get("project"): item
+        for item in rank_projects(order=chronological_order)
+        if item.get("project")
+    }
+    for item in ranked:
+        timeline = timeline_by_project.get(item.get("project"), {})
+        item["created_at"] = timeline.get("created_at")
+        item["first_scan"] = timeline.get("first_scan")
+        item["last_scan"] = timeline.get("last_scan")
+        item["scans_count"] = timeline.get("scans_count", 0)
+
+    if sort_mode == "chronological":
+        ranked.sort(
+            key=lambda x: (x.get("created_at") or ""),
+            reverse=(chronological_order == "desc"),
+        )
+
+    if limit is not None and isinstance(limit, int) and limit > 0:
+        return ranked[:limit]
+
+    return ranked
 
 
 @app.get("/resume/{resume_id}")
