@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Week 9 (Mar 2 – Mar 8, 2026)](#semester-2--week-9-personal-log-march-2nd--march-8th-2026)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#semester-2--weeks-4--5-personal-log-january-26th--february-8th-2026)
 - [Week 3 (Jan 19 – Jan 25, 2026)](#semester-2--week-3-personal-log-january-19th--january-25th-2026)
@@ -455,3 +456,60 @@ In addition to development work, we prepared and delivered our Milestone 2 prese
 - Strengthen frontend-to-backend integration and API reliability  
 - Expand dashboard endpoints to support richer visual components  
 - Prepare for upcoming quiz
+
+---
+
+# Semester 2 – Week 9 Personal Log (March 2nd – March 8th, 2026)
+
+This week began with preparation for **Quiz 3**, so the early portion of the week was dedicated to reviewing API endpoint design, backend integration patterns, and testing strategies. After the quiz, development continued with focused progress on Milestone 3 frontend integration and resume-generation functionality.
+
+Through **PR #417**, I implemented a one-command startup workflow for the full application stack. Previously, the FastAPI backend had to be launched manually before starting the Electron frontend. This update introduced a `/health` endpoint in the FastAPI app and added child-process spawn logic within Electron’s main process. The backend is now automatically started, polled until ready, and cleanly terminated on all exit scenarios (including macOS window-close). This significantly improves developer experience and reduces setup friction.
+
+In **PR #422**, I implemented the initial **Generate Resume** page in the frontend. Users can now:
+- Select a contributor via `GET /contributors`
+- Generate a resume via `POST /resume/generate`
+- Retrieve and render the result as markdown
+- Edit the resume inline via `POST /resume/{id}/edit`
+- Copy content to clipboard
+- Download the resume as a `.md` file
+
+This PR also introduced blacklist filtering in the contributors endpoint to ensure only valid contributors are selectable. Tailwind CSS configuration was added experimentally
+
+<img width="1056" height="622" alt="Screenshot 2026-03-08 at 5 36 41 PM" src="https://github.com/user-attachments/assets/fc649f04-f1be-4bb6-9e28-71102f60fe77" />
+
+## Coding Tasks
+- Implemented backend `/health` endpoint for readiness checks (PR #417)  
+- Added Electron child-process spawn logic to auto-start FastAPI backend (PR #417)  
+- Implemented clean shutdown handling for backend process across exit scenarios (PR #417)  
+- Built initial Resume Generation frontend page with contributor dropdown and markdown rendering (PR #422)  
+- Integrated `GET /contributors`, `POST /resume/generate`, and `GET /resume/{id}` endpoints (PR #422)  
+- Added inline resume editing, clipboard copy, and `.md` download support (PR #422)  
+- Implemented blacklist filtering in contributors endpoint (PR #422)
+
+## Testing Tasks
+- Created `ResumePage.test.jsx` to validate core resume-generation behavior  
+- Verified correct rendering of contributor selection and "Generate Resume" button  
+- Tested async loading state to ensure button transitions to disabled “Generating” state during API calls  
+- Mocked sequential `fetch` calls to simulate:
+  - Contributor retrieval
+  - Resume generation (`POST /resume/generate`)
+  - Resume retrieval (`GET /resume/{id}`)
+- Confirmed resume content renders correctly when API calls succeed  
+- Implemented error handling test to verify user-facing error messages appear when API calls fail  
+- Manually tested one-command full-stack startup workflow (`npm start`) to confirm backend auto-spawn, readiness polling, and clean termination behavior
+
+## Reviewing / Collaboration Tasks
+- Reviewed **Frontend UI for scanning feature** (PR #410)  
+- Reviewed **Add scan streaming endpoint and scanner ignore updates** (PR #409)  
+- Reviewed **Initial web portfolio generation functionality** (PR #421)  
+- Participated in milestone coordination discussions following Quiz 3  
+- Began outlining peer testing structure for upcoming milestone requirements
+
+<img width="1110" height="127" alt="Screenshot 2026-03-08 at 5 43 05 PM" src="https://github.com/user-attachments/assets/963a90ff-aa6f-4243-aa65-d01959f6048e" />
+
+### Plans Going Forward
+- Continue frontend development for Milestone 3 visualization features  
+- Further refine resume-generation logic and formatting consistency  
+- Complete peer testing outline documentation  
+- Support integration testing as dashboard functionality expands
+
