@@ -490,6 +490,11 @@ Overall the team worked pretty well but all the work was crammed in and finished
 - Returning from the ranking page to the main menu.
 - Toast messages for unimplemented menu items.
 
+## Reviews and Collaboration
+- Travis' Create initial resume generation page [PR #422](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/422)
+- Tanner's Initial web portfolio generation functionality [PR #421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+- Pri's Add scanned projects page and navigation test [PR #418](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/418)
+  
 ## Issues and Blockers
 - A couple of merge conflicts when creating PRs.
 
@@ -506,6 +511,7 @@ Overall the team worked pretty well but all the work was crammed in and finished
 
 
  
+
 
 
 
