@@ -4,6 +4,7 @@ import ScanPage from './ScanPage.jsx';
 import ResumePage from './ResumePage.jsx';
 import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
+import DatabaseMaintenance from "./DatabaseMaintenance.jsx";
 import PortfolioPage from './PortfolioPage.jsx';
 import { API_BASE_URL } from './api';
 
@@ -32,6 +33,11 @@ const MENU_ITEMS = [
     title: 'Summarize Contributor Projects',
     detail: 'Generate short summaries for a selected contributor’s strongest projects.',
   },
+  {
+    title: 'Manage Database',
+    detail:
+      'Access database tools to inspect stored data, remove projects, or clear database contents.',
+  },
 ];
 
 const getPageFromHash = () => {
@@ -49,6 +55,9 @@ const getPageFromHash = () => {
   }
   if (window.location.hash === '#/projects') {
     return 'projects';
+  }
+  if (window.location.hash === '#/database') {
+    return 'database';
   }
   if (window.location.hash === '#/portfolio') {
     return 'portfolio';
@@ -93,6 +102,10 @@ function App() {
       window.location.hash = '/projects';
       return;
     }
+    if (target === 'database') {
+      window.location.hash = '/database';
+      return;
+    }
     if (target === 'portfolio') {
       window.location.hash = '/portfolio';
       return;
@@ -128,6 +141,11 @@ function App() {
       navigateTo('projects');
       return;
     }
+
+    if (title === 'Manage Database') {
+      navigateTo('database');
+    }
+
     if (title === 'Generate Portfolio') {
       navigateTo('portfolio');
       return;
@@ -164,6 +182,10 @@ function App() {
 
   if (page === 'projects') {
     return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === "database") {
+    return <DatabaseMaintenance onBack={() => navigateTo("main-menu")} />;
   }
 
   if (page === 'portfolio') {

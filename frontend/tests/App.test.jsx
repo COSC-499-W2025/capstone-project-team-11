@@ -148,6 +148,41 @@ describe('App Component', () => {
         },
       });
 
+    // Button should have active class
+    expect(resumeButton.className).toMatch(/is-active/);
+  });
+
+  it('navigates to Rank Projects from main menu', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/rank-projects');
+    expect(await screen.findByRole('heading', { name: /Rank Projects/i })).toBeInTheDocument();
+  });
+
+  it('returns to main menu from Rank Projects page', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    fireEvent.click(await screen.findByRole('button', { name: /Back to Main Menu/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/main-menu');
+    expect(await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })).toBeInTheDocument();
+  });
+
+  it('shows coming soon toast for unimplemented menu actions', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Generate Portfolio/i }));
+
+    expect(await screen.findByText(/Generate Portfolio clicked \(coming soon\)/i)).toBeInTheDocument();
     window.location.hash = '#/main-menu';
     render(<App />);
 
@@ -164,6 +199,42 @@ describe('App Component', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText(/Test Project/i)).toBeInTheDocument();
   });
+
+  // ==========================
+  // NEW: Tests for Database Maintenance
+  // ==========================
+
+  it('navigates to Database Maintenance page from main menu', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    // Find the Manage Database button (using the title span to avoid duplicate buttons)
+    const manageDbButton = screen.getAllByText('Manage Database').find(
+      el => el.tagName === 'SPAN'
+    ).parentElement; // get the button element itself
+
+    fireEvent.click(manageDbButton);
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/database');
+
+    // Match the correct header text on the database page
+    expect(await screen.findByRole('heading', { name: /Database Management/i })).toBeInTheDocument();
+  });
+
+  it('returns to main menu from Database Maintenance page', async () => {
+    window.location.hash = '#/database';
+    render(<App />);
+
+    // Click the back button in database page
+    const backButton = screen.getByRole('button', { name: /Back to Main Menu/i });
+    fireEvent.click(backButton);
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/main-menu');
+    expect(await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })).toBeInTheDocument();
+  });
+});
 });
 
 // Portfolio Page Tests
