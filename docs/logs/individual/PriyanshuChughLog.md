@@ -2,6 +2,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Week 9 (Mar 2 – Mar 8, 2026)](#t2-week-9-march-2nd---march-8th)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#t2-week-45-personal-logs-jan-26th---feb-8th)
 - [Week 3 (Jan 19 – Jan 25, 2026)](#t2-week-3-january-19th-25th)
@@ -558,7 +559,62 @@ In addition to coding, I contributed to Milestone 2 documentation alignment and 
 - Expand frontend-to-backend integration for Milestone 3  
 - Maintain and expand automated test coverage  
 - Support visualization feature planning for upcoming milestone
-- prepare for upcoming quiz 
+- prepare for upcoming quiz
+
+
+
+# T2 Week 9 (March 2nd - March 8th)
+
+<img width="1191" height="671" alt="Screenshot 2026-03-08 at 8 27 52 PM" src="https://github.com/user-attachments/assets/68b299af-f23f-4b24-865d-1e94db479a26" />
+
+
+## Overview
+This week I worked on implementing the frontend for **View/Manage Scanned Projects**. The main goal was to replace the placeholder button on the main menu with a real page where users can browse previously scanned projects and inspect their saved project details. I also added a shared `api.js` file so frontend requests use one backend base URL instead of hardcoded URLs across multiple files.
+
+A good amount of time also went into debugging and testing. I ran into issues with `localhost` vs `127.0.0.1`, which caused problems when the frontend was trying to communicate with the backend. After fixing that, I was able to get the scanned projects page fully working and add a test for the navigation flow.
+
+Closed Issue: #413
+
+## Reflection:
+Overall this week went pretty well,the feature came together pretty smoothly. I also spent time reviewing teammates’ frontend PRs so I could stay up to date with the resume and portfolio work being added.
+
+## Coding Tasks
+- Created scanned projects page [PR #418](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/418)
+  - Added new frontend page: `ScannedProjectsPage.jsx` for browsing scanned projects and viewing project details.
+  - Updated `App.jsx` so the **View/Manage Scanned Projects** button now routes to the new page.
+  - Added `frontend/src/api.js` to centralize the backend API base URL.
+  - Updated `ScanPage.jsx` to use the shared API base URL and cleaned up recent scan rendering.
+  - Added styling for the scanned projects layout and detail panels in `index.css`.
+  - Added a navigation test in `App.test.jsx` for the scanned projects page.
+
+## Tests and Debugging:
+- Ran frontend tests with `npm test` and confirmed all tests passed locally.
+- Manually tested:
+  - backend connection flow
+  - main menu navigation to scanned projects page
+  - loading project list from `/projects`
+  - loading project details from `/projects/{id}`
+  - scan page still working after the API URL cleanup
+- Debugged and fixed:
+  - `localhost` vs `127.0.0.1` mismatch causing frontend/backend issues
+  - incorrect `/projects/scan-stream` path
+  - frontend rendering mismatch caused by nested project detail response data
+
+## Reviews and Collaboration
+- Reviewed Travis’ Create initial resume generation page [PR #422](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/422)
+- Reviewed Tanner’s Initial web portfolio generation functionality [PR #421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+- Reviewed Jaxson’s Add scan streaming endpoint and scanner ignore updates [PR #409](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/409)
+- Reviewed Jaxson’s Frontend UI for scanning feature [PR #410](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/410)
+
+## Issues and Blockers
+- Frontend/backend URL inconsistency (`localhost` vs `127.0.0.1`) caused testing issues at first.
+
+
+
+## Plans for week 10
+- Work on follow-up scanned project management features such as editing display names or deleting old scans.
+- Continue reviewing frontend PRs as the resume and portfolio pages get more fleshed out.
+- Improve consistency across frontend pages, especially shared API usage and routing.
 
 
 
