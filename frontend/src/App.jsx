@@ -4,6 +4,7 @@ import ScanPage from './ScanPage.jsx';
 import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
 import DatabaseMaintenance from "./DatabaseMaintenance.jsx";
+import PortfolioPage from './PortfolioPage.jsx';
 import { API_BASE_URL } from './api';
 
 
@@ -55,6 +56,9 @@ const getPageFromHash = () => {
   if (window.location.hash === '#/database') {
     return 'database';
   }
+  if (window.location.hash === '#/portfolio') {
+    return 'portfolio';
+  }
   return 'home';
 };
 
@@ -95,6 +99,10 @@ function App() {
       window.location.hash = '/database';
       return;
     }
+    if (target === 'portfolio') {
+      window.location.hash = '/portfolio';
+      return;
+    }
     window.location.hash = '';
   };
 
@@ -126,6 +134,10 @@ function App() {
 
     if (title === 'Manage Database') {
       navigateTo('database');
+    }
+
+    if (title === 'Generate Portfolio') {
+      navigateTo('portfolio');
       return;
     }
 
@@ -160,6 +172,10 @@ function App() {
 
   if (page === "database") {
     return <DatabaseMaintenance onBack={() => navigateTo("main-menu")} />;
+  }
+
+  if (page === 'portfolio') {
+    return <PortfolioPage onBack={() => navigateTo('main-menu')} />;
   }
 
   if (page === 'main-menu') {
