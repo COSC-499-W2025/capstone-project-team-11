@@ -1,6 +1,7 @@
 # Tanner Dyck's Personal Log
 
 ### Term 2 (Milestone #2)
+- [Week #9 - March 2nd-8th](#week-9---march-2nd---8th)
 - [Weeks #6, #7, and #8 - February 9th-March 1st](#weeks-6-7-and-8---february-9th---march-1st)
 - [Weeks #4 and #5 - January 26th-February 2nd](#weeks-4-and-5---january-26th---february-2nd)
 - [Week #3 - January 19th-25th](#week-3---january-19th---25th)
@@ -822,3 +823,73 @@ I am once again happy with our team's performance over the past three weeks, and
 
 ## Kanban Board at End of T2 Week 8
 <img width="1875" height="891" alt="t2weeks6+7+8-kanban" src="https://github.com/user-attachments/assets/8534bb99-0827-4b06-a73f-c4ef06c4eeb8" />
+
+---
+
+# Week #9 - March 2nd - 8th
+
+<img width="693" height="540" alt="t2week9-tasks" src="https://github.com/user-attachments/assets/009341c7-955f-4220-a1c1-cb480dda40be" />
+
+## Connection to T2 Weeks 6-8
+T2 Weeks 6-8 wrapped up Milestone 2 with scan engine improvements, a presentation, and video demo. Heading into Week 9 I had two main goals: ensure all of our program's functionalities are accessible via API endpoints, and get involved with our long-awaited frontend. This week I was able to make substantial progress on the frontend by building out the initial web portfolio generation infrastructure, which is a feature that ties directly into both of my goals from last week.
+
+## Coding Tasks
+
+### Initial Web Portfolio Generation [PR #421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+Introduces a new "Generate Portfolio" page accessible from the main menu. This PR establishes the portfolio-associated API routing, the initial portfolio setup form, and a visual skeleton of the final web portfolio layout.
+- `App.jsx`:
+    - Wired "Generate Portfolio" menu button to navigate to the new portfolio page
+    - Added #/portfolio route so the page persists on direct load/refresh
+- `PortfolioPage.jsx`:
+    - Created a basic setup form (select a GitHub username from the scanned contributor list, optionally enter a display name, and choose which scanned projects to include/exclude
+    - Validates that at least 3 projects have been scanned / are included before allowing portfolio generation
+    - After clicking the "Generate Web Portfolio" button, the app displays an unfinished preview of the intended portfolio layout with placeholder tiles for:
+        - Activity Heatmap,
+        - Skills Timeline,
+        - Featured Projects,
+        - All Projects (with disabled search/filter inputs)
+    - "Back to Setup" button returns to the form with your selections preserved
+- `index.css`:
+    - Added styles for the setup form and web portfolio display (consistent with the existing app color scheme)
+    - *These will need to change as we revamp our app's aesthetics, and as the portfolio becomes more fleshed out*
+- `api.py`:
+    - Added Daniel's "get contributors" API endpoint from PR #419 to help with the setup form's contributor selection (populates dropdown menu)
+
+## Testing & Debugging Tasks
+
+### Unit Tests for Portfolio Page [PR #421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+- `App.test.jsx`: 
+    - Added 8 comprehensive unit tests covering:
+        - Setup form loading
+        - Project validation logic (minimum 3 project requirement)
+        - Contributor list rendering
+        - Username/contributor validation
+        - Project exclusion validation
+        - Portfolio display transitions
+        - Section heading rendering
+        - Back button functionality
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the week in our Discord server
+- Completed individual log and peer review for T2 Week 9
+- Reviewed and approved:
+    - Code PRs:
+        - [#409 - Add scan streaming endpoint and scanner ignore updates](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/409) (Jaxson)
+        - [#410 - Frontend UI for scanning feature](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/410) (Jaxson)
+        - [#417 - Electron backend auto-spawn and /health endpoint](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/417) (Travis)
+        - [#419 - Created Rank Projects Page](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/419) (Daniel)
+        - [#420 - Fixed missing } bugs that causes compile error in Development](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/420) (Daniel) *Minor bug-fix, not a substantial review*
+
+## Issues & Blockers
+Nobody seemed to run into any issues or blockers this week. All team members communicated efficiently and simply completed their contributions. I think that milestone 3's relatively short window is a bit stressful to us all, building a polished frontend in a month is a lot of work, but we are keeping a solid pace and enjoying this part of the development cycle. Outside of some minor merge conflicts and OS-specific issues that were quickly resolved, we had a pretty solid week of work.
+
+## Reflection Points
+As mentioned above, this week was pretty chill. Everyone declared their tasks for the week early, and simply completed them in a timely manner. We worked well and supported each other in the Discord whenever questions arose, but it was just a smooth week. No need for heavy collaboration or assistance, everyone just worked through their tasks, and everyone delivered quality work in my opinion. If the remaining sprints function similarily to this past one, I believe we will see success!
+
+## Goals for Next Week (T2 Week 10)
+1. Next week my main focus is to continue fleshing out the web portfolio. I have built the necessary infrastructure, now I just need to work on wiring all of the data aggregation together, and ensuring the web portfolio can be consistently generated for all users. 
+2. We are still using placeholder CSS for our frontend, and we all agree we want to polish and reform it futher, so I would also like to be involved in that process, to ensure our final product looks clean and modern. 
+3. I have also toyed with the idea of improving our app's accessibility features (on-screen keyboard, narrator, light/dark mode, alt-text for images, helpful tooltips/toasts). But I have very little experience with accessible software design, however, I recognize it's importance. So I may look into that if I can find the time, but Im sure we will have our hands full getting the app fully stable in preparation for our upcoming peer testing event.
+
+## Kanban Board at End of T2 Week 9
+<img width="1875" height="892" alt="t2week9-kanban" src="https://github.com/user-attachments/assets/1216ba12-a228-4b7a-9300-c1a4101b5e74" />
