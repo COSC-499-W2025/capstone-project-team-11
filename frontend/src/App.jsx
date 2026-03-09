@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
+import ResumePage from './ResumePage.jsx';
 import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
 import PortfolioPage from './PortfolioPage.jsx';
 import { API_BASE_URL } from './api';
-
 
 const MENU_ITEMS = [
   {
@@ -40,6 +40,9 @@ const getPageFromHash = () => {
   }
   if (window.location.hash === '#/scan') {
     return 'scan';
+  }
+  if (window.location.hash === '#/resume') {
+    return 'resume';
   }
   if (window.location.hash === '#/rank-projects') {
     return 'rank-projects';
@@ -78,6 +81,10 @@ function App() {
       window.location.hash = '/scan';
       return;
     }
+    if (target === 'resume') {
+      window.location.hash = '/resume';
+      return;
+    }
     if (target === 'rank-projects') {
       window.location.hash = '/rank-projects';
       return;
@@ -109,16 +116,18 @@ function App() {
       navigateTo('scan');
       return;
     }
+    if (title === 'Generate Resume') {
+      navigateTo('resume');
+      return;
+    }
     if (title === 'Rank Projects') {
       navigateTo('rank-projects');
       return;
     }
-
     if (title === 'View/Manage Scanned Projects') {
       navigateTo('projects');
       return;
     }
-
     if (title === 'Generate Portfolio') {
       navigateTo('portfolio');
       return;
@@ -143,6 +152,10 @@ function App() {
 
   if (page === 'scan') {
     return <ScanPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'resume') {
+    return <ResumePage onBack={() => navigateTo('main-menu')} />;
   }
 
   if (page === 'rank-projects') {
