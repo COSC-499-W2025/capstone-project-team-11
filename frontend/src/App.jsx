@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import ScanPage from './ScanPage.jsx';
+import ResumePage from './ResumePage.jsx';
+import RankProjectsPage from './RankProjectsPage.jsx';
+import ScannedProjectsPage from './ScannedProjectsPage.jsx';
+import DatabaseMaintenance from "./DatabaseMaintenance.jsx";
+import PortfolioPage from './PortfolioPage.jsx';
+import { API_BASE_URL } from './api';
 
 const MENU_ITEMS = [
   {
@@ -26,22 +33,48 @@ const MENU_ITEMS = [
     title: 'Summarize Contributor Projects',
     detail: 'Generate short summaries for a selected contributor’s strongest projects.',
   },
+  {
+    title: 'Manage Database',
+    detail:
+      'Access database tools to inspect stored data, remove projects, or clear database contents.',
+  },
 ];
+
+const getPageFromHash = () => {
+  if (window.location.hash === '#/main-menu') {
+    return 'main-menu';
+  }
+  if (window.location.hash === '#/scan') {
+    return 'scan';
+  }
+  if (window.location.hash === '#/resume') {
+    return 'resume';
+  }
+  if (window.location.hash === '#/rank-projects') {
+    return 'rank-projects';
+  }
+  if (window.location.hash === '#/projects') {
+    return 'projects';
+  }
+  if (window.location.hash === '#/database') {
+    return 'database';
+  }
+  if (window.location.hash === '#/portfolio') {
+    return 'portfolio';
+  }
+  return 'home';
+};
 
 function App() {
   const [status, setStatus] = useState('Not tested');
   const [isLoading, setIsLoading] = useState(false);
-  const [page, setPage] = useState(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
-
-  // NEW: active sidebar item
+  const [page, setPage] = useState(getPageFromHash());
   const [activeMenuItem, setActiveMenuItem] = useState(null);
-
-  // NEW: toast state
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
     const onHashChange = () => {
-      setPage(window.location.hash === '#/main-menu' ? 'main-menu' : 'home');
+      setPage(getPageFromHash());
     };
 
     window.addEventListener('hashchange', onHashChange);
@@ -53,10 +86,33 @@ function App() {
       window.location.hash = '/main-menu';
       return;
     }
+    if (target === 'scan') {
+      window.location.hash = '/scan';
+      return;
+    }
+    if (target === 'resume') {
+      window.location.hash = '/resume';
+      return;
+    }
+    if (target === 'rank-projects') {
+      window.location.hash = '/rank-projects';
+      return;
+    }
+    if (target === 'projects') {
+      window.location.hash = '/projects';
+      return;
+    }
+    if (target === 'database') {
+      window.location.hash = '/database';
+      return;
+    }
+    if (target === 'portfolio') {
+      window.location.hash = '/portfolio';
+      return;
+    }
     window.location.hash = '';
   };
 
-  // NEW: helper to show a toast (auto dismiss)
   const addToast = (message) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts((prev) => [...prev, { id, message }]);
@@ -66,9 +122,35 @@ function App() {
     }, 2500);
   };
 
-  // NEW: click handler for sidebar buttons
   const handleMenuClick = (title) => {
     setActiveMenuItem(title);
+
+    if (title === 'Scan Project') {
+      navigateTo('scan');
+      return;
+    }
+    if (title === 'Generate Resume') {
+      navigateTo('resume');
+      return;
+    }
+    if (title === 'Rank Projects') {
+      navigateTo('rank-projects');
+      return;
+    }
+    if (title === 'View/Manage Scanned Projects') {
+      navigateTo('projects');
+      return;
+    }
+
+    if (title === 'Manage Database') {
+      navigateTo('database');
+    }
+
+    if (title === 'Generate Portfolio') {
+      navigateTo('portfolio');
+      return;
+    }
+
     addToast(`${title} clicked (coming soon)`);
   };
 
@@ -77,7 +159,7 @@ function App() {
     setStatus('Not tested');
 
     try {
-      await axios.get('http://localhost:8000/projects');
+      await axios.get(`${API_BASE_URL}/projects`);
       setStatus('Connected to backend!');
     } catch (err) {
       setStatus(`Failed: ${err.message}`);
@@ -86,10 +168,33 @@ function App() {
     }
   };
 
+  if (page === 'scan') {
+    return <ScanPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'resume') {
+    return <ResumePage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'rank-projects') {
+    return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'projects') {
+    return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === "database") {
+    return <DatabaseMaintenance onBack={() => navigateTo("main-menu")} />;
+  }
+
+  if (page === 'portfolio') {
+    return <PortfolioPage onBack={() => navigateTo('main-menu')} />;
+  }
+
   if (page === 'main-menu') {
     return (
       <div className="page-shell main-menu-page">
-        {/* NEW: Toast stack */}
         <div className="toast-stack" aria-live="polite" aria-atomic="true">
           {toasts.map((t) => (
             <div key={t.id} className="toast" role="status">

@@ -5,6 +5,7 @@ Run this script to get a concise summary of scans, files, projects, languages, s
 and contributors.
 
 It is safe to run against a fresh or older schema; missing tables are skipped.
+Also provides JSON output for API use, including skills exercised for frontend.
 """
 
 import os
@@ -37,42 +38,14 @@ def safe_query(cur, sql, params=()):
         return []
 
 
-def print_header(title):
-    print('\n' + '=' * 80)
-    print(title)
-    print('=' * 80)
-
-
 def human_ts(ts):
     if not ts:
         return 'N/A'
-    # Try strict ISO parse first
     try:
         dt = datetime.fromisoformat(ts)
-        # Include timezone offset if present
-        if dt.tzinfo:
-            return dt.strftime('%Y-%m-%d %H:%M:%S %z')
-        return dt.strftime('%Y-%m-%d %H:%M:%S')
+        return dt.strftime('%Y-%m-%d %H:%M:%S %z') if dt.tzinfo else dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception:
         pass
-
-    # Attempt to repair common truncated timezone forms like '-08:0' -> '-08:00'
-    try:
-        import re
-        m = re.search(r'([+-]\d{2}:\d)$', ts)
-        if m:
-            ts2 = ts + '0'
-            try:
-                dt = datetime.fromisoformat(ts2)
-                if dt.tzinfo:
-                    return dt.strftime('%Y-%m-%d %H:%M:%S %z')
-                return dt.strftime('%Y-%m-%d %H:%M:%S')
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # Fallback: try a couple of common formats, otherwise return raw string
     for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
         try:
             dt = datetime.strptime(ts, fmt)
@@ -83,25 +56,27 @@ def human_ts(ts):
 
 
 def inspect_connection(conn: sqlite3.Connection, db_label: str = None):
+    """CLI inspection function."""
     label = db_label or DB_PATH
     print(f"Inspecting DB: {label}")
-    try:
-        conn.row_factory = sqlite3.Row
-    except Exception:
-        pass
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
     # Tables
-    print_header('Tables in database')
-    rows = safe_query(cur, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    if rows:
-        for r in rows:
+    print('\n' + '='*80)
+    print("Tables in database")
+    print('='*80)
+    tables = safe_query(cur, "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    if tables:
+        for r in tables:
             print(' -', r['name'])
     else:
         print(' (no tables found)')
 
     # Scans summary
-    print_header('Recent scans')
+    print('\n' + '='*80)
+    print("Recent scans")
+    print('='*80)
     scans = safe_query(cur, "SELECT id, scanned_at, project, notes FROM scans ORDER BY scanned_at DESC LIMIT 10")
     if not scans:
         print(' No scans found')
@@ -109,126 +84,197 @@ def inspect_connection(conn: sqlite3.Connection, db_label: str = None):
         print(f"Scan {s['id']}: {human_ts(s['scanned_at'])} | project={s['project'] or '<none>'} | notes={s['notes'] or ''}")
 
     # Files overview
-    print_header('Files (recent)')
-    # Order by modified_at when available, otherwise by id (most recently inserted)
+    print('\n' + '='*80)
+    print("Files (recent)")
+    print('='*80)
     files = safe_query(cur, "SELECT id, file_name, file_path, file_extension, file_size, modified_at FROM files ORDER BY (modified_at IS NULL), modified_at DESC, id DESC LIMIT 20")
-    if not files:
-        print(' No files recorded')
     for f in files:
         size = f['file_size'] if f['file_size'] is not None else 'unknown'
         print(f"[{f['id']}] {f['file_name']} ({f['file_extension'] or ''}) — {size} bytes — modified: {human_ts(f['modified_at'])}\n    path: {f['file_path']}")
 
-    # Projects and skills
-    print_header('Projects and skills')
-    projects = safe_query(cur, "SELECT id, name, repo_url, created_at FROM projects ORDER BY name")
-    if projects:
-        for p in projects:
-            print(f"Project {p['id']}: {p['name']} (repo: {p['repo_url'] or '<none>'}) created: {human_ts(p['created_at'])}")
-            # count scans and files for this project if possible
-            sc = safe_query(cur, "SELECT COUNT(*) AS c FROM scans WHERE project = ?", (p['name'],))
-            fc = safe_query(cur, "SELECT COUNT(f.id) AS c FROM files f JOIN scans s ON f.scan_id = s.id WHERE s.project = ?", (p['name'],))
-            sc_cnt = sc[0]['c'] if sc else 0
-            f_cnt = fc[0]['c'] if fc else 0
-            print(f"  scans: {sc_cnt} | files: {f_cnt}")
-            # skills
-            skills = safe_query(cur, "SELECT sk.name FROM skills sk JOIN project_skills ps ON sk.id = ps.skill_id WHERE ps.project_id = ?", (p['id'],))
-            if skills:
-                print('  skills:', ', '.join([r['name'] for r in skills]))
-            else:
-                print('  skills: (none)')
-    else:
-        print(' No projects recorded')
+    # Projects & skills
+    print('\n' + '='*80)
+    print("Projects and skills")
+    print('='*80)
+    projects = safe_query(cur, "SELECT id, name, repo_url, created_at, summary_text FROM projects ORDER BY name")
+    for p in projects:
+        print(f"Project {p['id']}: {p['name']} (repo: {p['repo_url'] or '<none>'}) created: {human_ts(p['created_at'])}")
+        sc = safe_query(cur, "SELECT COUNT(*) AS c FROM scans WHERE project = ?", (p['name'],))
+        fc = safe_query(cur, "SELECT COUNT(f.id) AS c FROM files f JOIN scans s ON f.scan_id = s.id WHERE s.project = ?", (p['name'],))
+        print(f"  scans: {sc[0]['c'] if sc else 0} | files: {fc[0]['c'] if fc else 0}")
+        skills = safe_query(cur, "SELECT sk.name FROM skills sk JOIN project_skills ps ON sk.id = ps.skill_id WHERE ps.project_id = ?", (p['id'],))
+        print('  skills:', ', '.join([r['name'] for r in skills]) if skills else '(none)')
 
-    # Project summaries (LLM)
-    print_header('Project summaries (LLM)')
-    summaries = safe_query(
-        cur,
-        "SELECT id, name, summary_text, summary_model, summary_updated_at FROM projects ORDER BY name"
-    )
-    if not summaries:
-        print(' No project summaries recorded')
-    else:
-        for row in summaries:
-            text = (row['summary_text'] or '').strip()
-            if not text:
-                print(f"Project {row['id']}: {row['name']} | summary: <none>")
-                continue
-            clipped = text[:500]
-            suffix = "..." if len(text) > 500 else ""
-            model = row['summary_model'] or '<unknown>'
-            updated = human_ts(row['summary_updated_at'])
-            print(f"Project {row['id']}: {row['name']} | model: {model} | updated: {updated}")
-            print(f"  {clipped}{suffix}")
+        # Summary snippet
+        summary = (p['summary_text'] or '').strip()
+        if summary:
+            clipped = summary[:200] + ("..." if len(summary) > 200 else "")
+            print(f"  summary: {clipped}")
 
-    # Thumbnail verification
-    print_header('Project thumbnails (path + file check)')
+    # Thumbnails, languages, contributors
+    print('\n' + '='*80)
+    print("Project thumbnails, languages, contributors, sample scan")
+    print('='*80)
+
+    # Thumbnails
     thumb_rows = safe_query(cur, "SELECT id, name, thumbnail_path FROM projects ORDER BY name")
-    if not thumb_rows:
-        print(' No projects recorded')
-    else:
-        for row in thumb_rows:
-            thumb_path = row['thumbnail_path']
-            if not thumb_path:
-                status = 'empty'
-            elif not os.path.isfile(thumb_path):
-                status = 'missing file'
-            elif not is_image_file(thumb_path):
-                status = 'not an image'
-            else:
-                status = 'ok'
-            display_path = thumb_path or '<none>'
-            print(f"Project {row['id']}: {row['name']} | thumbnail: {display_path} | status: {status}")
+    for row in thumb_rows:
+        thumb_path = row['thumbnail_path']
+        if not thumb_path:
+            status = 'empty'
+        elif not os.path.isfile(thumb_path):
+            status = 'missing file'
+        elif not is_image_file(thumb_path):
+            status = 'not an image'
+        else:
+            status = 'ok'
+        print(f"Project {row['id']}: {row['name']} | thumbnail: {thumb_path or '<none>'} | status: {status}")
 
-    # Languages top summary
-    print_header('Top languages (by files)')
+    # Languages
     lang_rows = safe_query(cur, "SELECT l.name, COUNT(fl.file_id) AS cnt FROM languages l LEFT JOIN file_languages fl ON l.id = fl.language_id GROUP BY l.id ORDER BY cnt DESC LIMIT 20")
-    if not lang_rows:
-        print(' No language information')
-    else:
-        for r in lang_rows:
-            print(f"  {r['name']}: {r['cnt']}")
+    for r in lang_rows:
+        print(f"  {r['name']}: {r['cnt']}")
 
-    # Contributors summary
-    print_header('Contributors & sample files')
+    # Contributors
     contribs = safe_query(cur, "SELECT id, name FROM contributors ORDER BY name")
-    if not contribs:
-        print(' No contributors recorded')
-    else:
-        for c in contribs:
-            print(f"Contributor {c['id']}: {c['name']}")
-            sample_files = safe_query(cur, "SELECT f.file_name, f.file_path FROM files f JOIN file_contributors fc ON f.id = fc.file_id WHERE fc.contributor_id = ? LIMIT 5", (c['id'],))
-            if sample_files:
-                for sf in sample_files:
-                    print(f"   - {sf['file_name']}  ({sf['file_path']})")
-            else:
-                print('   (no linked files)')
+    for c in contribs:
+        print(f"Contributor {c['id']}: {c['name']}")
+        sample_files = safe_query(cur, "SELECT f.file_name, f.file_path FROM files f JOIN file_contributors fc ON f.id = fc.file_id WHERE fc.contributor_id = ? LIMIT 5", (c['id'],))
+        for sf in sample_files:
+            print(f"   - {sf['file_name']}  ({sf['file_path']})")
+        if not sample_files:
+            print("   (no linked files)")
 
-    # Show some joins for a sample scan
-    print_header('Sample scan detail (first recent scan)')
+    # Sample scan detail
     if scans:
         sid = scans[0]['id']
-        print(f"Details for scan id {sid}:")
+        print(f"\nDetails for scan id {sid}:")
         frows = safe_query(cur, "SELECT id, file_name, file_path FROM files WHERE scan_id = ? LIMIT 50", (sid,))
         for fr in frows:
             langs = safe_query(cur, "SELECT l.name FROM languages l JOIN file_languages fl ON l.id = fl.language_id WHERE fl.file_id = ?", (fr['id'],))
             conts = safe_query(cur, "SELECT c.name FROM contributors c JOIN file_contributors fc ON c.id = fc.contributor_id WHERE fc.file_id = ?", (fr['id'],))
             print(f" - {fr['file_name']} | langs: {', '.join([r['name'] for r in langs]) or '<none>'} | contribs: {', '.join([r['name'] for r in conts]) or '<none>'}")
-    else:
-        print(' No scans to show details for')
 
-    print_grouped_skill_timeline(cur, safe_query, human_ts, print_header)
+    # Skills timeline
+    print_grouped_skill_timeline(cur, safe_query, human_ts, lambda t: print('\n' + '='*80 + f"\n{t}\n" + '='*80))
 
-    
-    
-    
     conn.close()
 
 
+def inspect_database_json(db_path: str = None):
+    """Return all database information as JSON for frontend."""
+    import json
+    path = db_path or DB_PATH
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    def q(sql, params=()):
+        try:
+            return list(cur.execute(sql, params))
+        except sqlite3.OperationalError:
+            return []
+
+    result = {}
+
+    # Recent scans
+    scans = q("SELECT id, scanned_at, project, notes FROM scans ORDER BY scanned_at DESC LIMIT 50")
+    result['recent_scans'] = [dict(s) for s in scans]
+
+    # Files
+    files = q("SELECT id, file_name, file_path, file_extension, file_size, modified_at, scan_id FROM files ORDER BY id DESC LIMIT 100")
+    result['files'] = [dict(f) for f in files]
+
+    # Projects
+    projects = q("SELECT id, name, repo_url, created_at, summary_text FROM projects ORDER BY name")
+    projects_list = []
+    summaries_list = []
+    for p in projects:
+        sc = q("SELECT COUNT(*) AS c FROM scans WHERE project = ?", (p['name'],))
+        fc = q("SELECT COUNT(f.id) AS c FROM files f JOIN scans s ON f.scan_id = s.id WHERE s.project = ?", (p['name'],))
+        skills = q("SELECT sk.name FROM skills sk JOIN project_skills ps ON sk.id = ps.skill_id WHERE ps.project_id = ?", (p['id'],))
+        projects_list.append({
+            "id": p['id'],
+            "name": p['name'],
+            "repo_url": p['repo_url'],
+            "created_at": p['created_at'],
+            "scan_count": sc[0]['c'] if sc else 0,
+            "file_count": fc[0]['c'] if fc else 0,
+            "skills": [s['name'] for s in skills],
+            "summary_text": p['summary_text'] or ""
+        })
+        summaries_list.append({
+            "project": p['name'],
+            "summary": p['summary_text'] or "<none>"
+        })
+    result['projects'] = projects_list
+    result['project_summaries'] = summaries_list
+
+    # Contributors
+    contribs = q("SELECT id, name FROM contributors ORDER BY name")
+    contrib_list = []
+    for c in contribs:
+        sample_files = q("SELECT f.file_name, f.file_path FROM files f JOIN file_contributors fc ON f.id = fc.file_id WHERE fc.contributor_id = ? LIMIT 5", (c['id'],))
+        contrib_list.append({
+            "id": c['id'],
+            "name": c['name'],
+            "sample_files": [dict(sf) for sf in sample_files]
+        })
+    result['contributors'] = contrib_list
+
+    # Languages top
+    lang_rows = q("SELECT l.name, COUNT(fl.file_id) AS file_count FROM languages l LEFT JOIN file_languages fl ON l.id = fl.language_id GROUP BY l.id ORDER BY file_count DESC LIMIT 20")
+    result['languages'] = [dict(r) for r in lang_rows]
+
+    # Thumbnails
+    thumb_rows = q("SELECT id, name, thumbnail_path FROM projects ORDER BY name")
+    thumbs_list = []
+    for t in thumb_rows:
+        thumb_path = t['thumbnail_path']
+        if not thumb_path:
+            status = 'empty'
+        elif not os.path.isfile(thumb_path):
+            status = 'missing file'
+        elif not is_image_file(thumb_path):
+            status = 'not an image'
+        else:
+            status = 'ok'
+        thumbs_list.append({
+            "project_id": t['id'],
+            "project_name": t['name'],
+            "thumbnail_path": t['thumbnail_path'],
+            "status": status
+        })
+    result['thumbnails'] = thumbs_list
+
+    # Skills exercised (timeline)
+    skills_rows = []
+    timeline_data = q("""
+        SELECT sk.name as skill, s.scanned_at as datetime, s.project
+        FROM project_skills ps
+        JOIN skills sk ON ps.skill_id = sk.id
+        JOIN projects p ON ps.project_id = p.id
+        JOIN scans s ON s.project = p.name
+        ORDER BY s.scanned_at DESC
+    """)
+    for row in timeline_data:
+        skills_rows.append({
+            "skill": row['skill'],
+            "datetime": row['datetime'],
+            "project": row['project']
+        })
+    result['skills_exercised'] = skills_rows
+
+    conn.close()
+    return result
+
+
 def main(db_path: str = None):
+    """CLI entry point."""
     path = db_path or DB_PATH
     conn = sqlite3.connect(path)
     inspect_connection(conn, db_label=path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -165,6 +165,10 @@ def _is_macos_junk(name: str) -> bool:
     return False
 
 
+def _is_ignored_dir(name: str) -> bool:
+    return name in ("__MACOSX", "node_modules")
+
+
 def _normalize_contributor_key(name: str) -> str:
     return _normalize_contributor_name(name)
 
@@ -1291,7 +1295,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
     total_files = 0
     if recursive:
         for root, dirs, files in os.walk(path):
-            dirs[:] = [d for d in dirs if d != '__MACOSX']
+            dirs[:] = [d for d in dirs if not _is_ignored_dir(d)]
             for file in files:
                 if _is_macos_junk(file):
                     continue
@@ -1318,7 +1322,7 @@ def list_files_in_directory(path, recursive=False, file_type=None, show_collabor
 
     if recursive:
         for root, dirs, files in os.walk(path):
-            dirs[:] = [d for d in dirs if d != '__MACOSX']
+            dirs[:] = [d for d in dirs if not _is_ignored_dir(d)]
             for file in files:
                 if _is_macos_junk(file):
                     continue
@@ -1948,10 +1952,19 @@ def scan_with_clean_output(
             scan_target = _resolve_extracted_root(zip_extract_path)
 
         # Collect files with progress bar
-        total_to_scan = sum(1 for r, _, fs in os.walk(scan_target) for f in fs if not _is_macos_junk(f) and is_valid_format(f) and (file_type is None or f.lower().endswith(file_type.lower())))
+        total_to_scan = 0
+        for root, dirs, files in os.walk(scan_target):
+            dirs[:] = [d for d in dirs if not _is_ignored_dir(d)]
+            for file in files:
+                if _is_macos_junk(file):
+                    continue
+                if not is_valid_format(file):
+                    continue
+                if file_type is None or file.lower().endswith(file_type.lower()):
+                    total_to_scan += 1
         files_found, skipped_count, scan_count = [], 0, 0
         for root, dirs, files in os.walk(scan_target):
-            dirs[:] = [d for d in dirs if d != '__MACOSX']
+            dirs[:] = [d for d in dirs if not _is_ignored_dir(d)]
             for file in files:
                 if _is_macos_junk(file):
                     continue

@@ -34,8 +34,11 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.27",
     "electron": "40.6.1",
     "jsdom": "^26.1.0",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19",
     "vite": "^5.4.21",
     "vitest": "^4.0.18"
   },
@@ -44,6 +47,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.7.0"
   }

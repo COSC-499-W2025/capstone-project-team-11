@@ -340,6 +340,7 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
             # fallback: return the whole string as a single name (cleaned)
             return [s.strip()]
 
+        linked_any_contributor = False
         if file_metadata:
             for fp, fid in file_id_map.items():
                 meta = file_metadata.get(fp) or {}
@@ -352,7 +353,8 @@ def save_scan(scan_source: str, files_found: list, project: str = None, notes: s
                     cur.execute("SELECT id FROM contributors WHERE name = ?", (name,))
                     contrib_id = cur.fetchone()['id']
                     cur.execute("INSERT OR IGNORE INTO file_contributors (file_id, contributor_id) VALUES (?, ?)", (fid, contrib_id))
-        elif contributors:
+                    linked_any_contributor = True
+        if not linked_any_contributor and contributors:
             for contrib in contributors:
                 contrib = _normalize_contributor_name(contrib)
                 if not contrib:
