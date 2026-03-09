@@ -30,12 +30,17 @@ from generate_resume import (
     maybe_generate_resume_summary,
 )
 from project_info_output import gather_project_info, output_project_info
-from rank_projects import rank_projects_by_importance
+from rank_projects import rank_projects, rank_projects_by_importance
 from scan import run_with_saved_settings, scan_with_clean_output
 
 
 app = FastAPI(title="MDA API")
 web_router = APIRouter(prefix="/web/portfolio", tags=["web-portfolio"])
+
+
+@app.get("/health")
+def health() -> Dict[str, str]:
+    return {"status": "ok"}
 
 # Allow local frontend origins (Vite/Electron dev) to read API responses.
 app.add_middleware(

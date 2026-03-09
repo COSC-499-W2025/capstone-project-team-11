@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
 import ResumePage from './ResumePage.jsx';
+import RankProjectsPage from './RankProjectsPage.jsx';
+import ScannedProjectsPage from './ScannedProjectsPage.jsx';
+import PortfolioPage from './PortfolioPage.jsx';
+import { API_BASE_URL } from './api';
 
 const MENU_ITEMS = [
   {
@@ -37,7 +41,18 @@ const getPageFromHash = () => {
   if (window.location.hash === '#/scan') {
     return 'scan';
   }
-  if (window.location.hash === '#/resume') return 'resume';
+  if (window.location.hash === '#/resume') {
+    return 'resume';
+  }
+  if (window.location.hash === '#/rank-projects') {
+    return 'rank-projects';
+  }
+  if (window.location.hash === '#/projects') {
+    return 'projects';
+  }
+  if (window.location.hash === '#/portfolio') {
+    return 'portfolio';
+  }
   return 'home';
 };
 
@@ -70,6 +85,18 @@ function App() {
       window.location.hash = '/resume';
       return;
     }
+    if (target === 'rank-projects') {
+      window.location.hash = '/rank-projects';
+      return;
+    }
+    if (target === 'projects') {
+      window.location.hash = '/projects';
+      return;
+    }
+    if (target === 'portfolio') {
+      window.location.hash = '/portfolio';
+      return;
+    }
     window.location.hash = '';
   };
 
@@ -84,6 +111,7 @@ function App() {
 
   const handleMenuClick = (title) => {
     setActiveMenuItem(title);
+
     if (title === 'Scan Project') {
       navigateTo('scan');
       return;
@@ -92,6 +120,19 @@ function App() {
       navigateTo('resume');
       return;
     }
+    if (title === 'Rank Projects') {
+      navigateTo('rank-projects');
+      return;
+    }
+    if (title === 'View/Manage Scanned Projects') {
+      navigateTo('projects');
+      return;
+    }
+    if (title === 'Generate Portfolio') {
+      navigateTo('portfolio');
+      return;
+    }
+
     addToast(`${title} clicked (coming soon)`);
   };
 
@@ -100,7 +141,7 @@ function App() {
     setStatus('Not tested');
 
     try {
-      await axios.get('http://localhost:8000/projects');
+      await axios.get(`${API_BASE_URL}/projects`);
       setStatus('Connected to backend!');
     } catch (err) {
       setStatus(`Failed: ${err.message}`);
@@ -115,6 +156,18 @@ function App() {
 
   if (page === 'resume') {
     return <ResumePage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'rank-projects') {
+    return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'projects') {
+    return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
+  }
+
+  if (page === 'portfolio') {
+    return <PortfolioPage onBack={() => navigateTo('main-menu')} />;
   }
 
   if (page === 'main-menu') {
