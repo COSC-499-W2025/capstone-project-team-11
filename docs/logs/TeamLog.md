@@ -2,6 +2,9 @@
 
 ## Weekly Navigation
 
+### Term 2 (Milestone #3)
+- [Team #11 – T2 Week 9 Team Log (March 2 – March 8)](#team-11-t2-week-9-team-log-march-2-march-8)
+
 ### Term 2 (Milestone #2)
 - [T2 Weeks #6 - #8 - February 9th–March 1st](#t2-weeks-6-8)
 - [T2 Weeks #4 and #5 - January 26th-February 5th](#team-11---t2-weeks-4-and-5-team-log-january-26th---february-8th)
@@ -1831,6 +1834,218 @@ Overall, Weeks 6 - 8  marked the transition from backend-heavy Milestone 2 work 
 ## Kanban Board
 
 <img width="1501" height="702" alt="kanban" src="https://github.com/user-attachments/assets/e7426d09-25c6-449d-9dc0-b350c39cfd3d" />
+
+<br></br>
+---
+
+# ===== MILESTONE #3 =====
+
+---
+
+
+
+# Team #11 – T2 Week 9 Team Log (March 2 – March 8)
+Team Members --> GitHub Username
+
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+## Overveiw 
+Week 9 was largely focused on constructing a working frontend that implements our existing backend functionality through API endpoints. In the latter half of Week 8 we had a basic main menu page with buttons that had no functionality, so our primary goal this week was to integrate these buttons into a functional application. Jaxson started this process by connecting the scan project feature to the frontend, allowing users to initiate scans directly through the interface rather than through the CLI.
+
+From there, we continued expanding the frontend by integrating additional backend features. This included adding the ability to view and rank scanned projects, generate portfolio and resume templates, and manage previously scanned repositories. These features required creating new pages, wiring routes, and ensuring that API requests and responses were properly handled between the frontend and backend.
+
+We also spent time improving the overall user flow and navigation so that the application felt more cohesive. The new interface allows users to move between scanning projects, reviewing stored data, and generating outputs like portfolios or resumes in a much more intuitive way. This week marked a major transition for the project, as we moved away from relying on command-line interactions and instead began shaping the project into a more complete and user-friendly application.
+
+---
+
+## Completed Work By Member
+
+### Daniel 
+**PR 419 - Created Rank Projects Page**
+[419](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/419)
+
+- Implemented a Rank Projects page in the Electron frontend with ranking controls, summary cards, explanation panel, and results table.
+- Added backend FastAPI endpoints:
+    - `GET /contributors` to return sorted contributor names.
+    - `GET /rank-projects` to return ranked project data with filtering and sorting options.
+- Integrated routing and navigation from the main menu to the Rank Projects page (#/rank-projects).
+- Added UI styling and layout for the ranking page in index.css.
+- Connected frontend ranking controls to backend API responses for dynamic project ranking results.
+- Implemented multiple ranking modes (project importance, contributor-level importance, chronological ranking).
+- Verified functionality through manual testing workflow and automated tests
+
+**PR 420 - Fixed missing } bugs that causes compile error in Development**
+[420](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/420)
+- Fixed a compile error caused by missing closing braces in `getPageFromHash()`, `navigateTo()`, and page render logic, restoring correct control flow for the `#/projects` route after a merge conflict resolution.
+
+---
+
+### Jaxson
+**PR 409 - Add scan streaming endpoint and scanner ignore updates**
+[409](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/409)
+
+- Implemented initial backend support for the frontend scanning feature, including a new `POST /projects/scan-stream` endpoint that runs scans in a background thread and streams real-time progress updates to the frontend.
+- Added final scan result payload `(SCAN_DONE)` containing project names, summaries, and optional LLM summary data.
+- Improved scan performance by skipping large ignored directories (e.g., node_modules) during file traversal and skill detection.
+- Updated scanning and skill detection logic to respect IGNORED_DIRECTORIES, preventing expensive analysis of dependency/build folders.
+- Verified functionality through manual API testing with streaming output and confirmed all existing automated tests pass with pytest.
+
+**PR 410 - Frontend UI for scanning feature**
+  [410](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/410)
+
+- Implemented the frontend scan workflow, including a dedicated Scan Project page with drag-and-drop and file/folder picker support.
+- Added real-time scan progress UI showing scan phases and status updates during execution.
+- Integrated LLM summary toggle and display of project summaries (languages, frameworks, skills, and optional LLM summary).
+- Connected navigation from the main menu so the “Scan Project” button opens the new scan page.
+- Added Electron native file/folder picker integration via ipcMain and a secure contextBridge API for the renderer.
+- Implemented UI components such as progress bars, summary cards, dropzone, and recent scans list, with styling updates in index.css.
+- Verified functionality through manual testing of scan selection, progress updates, summary rendering, navigation behavior, and recent scan refresh.
+ 
+ ---
+
+### Travis
+**PR 417 - Electron backend auto-spawn and /health endpoint**
+[417](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/417)
+
+- Implemented one-command startup for the full application stack, allowing the backend and Electron frontend to launch together using `npm start`.
+- Added a `/health` endpoint in the FastAPI backend to verify server readiness.
+- Implemented Electron auto-spawn logic to start the backend as a child process and poll until it is ready.
+- Ensured the backend terminates cleanly when Electron closes, including macOS window-close scenarios.
+- Verified functionality through manual testing of startup, health checks, and backend shutdown, and confirmed backend test suite passes.
+
+**PR 422 - Create initial resume generation page**
+[422](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/422)
+
+- Implemented an initial Generate Resume page in the frontend where users can select a contributor and generate a markdown resume.
+- Integrated backend APIs including `GET /contributors` for dropdown population and `POST /resume/generate` for resume creation.
+- Added inline editing functionality with save support via `POST /resume/{id}/edit`.
+- Implemented copy-to-clipboard and .md download options for generated resumes.
+- Added experimental Tailwind CSS configuration for styling.
+- Verified functionality through manual testing of resume generation, editing, copying, downloading, and guest resume generation, along with automated frontend tests.
+ 
+---
+
+### Tanner
+**PR 421 - Initial web portfolio generation functionality**
+[421](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/421)
+
+- Implemented an initial Generate Portfolio page accessible from the main menu with dedicated routing `(#/portfolio)`.
+- Added a portfolio setup form allowing users to select a contributor, optionally set a display name, and choose which scanned projects to include.
+- Implemented validation requiring at least 3 scanned/included projects before generating a portfolio preview.
+- Created a portfolio preview skeleton with placeholder sections: Activity Heatmap, Skills Timeline, Featured Projects, and All Projects.
+- Added UI styling for the setup form and portfolio layout consistent with the existing application theme.
+- Integrated the `GET /contributors` API endpoint to populate the contributor dropdown from scanned project data.
+- Added 8 frontend unit tests covering setup form validation, contributor selection, portfolio generation flow, and navigation behavior.
+- Verified functionality through manual testing of navigation, form validation, project inclusion rules, and preview rendering.
+ 
+---
+
+### Priyanshu
+**PR 418 - Add scanned projects page and navigation test**
+[418](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/418)
+  
+- Implemented a Scanned Projects page allowing users to browse and inspect previously scanned projects from the frontend.
+- Added functionality to retrieve project lists from the backend and display detailed metadata (languages, skills, contributors, file summaries) when a project is selected.
+- Integrated navigation from the main menu to the scanned projects page.
+- Created a centralized `api.js` configuration file to standardize backend API requests and avoid hardcoded URLs.
+- Added UI styling for project list cards and project detail views.
+- Added a frontend test verifying navigation and page loading.
+- Verified functionality through manual testing of project listing, detail inspection, and API connectivity, with all frontend tests passing.
+ 
+---
+
+### Tyler
+**PR 431 - Added Database View and Database Maintenance Page**
+[431](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/431)
+
+- Added database maintenance functionality with a new "Manage Database" button in the main menu.
+- Implemented a frontend page to display database tables and an API endpoint (`inspect_db`) to retrieve database information.
+- Updated App navigation and tests to include the new database maintenance button.
+- Verified functionality through manual testing of button visibility, table display, and dropdown data.
+- Added automated tests for the inspect_db endpoint (test_inspect_db_json.py) and confirmed frontend integration tests pass.Added automated tests for the inspect_db endpoint (test_inspect_db_json.py) and confirmed frontend integration tests pass.
+ 
+---
+
+### All Members
+- Code reviews and verification of all major PRs prior to merge
+- Active collaboration and coordination via Discord and GitHub
+- Participation in in-class meetings and milestone discussions
+- Completion of individual logs and peer reviews
+ 
+---
+
+## Testing Report
+All new and existing unit tests pass successfully.
+Testing during Week 9 focused on implementing and validating frontend integration with the backend API. The goal was to ensure that scanning, ranking, portfolio/resume generation, database maintenance, and project inspection features were functional, responsive, and consistent across the Electron + React frontend and FastAPI backend.
+
+### Tests Added/Updated
+
+`App.test.jsx`
+Expanded to cover new navigation flows and menu integration:
+- Navigation to Scan Project, Rank Projects, Generate Portfolio, Generate Resume, Scanned Projects, and Manage Database pages.
+- Validation that menu buttons trigger the correct pages and hash routing persists on refresh.
+- Back navigation behavior for pages like Portfolio and Scan Project.
+- Toast messages for unimplemented features.
+
+`ResumePage.test.jsx`
+Added tests for the Generate Resume page:
+- Contributor dropdown populates correctly from the backend.
+- Resume generation renders markdown with project details.
+- Inline editing and save operations update content properly.
+- Copy-to-clipboard and .md download functionality.
+
+`PortfolioPage.test.jsx`
+Added tests covering the Generate Portfolio page:
+- Setup form loads and validates contributor selection.
+- Error displayed if fewer than 3 projects are included.
+- Exclusion list validation ensures at least 3 projects selected.
+- Portfolio preview renders all four sections (Activity Heatmap, Skills Timeline, Featured Projects, All Projects).
+- “Back to Setup” button preserves user selections.
+
+`test_inspect_db_json.py`
+Added tests for the inspect_db endpoint:
+- Confirm JSON payload correctly lists all database tables and contents.
+- Validate endpoint returns expected schema without side effects.
+
+
+Backend: `pytest -q`  all tests pass locally.
+Frontend: `npm test`  all Vitest tests pass successfully
+
+<img width="1241" height="747" alt="image" src="https://github.com/user-attachments/assets/926c53ab-474b-4c26-9d48-8aefd91cf1be" />
+<img width="704" height="230" alt="image" src="https://github.com/user-attachments/assets/15e77e49-4a4b-4be1-9bc0-a24d2e17cfad" />
+
+
+
+---
+
+## Reflection
+
+This week we transitioned from a basic UI to a fully interactive frontend integrated with our backend. Key workflows like project scanning, ranking, portfolio/resume generation, and database inspection were implemented, making the app more intuitive and user-friendly. Collaboration was smooth, with tasks divided across feature areas and testing ensuring everything worked as intended. The addition of one-command app startup and real-time scan progress improved both usability and developer workflow. Overall, Week 9 laid a strong foundation for future enhancements and demonstrated the value of iterative development and thorough testing.
+
+
+## Plans Moving Forward (Week 10+)
+- Flesh out the Portfolio page with real data for Activity Heatmap, Skills Timeline, Featured Projects, and All Projects sections.
+- Add project management features to the Scanned Projects page, including renaming, deleting, or updating scanned projects.
+- Refine UI/UX and styling across frontend pages (Portfolio, Resume, Rank Projects, Scan, and Database pages) for consistency and aesthetics.
+- Extend automated tests for new features and workflows, including Portfolio and Resume generation with real data.
+- Monitor and optimize backend performance for scanning, ranking, and API response times as data scales.
+
+## Burnup Chart
+
+<img width="931" height="483" alt="image" src="https://github.com/user-attachments/assets/dda89617-98fd-4f43-b7d7-0514347da9c3" />
+
+## Kanban Board
+
+<img width="1919" height="850" alt="image" src="https://github.com/user-attachments/assets/5e952fa1-bae4-4354-a64e-0c6511f0fc64" />
+
+
+  
+ 
 
 
 
