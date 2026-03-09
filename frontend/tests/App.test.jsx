@@ -83,7 +83,7 @@ describe('App Component', () => {
     expect(await screen.findByText(/Status: Failed: Network Error/i)).toBeInTheDocument();
   });
 
-  it('shows toast and highlights sidebar item when clicked', async () => {
+  it('shows resume page and highlights sidebar item when clicked', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
 
@@ -91,10 +91,38 @@ describe('App Component', () => {
     fireEvent.click(resumeButton);
 
     expect(
-      await screen.findByText(/Generate Resume clicked \(coming soon\)/i)
+      await screen.findByText(/Create a contributor-focused resume from project data\./i)
     ).toBeInTheDocument();
 
     expect(resumeButton.className).toMatch(/is-active/);
+  });
+
+  it('navigates to Rank Projects from main menu', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/rank-projects');
+    expect(
+      await screen.findByRole('heading', { name: /Rank Projects/i })
+    ).toBeInTheDocument();
+  });
+
+  it('returns to main menu from Rank Projects page', async () => {
+    window.location.hash = '#/main-menu';
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    fireEvent.click(await screen.findByRole('button', { name: /Back to Main Menu/i }));
+    fireEvent(window, new HashChangeEvent('hashchange'));
+
+    expect(window.location.hash).toBe('#/main-menu');
+    expect(
+      await screen.findByRole('heading', { name: /Capstone MDA Dashboard/i })
+    ).toBeInTheDocument();
   });
 
   it('navigates to scanned projects page when clicking View/Manage Scanned Projects', async () => {
@@ -211,7 +239,6 @@ describe('App Component', () => {
 
 // Portfolio Page Tests
 
-// Helper function to generate mock projects with unique IDs and names
 const mockProjects = (count) =>
   Array.from({ length: count }, (_, i) => ({
     id: i + 1,
@@ -220,17 +247,14 @@ const mockProjects = (count) =>
     contributors: [{ name: 'alice' }, { name: 'bob' }],
   }));
 
-  // Helper function to mock axios.get for both projects and contributors endpoints
 const mockAxios = (projectCount) =>
   vi.spyOn(axios, 'get').mockImplementation((url) => {
     if (url.includes('/contributors')) return Promise.resolve({ data: ['alice', 'bob'] });
     return Promise.resolve({ data: mockProjects(projectCount) });
   });
 
-  // Restore mocks after each test to prevent issues between tests (tearDown function)
 afterEach(() => vi.restoreAllMocks());
 
-// Test suite for PortfolioPage component
 describe('PortfolioPage', () => {
   it('renders setup form heading', async () => {
     mockAxios(3);
@@ -238,15 +262,15 @@ describe('PortfolioPage', () => {
     expect(await screen.findByText(/Portfolio Setup/i)).toBeInTheDocument();
   });
 
-  // Tests that the setup form shows an error message when fewer than 3 scanned projects are returned from the backend
   it('shows notice when fewer than 3 projects are scanned', async () => {
     mockAxios(2);
     render(<PortfolioPage onBack={() => {}} />);
     expect(await screen.findByText(/at least 3 scanned projects/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Generate Web Portfolio/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Generate Web Portfolio/i })
+    ).not.toBeInTheDocument();
   });
 
-  // Tests that the setup form shows the "contributor select" dropdown and "generate portfolio" button when 3 or more scanned projects are returned from the backend
   it('shows contributor select when 3+ projects are loaded', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
@@ -254,7 +278,6 @@ describe('PortfolioPage', () => {
     expect(screen.getByRole('button', { name: /Generate Web Portfolio/i })).toBeInTheDocument();
   });
 
-  // Tests that the setup form shows an error message when the "generate portfolio" button is clicked without selecting a username from the dropdown
   it('shows error when generate clicked without selecting username', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
@@ -263,16 +286,13 @@ describe('PortfolioPage', () => {
     expect(screen.getByText(/Please select a username/i)).toBeInTheDocument();
   });
 
-  // Tests that the setup form shows an error message when the "generate portfolio" button is clicked with < 3 included projects
   it('shows error when too many projects are excluded', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
     await screen.findByRole('button', { name: /Generate Web Portfolio/i });
 
-    // Select a username first
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
 
-    // Uncheck all 3 projects (exclude them all)
     const checkboxes = screen.getAllByRole('checkbox');
     checkboxes.forEach((cb) => fireEvent.click(cb));
 
@@ -280,7 +300,6 @@ describe('PortfolioPage', () => {
     expect(screen.getByText(/at least 3 projects/i)).toBeInTheDocument();
   });
 
-  // Tests that the web portfolio is rendered successfully when the "generate portfolio" button is clicked with valid inputs (3+ projects, username selected)
   it('transitions to skeleton dashboard on valid submission', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
@@ -292,7 +311,6 @@ describe('PortfolioPage', () => {
     expect(await screen.findByText(/Web Portfolio/i)).toBeInTheDocument();
   });
 
-  // Tests that all four portfolio section headings are rendered on the portfolio page
   it('renders all four dashboard section headings', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
@@ -306,7 +324,6 @@ describe('PortfolioPage', () => {
     expect(screen.getByText(/All Projects/i)).toBeInTheDocument();
   });
 
-  // Tests that the "Back to Setup" button returns the user to the portfolio setup form
   it('back to setup button returns to setup form', async () => {
     mockAxios(3);
     render(<PortfolioPage onBack={() => {}} />);
