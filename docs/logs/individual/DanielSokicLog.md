@@ -4,8 +4,7 @@
 - [T2 Week 3](#t2-week-3-january-19th-25th)
 - [T2 Week 4 and 5](#t2-week-4-and-5-january-26th--february-8th-2026)
 - [T2 Weeks 6–8](#t2--weeks-6-7-and-8-february-9th---march-1st)
-  
-
+- [T2 Week 9](#t2-week-9-march-2nd---march-8th)
 
 # Week 3 Personal Log (15th-21st of September)
 
@@ -463,6 +462,43 @@ No issues or blockers
 - Have a fully functional application 
 
 
+# T2 Week 9 (March 2nd - March 8th)
+
+<img width="797" height="470" alt="image" src="https://github.com/user-attachments/assets/77185df3-4fc8-41be-8280-6565fdeee29d" />
+
+## Overview
+This week I spent my time working on developping some more frontend features on top of our existing backend. Previously I had made a simple UI template for a main menu and this week I decided to implement the rank top projects page. It handles the backend through new API endpoints that I made for getting the ranked projects by importance or chronologically. The UI/UX is pretty simple and plain so that is something that we will work towards making look nicer in the future. For now my goal is to get basic implementation of all our previous features and then improve the styling later before the finishing touches. 
+
+Closed Issue: #414
+
+## Reflection:
+Overall the team worked pretty well but all the work was crammed in and finished in the latter portion of the week. Most PRs were being made sometime on the weekend or close to the weekend. Nevertheless, the team communicated well get PRs merged and features were completed. 
+
+## Coding Tasks
+- Created Rank Projects Page [PR #419](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/419)
+  - New frontend page: RankProjectsPage.jsx with ranking controls, explanation panel, summary cards, and results table.
+  - New endpoint GET /contributors: returns sorted contributor names.
+  - New endpoint GET /rank-projects: returns ranked project data with filtering and sorting options.
+  - Routing updates: Added #/rank-projects hash route and menu navigation in App.jsx.
+  - Styling updates: Added ranking page layout and UI styles in index.css.
+- Fixed missing } bugs that causes compile error in Development [PR #420](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/420)
+  - Fixed tiny error caused by resolving merge conflicts
+ 
+## Tests and Debugging:
+`App.test.jsx`:
+- Navigation from the main menu to Rank Projects.
+- Returning from the ranking page to the main menu.
+- Toast messages for unimplemented menu items.
+
+## Issues and Blockers
+- A couple of merge conflicts when creating PRs.
+
+## Plans for week 10
+- Improve ranking feature based on suggestions from team.
+- Implement new features for resume generation or viewing,
+
+
+
 
 
        
@@ -470,6 +506,7 @@ No issues or blockers
 
 
  
+
 
 
 
