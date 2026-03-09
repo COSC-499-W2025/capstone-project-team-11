@@ -551,6 +551,8 @@ Over the last period, I focused on advancing resume generation and LLM support, 
 
 # T2 Week 9 Personal Logs (Mar 2nd - 8th)
 
+<img width="942" height="558" alt="Screenshot 2026-03-08 at 8 39 48 PM" src="https://github.com/user-attachments/assets/6bf48418-3595-4030-9dd1-44b69ff70dd1" />
+
 ### Overview
 This week I focused on improving the resume generation workflow by strengthening how scanned project data moves through the system and is used in the final output. A major part of this work involved building out the functionality needed to handle project scanning and summary use more cleanly, while also improving the connection between the backend logic and the frontend-facing workflow. The goal was to make sure contributor-specific project data could be scanned, processed, retrieved from the database, and then displayed in the correct resume format, regardless of whether LLM use was enabled or disabled.
 
@@ -583,7 +585,8 @@ This week I focused on improving the resume generation workflow by strengthening
 
 ## Plan for Next Week
 - Update scanning feature to handle multi-project directories properly
-- Update the dashboard to reflect actual information 
+- Update the dashboard to reflect actual information
 
+<img width="832" height="659" alt="Screenshot 2026-03-08 at 8 40 23 PM" src="https://github.com/user-attachments/assets/cd73578f-b8f6-4e87-a386-9a627c9cadf3" />
 
 
