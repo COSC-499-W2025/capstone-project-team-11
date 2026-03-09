@@ -484,8 +484,85 @@ These changes improve flexibility, user experience, and clean up the user interf
 - Start work on milestone 3 specifically start with the front end and dashboard
 - Create Figma Design for Dashboard
 
-<img width="1888" height="890" alt="image" src="https://github.com/user-attachments/assets/6aa35175-2be2-4095-b200-2a7a915d2778" />
+<img width="968" height="567" alt="image" src="https://github.com/user-attachments/assets/cd9bb4a0-a8b1-4216-b29a-bb540d0b3357" />
 
+# Tyler's T2 Week 9 Personal Log (Mar. 2 - Mar. 8)
+[Back to Term 2 Navigation](#)
+
+Focus of the past two weeks was on the front end for milestone 3. I did three things; **adding database maintenance functionality**, **updating the main menu**, and **enhancing testing coverage**. I completed several major tasks this week:
+
+1. Added a **Database Maintenance** button to the main menu.
+2. Created the **Database Maintenance UI** to display tables and their data with dropdowns.
+3. Extended the backend API by adding **database/inspect** endpoint to return JSON for the frontend.
+4. Updated **App.test.jsx** to include the new button and ensure integration tests pass.
+5. Created tests for the `inspect_db` endpoint to validate JSON output.
+
+These changes improve database visibility, user experience, and help maintain the integrity of project data. Additionally, they increase test coverage and frontend-backend integration for database operations.
+
+<img width="1187" height="687" alt="image" src="https://github.com/user-attachments/assets/c36f99c5-2621-4b4f-8dd9-891c7e2abb48" />
+
+---
+
+## Coding Tasks
+
+- Added a new **Database Maintenance** button in the main menu (`App.jsx`) with navigation handling.
+- Developed **Database Maintenance UI**:
+  - Displays all database tables.
+  - Includes dropdowns to view table data.
+  - Dynamically renders based on JSON received from backend.
+- Extended API:
+  - Added `database/inspect` endpoint to return JSON with table names and data.
+  - Modified `inspect_db` to send JSON structured for frontend table display.
+- Updated **App.test.jsx**:
+  - Included tests for the new Database Maintenance button.
+  - Ensured the main menu integration tests pass with the added button.
+- Created automated tests for `inspect_db`:
+  - Verified correct JSON format.
+  - Verified table names and data returned as expected.
+
+---
+
+## Testing / Debugging Tasks
+
+- Manual testing:
+  - Clicked **Database Maintenance** button to verify tables and dropdown data render correctly.
+  - Inspected JSON output from backend using API calls.
+- Automated testing:
+  - Ran updated `App.test.jsx` suite — all frontend integration tests passed except any placeholders for unimplemented actions.
+  - Ran backend test for `inspect_db` — validated returned JSON structure.
+- Added `test_inspect_db_json.py` to validate:
+  - database information is all included in json
+  - JSON sends correctly when api endpoint is called
+- Ran full test suite using: pytest -v
+- Confirmed all tests pass.
+- 
+---
+
+## Reviewing / Collaboration Tasks
+
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #422], [PR #421]
+- Also reviewed team log and most individual logs logs
+- Attended weekly meetings on monday
+
+---
+
+## Blockers / Issues
+
+- None major; minor adjustments needed for frontend rendering of dynamic JSON tables.
+- Handling multiple dropdowns for database tables required careful mapping of JSON data.
+- Ensured new button integration didn’t break existing App navigation and tests.
+
+---
+
+## T2 Week 10 Plans
+
+- Expand Database Maintenance functionality (e.g., delete, clear, or modify entries).  
+- Continue with frontend dashboard improvements.  
+- Integrate additional backend endpoints for database operations.  
+- Start drafting UI/UX for the full dashboard.
+- Get everything setup for peer testing
+
+<img width="1907" height="944" alt="image" src="https://github.com/user-attachments/assets/b45ce6a5-9f35-4aa2-9774-47723399c043" />
 
 
 
