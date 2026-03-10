@@ -767,3 +767,42 @@ button:disabled {
 .all-projects-search { display: flex; gap: 0.5rem; align-items: center; }
 
 .all-projects-search .portfolio-input { width: 180px; }
+
+.portfolio-header-summary { margin: 0; color: #5a6a5a; font-size: 0.92rem; }
+
+.portfolio-generating {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  background: #f0f4f7;
+  border-radius: 8px;
+  color: #2b4f7a;
+  font-weight: 600;
+}
+
+.portfolio-generating p { margin: 0; }
+
+.portfolio-spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid #b5c8d6;
+  border-top-color: #2b4f7a;
+  border-radius: 50%;
+  animation: portfolio-spin 0.8s linear infinite;
+}
+
+@keyframes portfolio-spin { to { transform: rotate(360deg); } }
+
+.portfolio-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fdf4f4;
+  border: 1px solid #e5b5b5;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  color: #7a2b2b;
+  font-size: 0.88rem;
+}

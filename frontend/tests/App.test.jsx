@@ -251,11 +251,28 @@ const mockProjects = (count) =>
     contributors: [{ name: 'alice' }, { name: 'bob' }],
   }));
 
-const mockAxios = (projectCount) =>
+const mockAxios = (projectCount) => {
+  const projects = mockProjects(projectCount);
+  const ranked = projects.map((p) => ({ project: p.name }));
   vi.spyOn(axios, 'get').mockImplementation((url) => {
     if (url.includes('/contributors')) return Promise.resolve({ data: ['alice', 'bob'] });
-    return Promise.resolve({ data: mockProjects(projectCount) });
+    if (url.includes('/rank-projects')) return Promise.resolve({ data: ranked });
+    if (url.includes('/web/portfolio/') && url.includes('/showcase'))
+      return Promise.resolve({ data: { projects: [] } });
+    if (url.includes('/web/portfolio/') && url.includes('/heatmap'))
+      return Promise.resolve({ data: { cells: [], max_value: 0 } });
+    if (url.includes('/web/portfolio/') && url.includes('/timeline'))
+      return Promise.resolve({ data: { timeline: [] } });
+    if (url.includes('/portfolio/'))
+      return Promise.resolve({ data: { metadata: { project_count: projectCount }, generated_at: new Date().toISOString() } });
+    return Promise.resolve({ data: projects });
   });
+  vi.spyOn(axios, 'post').mockImplementation((url) => {
+    if (url.includes('/portfolio/generate'))
+      return Promise.resolve({ data: { portfolio_id: 42 } });
+    return Promise.resolve({ data: {} });
+  });
+};
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -297,7 +314,7 @@ describe('PortfolioPage', () => {
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
 
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = await screen.findAllByRole('checkbox');
     checkboxes.forEach((cb) => fireEvent.click(cb));
 
     fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
@@ -310,9 +327,10 @@ describe('PortfolioPage', () => {
     await screen.findByRole('button', { name: /Generate Web Portfolio/i });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
     fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
 
-    expect(await screen.findByText(/Web Portfolio/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Web Portfolio/i })).toBeInTheDocument();
   });
 
   it('renders all four dashboard section headings', async () => {
@@ -320,6 +338,7 @@ describe('PortfolioPage', () => {
     render(<PortfolioPage onBack={() => {}} />);
     await screen.findByRole('button', { name: /Generate Web Portfolio/i });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
     fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
 
     expect(await screen.findByText(/Activity Heatmap/i)).toBeInTheDocument();
@@ -333,6 +352,7 @@ describe('PortfolioPage', () => {
     render(<PortfolioPage onBack={() => {}} />);
     await screen.findByRole('button', { name: /Generate Web Portfolio/i });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
     fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
     await screen.findByText(/Activity Heatmap/i);
 
