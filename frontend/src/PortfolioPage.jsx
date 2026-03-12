@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
 
-function PortfolioPage({ onBack }) {
+const MAX_FEATURED = 3;
+
+function PortfolioPage({ onBack, showStars = true }) {
   const [phase, setPhase] = useState('setup');
 
   // Setup form fields
@@ -13,11 +15,7 @@ function PortfolioPage({ onBack }) {
   // Data for form population
   const [allProjects, setAllProjects] = useState([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [contributorOptions, setContributorOptions] = useState([]);
-
-  // Validation state
-  const [validationError, setValidationError] = useState('');
 
   // User-specific project filtering (for "Include Projects" tile)
   const [userProjects, setUserProjects] = useState([]);
@@ -27,18 +25,29 @@ function PortfolioPage({ onBack }) {
   // Web portfolio information
   const [portfolioId, setPortfolioId] = useState(null);
   const [portfolioMeta, setPortfolioMeta] = useState(null);
-  const [showcaseProjects, setShowcaseProjects] = useState([]);
   const [heatmapData, setHeatmapData] = useState({ cells: [], max_value: 0 });
   const [timelineData, setTimelineData] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
+
+  // Universal toast (4 seconds, auto-dismiss, auto-restart, clears on new toast received)
+  const [toast, setToast] = useState(null); 
+  const toastTimer = useRef(null);
+
+  const showToast = (message, type) => { // type = 'error', 'info', or 'success' 
+    clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  // Track which projects are starred/featured by storing their names in a set
+  const [featuredIds, setFeaturedIds] = useState(new Set());
 
   useEffect(() => {
     axios
       .get(`${API_BASE_URL}/projects`)
       .then((res) => setAllProjects(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => setLoadError(err.message))
+      .catch((err) => showToast(err.message, 'error'))
       .finally(() => setIsLoadingProjects(false));
   }, []);
 
@@ -86,21 +95,17 @@ function PortfolioPage({ onBack }) {
 
   const handleGenerate = async () => {
     if (!username) {
-      setValidationError('Please select a username.');
+      showToast('Please select a username.', 'error');
       return;
     }
     const eligible = userProjects.filter(
       (p) => !excludedProjectIds.includes(p.id ?? p.project_id)
     );
     if (eligible.length < 3) {
-      setValidationError(
-        'You need at least 3 projects to generate a portfolio. Adjust your inclusion list or scan more projects.'
-      );
+      showToast('You need at least 3 projects to generate a portfolio. Adjust your inclusion list or scan more projects.', 'error');
       return;
     }
-    setValidationError('');
     setIsGenerating(true);
-    setGenerateError('');
     setIncludedProjects(eligible);
 
     // Generate the portfolio and aggregate required data
@@ -122,22 +127,47 @@ function PortfolioPage({ onBack }) {
       ]);
 
       setPortfolioMeta(metaRes.data);
-      const eligibleNames = new Set(eligible.map((p) => p.display_name ?? p.name));
-      const filteredShowcase = (showcaseRes.data.projects || []).filter(
-        (p) => eligibleNames.has(p.name ?? p.project ?? p.display_name)
-      );
-      setShowcaseProjects(filteredShowcase);
       setHeatmapData(heatmapRes.data);
       setTimelineData(timelineRes.data.timeline || []);
+
+      // Auto-star the top 3 ranked projects that are in the "eligible" set
+      const eligibleNames = new Set(eligible.map((p) => p.display_name ?? p.name));
+      const topThree = (showcaseRes.data.projects || [])
+        .filter((p) => eligibleNames.has(p.name ?? p.project ?? p.display_name))
+        .slice(0, MAX_FEATURED)
+        .map((p) => p.name ?? p.project ?? p.display_name);
+      // Fall back to first 3 eligible projects if scores are missing
+      const initialStars = topThree.length > 0
+        ? topThree
+        : eligible.slice(0, MAX_FEATURED).map((p) => p.display_name ?? p.name);
+      setFeaturedIds(new Set(initialStars));
 
       // Transition to dashboard phase after all data is loaded
       setPhase('dashboard');
     } catch (err) {
       const detail = err?.response?.data?.detail;
-      setGenerateError(detail || err.message || 'Failed to generate portfolio.');
+      showToast(detail || err.message || 'Failed to generate portfolio.', 'error');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Error handling for starring/unstarring projects
+  const handleStar = (name) => {
+    if (!featuredIds.has(name) && featuredIds.size >= MAX_FEATURED) {
+      showToast(`You can only feature ${MAX_FEATURED} projects. Unstar one first.`, 'info');
+      return;
+    }
+
+    // Toggle starred state by adding/removing from the set
+    setFeaturedIds((prev) => {
+      if (prev.has(name)) {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      }
+      return new Set([...prev, name]);
+    });
   };
 
   // Reset web portfolio state and go back to setup form
@@ -145,12 +175,13 @@ function PortfolioPage({ onBack }) {
     setPhase('setup');
     setPortfolioId(null);
     setPortfolioMeta(null);
-    setShowcaseProjects([]);
     setHeatmapData({ cells: [], max_value: 0 });
     setTimelineData([]);
-    setGenerateError('');
     setProjectSearch('');
     setIncludedProjects([]);
+    setFeaturedIds(new Set());
+    clearTimeout(toastTimer.current);
+    setToast(null);
   };
 
   // Store display name for web portfolio header
@@ -176,12 +207,10 @@ function PortfolioPage({ onBack }) {
           </button>
         </div>
 
-        {generateError && (
-          <div className="portfolio-error-banner">
-            <span>Some data could not be loaded: {generateError}</span>
-            <button type="button" className="secondary" onClick={() => setGenerateError('')}>
-              Dismiss
-            </button>
+        {/* Global toast notification */}
+        {toast && (
+          <div className={`app-toast app-toast--${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'}>
+            {toast.message}
           </div>
         )}
 
@@ -212,24 +241,37 @@ function PortfolioPage({ onBack }) {
           <section className="portfolio-tile">
             <h3 className="tile-heading">Featured Projects</h3>
             <div className="featured-card-container">
-              {(showcaseProjects.length > 0
-                ? showcaseProjects.map((p) => ({
-                    key: p.name ?? p.project ?? p.display_name ?? '(unnamed)',
-                    name: p.name ?? p.project ?? p.display_name ?? '(unnamed)',
-                  }))
-                : includedProjects.slice(0, 3).map((p) => ({
-                    key: String(p.id ?? p.project_id ?? p.name),
-                    name: p.display_name ?? p.name ?? '(unnamed)',
-                  }))
-              ).map(({ key, name }) => (
-                <div key={key} className="project-card-16-9 featured">
-                  <span className="project-card-name">{name}</span>
-                </div>
-              ))}
+              {includedProjects
+                .filter((p) => featuredIds.has(p.display_name ?? p.name))
+                .map((p) => {
+                  const name = p.display_name ?? p.name ?? '(unnamed)';
+                  return (
+                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 featured">
+                      <span className="project-card-name">{name}</span>
+                      {/* Star/Favourite/Feature button */}
+                      {showStars && (
+                        <button
+                          type="button"
+                          className="star-btn starred"
+                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                          aria-label="Unfeature project"
+                          title="Remove from Featured"
+                        >
+                          ★
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              {featuredIds.size === 0 && (
+                <p className="tile-placeholder-text" style={{ margin: 0 }}>
+                  Star projects below to feature them here.
+                </p>
+              )}
             </div>
           </section>
 
-          {/* All projects section */}
+          {/* All projects tile */}
           <section className="portfolio-tile">
             <div className="all-projects-header">
               <h3 className="tile-heading">All Projects</h3>
@@ -251,9 +293,22 @@ function PortfolioPage({ onBack }) {
                 })
                 .map((p) => {
                   const name = p.display_name ?? p.name ?? '(unnamed)';
+                  const isStarred = featuredIds.has(name);
                   return (
                     <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 all-projects">
                       <span className="project-card-name">{name}</span>
+                      {/* Star/Favourite/Feature button */}
+                      {showStars && (
+                        <button
+                          type="button"
+                          className={`star-btn${isStarred ? ' starred' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                          aria-label={isStarred ? 'Unfeature project' : 'Feature project'}
+                          title={isStarred ? 'Remove from Featured' : 'Add to Featured'}
+                        >
+                          {isStarred ? '★' : '☆'}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -282,7 +337,6 @@ function PortfolioPage({ onBack }) {
         <h2>Portfolio Setup</h2>
 
         {isLoadingProjects && <p>Loading projects...</p>}
-        {loadError && <p className="portfolio-error">{loadError}</p>}
 
         {!isLoadingProjects && allProjects.length < 3 && (
           <p className="portfolio-notice">
@@ -361,14 +415,6 @@ function PortfolioPage({ onBack }) {
               )}
             </fieldset>
 
-            {validationError && (
-              <p className="portfolio-error">{validationError}</p>
-            )}
-
-            {generateError && (
-              <p className="portfolio-error">{generateError}</p>
-            )}
-
             {isGenerating && (
               <div className="portfolio-generating">
                 <div className="portfolio-spinner" />
@@ -384,6 +430,13 @@ function PortfolioPage({ onBack }) {
           </div>
         )}
       </section>
+
+      {/** Global toast notification */}
+      {toast && (
+        <div className={`app-toast app-toast--${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
