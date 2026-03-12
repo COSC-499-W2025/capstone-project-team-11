@@ -412,5 +412,64 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(private_ok_resp.status_code, 200)
 
 
+    def test_delete_project_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Delete Me", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Delete Me",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/projects/{project_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["message"], "Project deleted successfully")
+
+        with api_mod.get_connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM projects WHERE id = ?",
+                (project_id,),
+            ).fetchone()
+            self.assertIsNone(row)
+
+    def test_project_details_includes_llm_summary(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects
+                (name, repo_url, summary_text, summary_model, summary_updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "LLM Project",
+                    None,
+                    "This is an LLM-generated summary.",
+                    "llama3",
+                    "2026-03-11T12:00:00",
+                ),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("LLM Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.json()
+        self.assertIn("llm_summary", data)
+        self.assertIsNotNone(data["llm_summary"])
+        self.assertEqual(data["llm_summary"]["text"], "This is an LLM-generated summary.")
+        self.assertEqual(data["llm_summary"]["model"], "llama3")
+        self.assertEqual(data["llm_summary"]["updated_at"], "2026-03-11T12:00:00")
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+    
