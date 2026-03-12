@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE_URL } from './api';
 
 function RankProjectsPage({ onBack }) {
   const [projects, setProjects] = useState([]);
@@ -12,6 +11,16 @@ function RankProjectsPage({ onBack }) {
   const [rankingMode, setRankingMode] = useState('importance');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Custom ranking state
+  const [savedRankings, setSavedRankings] = useState([]);
+  const [expandedRanking, setExpandedRanking] = useState(null);
+  const [expandedProjects, setExpandedProjects] = useState([]);
+  const [customProjects, setCustomProjects] = useState([]);
+  const [draggedProjectIndex, setDraggedProjectIndex] = useState(null);
+  const [newRankingName, setNewRankingName] = useState('');
+  const [newRankingDesc, setNewRankingDesc] = useState('');
+  const [customError, setCustomError] = useState('');
 
   const formatDate = (value) => {
     if (!value) {
@@ -40,7 +49,7 @@ function RankProjectsPage({ onBack }) {
     }
 
     try {
-      const response = await axios.get(`${API_BASE}/rank-projects`, {
+      const response = await axios.get(`${API_BASE_URL}/rank-projects`, {
         params: {
           mode: effectiveMode,
           contributor_name: effectiveMode === 'contributor' ? contributorName.trim() : undefined,
@@ -50,18 +59,91 @@ function RankProjectsPage({ onBack }) {
         },
       });
 
-      setProjects(Array.isArray(response.data) ? response.data : []);
+      const nextProjects = Array.isArray(response.data) ? response.data : [];
+      setProjects(nextProjects);
+      setCustomProjects(nextProjects.map((project) => project.project));
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setError(`Failed to load ranked projects: ${detail || err.message}`);
       setProjects([]);
+      setCustomProjects([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleCustomDragStart = (index) => {
+    setDraggedProjectIndex(index);
+  };
+
+  const handleCustomDrop = (targetIndex) => {
+    setCustomProjects((current) => {
+      if (draggedProjectIndex === null || draggedProjectIndex === targetIndex) {
+        return current;
+      }
+
+      const next = [...current];
+      const [item] = next.splice(draggedProjectIndex, 1);
+      next.splice(targetIndex, 0, item);
+      return next;
+    });
+    setDraggedProjectIndex(null);
+  };
+
+  const handleCustomDragEnd = () => {
+    setDraggedProjectIndex(null);
+  };
+
+  const resetCustomProjects = () => {
+    setCustomProjects(projects.map((project) => project.project));
+  };
+
+  const fetchSavedRankings = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/custom-rankings`);
+      setSavedRankings(Array.isArray(res.data) ? res.data : []);
+    } catch { setSavedRankings([]); }
+  };
+
+  const handleCreateRanking = async () => {
+    setCustomError('');
+    const name = newRankingName.trim();
+    if (!name) { setCustomError('Title is required.'); return; }
+    if (customProjects.length === 0) { setCustomError('Run a ranking first so there are projects to save.'); return; }
+    try {
+      await axios.post(`${API_BASE_URL}/custom-rankings`, {
+        name,
+        description: newRankingDesc.trim(),
+        projects: customProjects,
+      });
+      setNewRankingName('');
+      setNewRankingDesc('');
+      fetchSavedRankings();
+    } catch (err) {
+      setCustomError(err?.response?.data?.detail || err.message);
+    }
+  };
+
+  const handleDeleteRanking = async (name) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/custom-rankings/${encodeURIComponent(name)}`);
+      if (expandedRanking === name) { setExpandedRanking(null); setExpandedProjects([]); }
+      fetchSavedRankings();
+    } catch { /* ignore */ }
+  };
+
+  const handleToggleExpand = async (name) => {
+    if (expandedRanking === name) { setExpandedRanking(null); setExpandedProjects([]); return; }
+    try {
+      const res = await axios.get(`${API_BASE_URL}/custom-rankings/${encodeURIComponent(name)}`);
+      setExpandedProjects(res.data.projects || []);
+      setExpandedRanking(name);
+    } catch { setExpandedRanking(null); setExpandedProjects([]); }
+  };
+
   useEffect(() => {
     fetchRankedProjects();
+    fetchSavedRankings();
     // Intentionally run once on page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -69,7 +151,7 @@ function RankProjectsPage({ onBack }) {
   useEffect(() => {
     const loadContributors = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/contributors`);
+        const response = await axios.get(`${API_BASE_URL}/contributors`);
         const contributors = Array.isArray(response.data) ? response.data : [];
         setContributorOptions(contributors);
         if (!contributorName && contributors.length > 0) {
@@ -270,6 +352,114 @@ function RankProjectsPage({ onBack }) {
           </div>
         ) : null}
       </section>
+
+      {/* ── Create Custom Ranking ────────────────────────── */}
+      <section className="rank-table-panel custom-ranking-create">
+        <h2>Save as Custom Ranking</h2>
+        <p>Arrange the projects into your own order, then save that ranking with a title and short description.</p>
+        <div className="custom-ranking-form">
+          <label htmlFor="cr-name">
+            <span>Title</span>
+            <input
+              id="cr-name"
+              type="text"
+              maxLength={120}
+              placeholder="e.g. Spring 2026 Top Projects"
+              value={newRankingName}
+              onChange={(e) => setNewRankingName(e.target.value)}
+            />
+          </label>
+          <label htmlFor="cr-desc">
+            <span>Description</span>
+            <input
+              id="cr-desc"
+              type="text"
+              maxLength={500}
+              placeholder="Short note about this ranking (optional)"
+              value={newRankingDesc}
+              onChange={(e) => setNewRankingDesc(e.target.value)}
+            />
+          </label>
+          <button type="button" className="secondary" onClick={resetCustomProjects} disabled={projects.length === 0}>
+            Reset Order
+          </button>
+          <button type="button" onClick={handleCreateRanking} disabled={customProjects.length === 0}>
+            Create Ranking
+          </button>
+        </div>
+        {customProjects.length > 0 ? (
+          <div className="custom-order-editor">
+            <div className="custom-order-header">
+              <strong>Custom Ranking Order</strong>
+              <span>Drag rows up or down to choose each project&apos;s position.</span>
+            </div>
+            <ol className="custom-order-list">
+              {customProjects.map((projectName, index) => (
+                <li
+                  key={projectName}
+                  draggable
+                  className={draggedProjectIndex === index ? 'custom-order-item dragging' : 'custom-order-item'}
+                  onDragStart={() => handleCustomDragStart(index)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleCustomDrop(index)}
+                  onDragEnd={handleCustomDragEnd}
+                >
+                  <span className="custom-order-rank">{index + 1}</span>
+                  <div className="custom-order-content">
+                    <strong>{projectName}</strong>
+                    <span>Drop it anywhere in the list to change its position.</span>
+                  </div>
+                  <span className="custom-drag-pill" aria-hidden="true">
+                    <span className="custom-drag-handle">::</span>
+                    Drag
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+        {customError ? <p className="error-text rank-error">{customError}</p> : null}
+      </section>
+
+      {/* ── Saved Custom Rankings ────────────────────────── */}
+      {savedRankings.length > 0 ? (
+        <section className="rank-table-panel custom-ranking-list">
+          <h2>Saved Custom Rankings</h2>
+          {savedRankings.map((r) => (
+            <div key={r.name} className="custom-ranking-card">
+              <div className="custom-ranking-card-header">
+                <div>
+                  <strong>{r.name}</strong>
+                  {r.description ? <span className="custom-ranking-desc">{r.description}</span> : null}
+                  <span className="custom-ranking-date">Created {formatDate(r.created_at)}</span>
+                </div>
+                <div className="custom-ranking-actions">
+                  <button type="button" className="secondary" onClick={() => handleToggleExpand(r.name)}>
+                    {expandedRanking === r.name ? 'Collapse' : 'View'}
+                  </button>
+                  <button type="button" className="danger" onClick={() => handleDeleteRanking(r.name)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+              {expandedRanking === r.name && expandedProjects.length > 0 ? (
+                <div className="rank-table-wrap">
+                  <table className="rank-table">
+                    <thead>
+                      <tr><th>Rank</th><th>Project</th></tr>
+                    </thead>
+                    <tbody>
+                      {expandedProjects.map((proj, i) => (
+                        <tr key={proj}><td>{i + 1}</td><td>{proj}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

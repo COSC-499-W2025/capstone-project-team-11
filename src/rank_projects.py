@@ -71,10 +71,17 @@ def _ensure_custom_ranking_tables(conn):
         CREATE TABLE IF NOT EXISTS custom_rankings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
+            description TEXT DEFAULT '',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
+    columns = {
+        row["name"]
+        for row in cur.execute("PRAGMA table_info(custom_rankings)").fetchall()
+    }
+    if "description" not in columns:
+        cur.execute("ALTER TABLE custom_rankings ADD COLUMN description TEXT DEFAULT ''")
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS custom_ranking_items (
@@ -92,16 +99,16 @@ def _ensure_custom_ranking_tables(conn):
 
 
 def list_custom_rankings() -> List[Dict]:
-    """Return custom rankings with name and created_at."""
+    """Return custom rankings with name, description, and created_at."""
     conn = get_connection()
     cur = conn.cursor()
     try:
         _ensure_custom_ranking_tables(conn)
         cur.execute(
-            "SELECT name, created_at FROM custom_rankings ORDER BY created_at DESC, name COLLATE NOCASE"
+            "SELECT name, description, created_at FROM custom_rankings ORDER BY created_at DESC, name COLLATE NOCASE"
         )
         rows = cur.fetchall()
-        return [{"name": r["name"], "created_at": r["created_at"]} for r in rows]
+        return [{"name": r["name"], "description": r["description"] or "", "created_at": r["created_at"]} for r in rows]
     except sqlite3.OperationalError:
         return []
     finally:
@@ -134,7 +141,7 @@ def get_custom_ranking(name: str) -> List[str]:
         conn.close()
 
 
-def save_custom_ranking(name: str, ordered_projects: List[str]) -> int:
+def save_custom_ranking(name: str, ordered_projects: List[str], description: str = "") -> int:
     """Create or replace a custom ranking and return its id."""
     if not name:
         raise ValueError("name is required")
@@ -143,7 +150,8 @@ def save_custom_ranking(name: str, ordered_projects: List[str]) -> int:
     cur = conn.cursor()
     try:
         _ensure_custom_ranking_tables(conn)
-        cur.execute("INSERT OR IGNORE INTO custom_rankings (name) VALUES (?)", (name,))
+        cur.execute("INSERT OR IGNORE INTO custom_rankings (name, description) VALUES (?, ?)", (name, description))
+        cur.execute("UPDATE custom_rankings SET description = ? WHERE name = ?", (description, name))
         cur.execute("SELECT id FROM custom_rankings WHERE name = ?", (name,))
         row = cur.fetchone()
         ranking_id = row["id"] if row else None
