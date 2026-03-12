@@ -22,6 +22,7 @@ function PortfolioPage({ onBack }) {
   // User-specific project filtering (for "Include Projects" tile)
   const [userProjects, setUserProjects] = useState([]);
   const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
+  const [includedProjects, setIncludedProjects] = useState([]);
 
   // Web portfolio information
   const [portfolioId, setPortfolioId] = useState(null);
@@ -100,6 +101,7 @@ function PortfolioPage({ onBack }) {
     setValidationError('');
     setIsGenerating(true);
     setGenerateError('');
+    setIncludedProjects(eligible);
 
     // Generate the portfolio and aggregate required data
     try {
@@ -120,7 +122,11 @@ function PortfolioPage({ onBack }) {
       ]);
 
       setPortfolioMeta(metaRes.data);
-      setShowcaseProjects(showcaseRes.data.projects || []);
+      const eligibleNames = new Set(eligible.map((p) => p.display_name ?? p.name));
+      const filteredShowcase = (showcaseRes.data.projects || []).filter(
+        (p) => eligibleNames.has(p.name ?? p.project ?? p.display_name)
+      );
+      setShowcaseProjects(filteredShowcase);
       setHeatmapData(heatmapRes.data);
       setTimelineData(timelineRes.data.timeline || []);
 
@@ -144,6 +150,7 @@ function PortfolioPage({ onBack }) {
     setTimelineData([]);
     setGenerateError('');
     setProjectSearch('');
+    setIncludedProjects([]);
   };
 
   // Store display name for web portfolio header
@@ -159,7 +166,8 @@ function PortfolioPage({ onBack }) {
     return (
       <div className="page-shell portfolio-page">
         <header className="app-header">
-          <h1>Web Portfolio</h1>
+          <h1 style={{ fontWeight: 'bold' }}>Web Portfolio</h1>
+          <h2 style={{ color: '#bbbbbb' }}>Private / Preview Mode - Make edits before viewing/exporting the final version</h2>
         </header>
 
         <div className="portfolio-toolbar">
@@ -203,12 +211,19 @@ function PortfolioPage({ onBack }) {
           {/* Featured projects tile */}
           <section className="portfolio-tile">
             <h3 className="tile-heading">Featured Projects</h3>
-            <p className="tile-placeholder-text">Your top 3 projects will be showcased here.</p>
-            <div className="project-card-container">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="project-card">
-                  <div className="card-bar" />
-                  <div className="card-bar" />
+            <div className="featured-card-container">
+              {(showcaseProjects.length > 0
+                ? showcaseProjects.map((p) => ({
+                    key: p.name ?? p.project ?? p.display_name ?? '(unnamed)',
+                    name: p.name ?? p.project ?? p.display_name ?? '(unnamed)',
+                  }))
+                : includedProjects.slice(0, 3).map((p) => ({
+                    key: String(p.id ?? p.project_id ?? p.name),
+                    name: p.display_name ?? p.name ?? '(unnamed)',
+                  }))
+              ).map(({ key, name }) => (
+                <div key={key} className="project-card-16-9 featured">
+                  <span className="project-card-name">{name}</span>
                 </div>
               ))}
             </div>
@@ -219,20 +234,29 @@ function PortfolioPage({ onBack }) {
             <div className="all-projects-header">
               <h3 className="tile-heading">All Projects</h3>
               <div className="all-projects-search">
-                <input type="text" className="portfolio-input" placeholder="Search projects..." disabled />
-                <select className="portfolio-select" disabled>
-                  <option>Filter by language</option>
-                </select>
+                <input
+                  type="text"
+                  className="portfolio-input"
+                  placeholder="Search projects..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                />
               </div>
             </div>
-            <p className="tile-placeholder-text">All scanned project cards will appear here.</p>
-            <div className="project-card-container">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="project-card">
-                  <div className="card-bar" />
-                  <div className="card-bar" />
-                </div>
-              ))}
+            <div className="all-projects-card-container">
+              {includedProjects
+                .filter((p) => {
+                  const name = p.display_name ?? p.name ?? '';
+                  return name.toLowerCase().includes(projectSearch.toLowerCase());
+                })
+                .map((p) => {
+                  const name = p.display_name ?? p.name ?? '(unnamed)';
+                  return (
+                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 all-projects">
+                      <span className="project-card-name">{name}</span>
+                    </div>
+                  );
+                })}
             </div>
           </section>
         </div>
@@ -244,8 +268,8 @@ function PortfolioPage({ onBack }) {
   return (
     <div className="page-shell portfolio-page">
       <header className="app-header">
-        <h1>Generate Portfolio</h1>
-        <p>Build a web portfolio from your scanned projects.</p>
+        <h1 style={{ fontWeight: 'bold' }}>Generate Portfolio</h1>
+        <h2 style={{ color: '#bbbbbb' }}>Build a web portfolio from your scanned projects.</h2>
       </header>
 
       <div className="portfolio-toolbar">
@@ -293,7 +317,7 @@ function PortfolioPage({ onBack }) {
                 className="portfolio-input"
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
-                placeholder="e.g. Alice Johnson"
+                placeholder="e.g. John Doe"
               />
               <span className="portfolio-hint">
                 Shown in the portfolio header instead of your GitHub username.
