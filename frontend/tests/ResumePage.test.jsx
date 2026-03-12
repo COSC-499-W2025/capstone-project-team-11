@@ -8,10 +8,13 @@ afterEach(() => {
 });
 
 describe('ResumePage', () => {
-  it('renders contributor select and generate button', () => {
+  it('renders contributor select and generate button', async () => {
     render(<ResumePage />);
     expect(screen.getByText(/Select Contributor/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Generate Resume/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/contributors');
+    });
   });
 
   it('shows generating state when generate is clicked', async () => {
@@ -58,7 +61,12 @@ describe('ResumePage', () => {
   });
 
   it('shows error message when API call fails', async () => {
-    vi.spyOn(global, 'fetch').mockRejectedValue(new Error('Network failure'));
+    vi.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockRejectedValueOnce(new Error('Network failure'));
     render(<ResumePage />);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     await waitFor(() => {
