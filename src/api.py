@@ -16,10 +16,11 @@ import contextlib
 import queue
 import threading
 import glob
+from fastapi import HTTPException
 
 from config import load_config, save_config, config_path as default_config_path
 from cli_username_selection import get_candidate_usernames
-from db import get_connection, save_portfolio, save_resume
+from db import get_connection, save_portfolio, save_resume, delete_project_by_id
 from generate_portfolio import (
     aggregate_projects_for_portfolio,
     build_portfolio,
@@ -511,6 +512,19 @@ def get_project(project_id: int):
             (project_id,),
         ).fetchall()
 
+
+        evidence_rows = conn.execute(
+            """
+            SELECT type, description, value, source, url, added_by_user, created_at
+            FROM project_evidence
+            WHERE project_id = ?
+            ORDER BY created_at DESC
+            """,
+            (project_id,),
+        ).fetchall()
+
+        llm_summary = _load_llm_summary(project["name"])
+
     return {
         "project": dict(project),
         "skills": [row["name"] for row in skill_rows],
@@ -519,6 +533,7 @@ def get_project(project_id: int):
         "scans": [dict(row) for row in scans],
         "files_summary": files_summary,
         "evidence": [dict(row) for row in evidence_rows],
+        "llm_summary": llm_summary,
     }
 
 
@@ -1011,3 +1026,12 @@ def api_inspect_database():
     return inspect_database_json()
 
 app.include_router(web_router)
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: int):
+    result = delete_project_by_id(project_id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return {"message": "Project deleted successfully"}
