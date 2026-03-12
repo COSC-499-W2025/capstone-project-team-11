@@ -191,7 +191,7 @@ button:disabled {
   display: grid;
   gap: 1rem;
 }
-
+/*-------------Rank Projects---------------*/
 .rank-toolbar {
   display: flex;
   align-items: center;
@@ -229,12 +229,16 @@ button:disabled {
   padding: 0.35rem 0.45rem;
   border-radius: 8px;
   border: 1px solid #b6c7d9;
+  background: #ffffff;
+  color: #1f2937;
 }
 
 .rank-view-group select {
   padding: 0.35rem 0.45rem;
   border-radius: 8px;
   border: 1px solid #b6c7d9;
+  background: #ffffff;
+  color: #1f2937;
 }
 
 .rank-contributor-group select {
@@ -242,6 +246,14 @@ button:disabled {
   padding: 0.35rem 0.45rem;
   border-radius: 8px;
   border: 1px solid #b6c7d9;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.rank-view-group select option,
+.rank-contributor-group select option {
+  color: #1f2937;
+  background: #ffffff;
 }
 
 .rank-error {
@@ -320,6 +332,195 @@ button:disabled {
 .rank-explanation-panel p {
   margin: 0.3rem 0;
   line-height: 1.35;
+}
+
+/* ── Custom Ranking styles ───────────────────────── */
+.custom-ranking-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr)) auto auto;
+  gap: 0.9rem;
+  align-items: end;
+  margin-top: 0.9rem;
+}
+
+.custom-ranking-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  color: #355335;
+}
+
+.custom-ranking-form input {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #c6d9b8;
+  border-radius: 10px;
+  font-size: 0.94rem;
+  min-width: 0;
+  background: #fbfdf8;
+}
+
+.custom-order-editor {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #d7e4cf;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfdf8 0%, #f2f8ec 100%);
+}
+
+.custom-order-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  color: #355335;
+  font-size: 0.88rem;
+}
+
+.custom-order-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.custom-order-item {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid #d3e0cb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(51, 87, 51, 0.06);
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.custom-order-item:hover {
+  border-color: #a8c39a;
+  box-shadow: 0 10px 24px rgba(51, 87, 51, 0.1);
+}
+
+.custom-order-item.dragging {
+  opacity: 0.55;
+  transform: scale(0.985);
+}
+
+.custom-order-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: #e8f2df;
+  color: #355335;
+  font-weight: 700;
+}
+
+.custom-order-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.custom-order-content strong {
+  font-size: 0.97rem;
+  color: #223622;
+}
+
+.custom-order-content span {
+  font-size: 0.82rem;
+  color: #678067;
+}
+
+.custom-drag-handle {
+  display: inline-block;
+  font-weight: 700;
+  letter-spacing: 0.08rem;
+  color: #5d775d;
+}
+
+.custom-drag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: #eef5e8;
+  color: #466146;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.custom-ranking-card {
+  background: #f6faf2;
+  border: 1px solid #d7e4cf;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.custom-ranking-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.custom-ranking-desc {
+  display: block;
+  color: #556b55;
+  font-size: 0.84rem;
+  margin-top: 0.15rem;
+}
+
+.custom-ranking-date {
+  display: block;
+  color: #8a9f8a;
+  font-size: 0.78rem;
+}
+
+.custom-ranking-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.custom-ranking-actions .danger {
+  background: #c43c3c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.custom-ranking-actions .danger:hover {
+  background: #a53030;
+}
+
+@media (max-width: 960px) {
+  .custom-ranking-form {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-order-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .custom-drag-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 
 .menu-action-title {

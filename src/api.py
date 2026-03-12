@@ -32,7 +32,7 @@ from generate_resume import (
     maybe_generate_resume_summary,
 )
 from project_info_output import gather_project_info, output_project_info
-from rank_projects import rank_projects, rank_projects_by_importance
+from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
 from scan import run_with_saved_settings, scan_with_clean_output
 from inspect_db import inspect_connection
 
@@ -593,6 +593,44 @@ def get_rank_projects(
         return ranked[:limit]
 
     return ranked
+
+
+# ── Custom Rankings ────────────────────────────────────────────
+
+class CustomRankingCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    description: str = Field("", max_length=500)
+    projects: List[str] = Field(..., min_length=1)
+
+
+@app.get("/custom-rankings")
+def api_list_custom_rankings():
+    return list_custom_rankings()
+
+
+@app.post("/custom-rankings", status_code=201)
+def api_create_custom_ranking(body: CustomRankingCreate):
+    try:
+        ranking_id = save_custom_ranking(body.name.strip(), body.projects, body.description.strip())
+        return {"id": ranking_id, "name": body.name.strip()}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/custom-rankings/{name}")
+def api_get_custom_ranking(name: str):
+    projects = get_custom_ranking(name)
+    if not projects:
+        raise HTTPException(status_code=404, detail="Custom ranking not found or empty")
+    return {"name": name, "projects": projects}
+
+
+@app.delete("/custom-rankings/{name}")
+def api_delete_custom_ranking(name: str):
+    deleted = delete_custom_ranking(name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Custom ranking not found")
+    return {"deleted": True}
 
 
 @app.get("/resume/{resume_id}")
