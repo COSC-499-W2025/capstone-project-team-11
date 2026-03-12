@@ -16,6 +16,8 @@ import contextlib
 import queue
 import threading
 import glob
+import tempfile
+import zipfile
 from fastapi import HTTPException
 
 from config import load_config, save_config, config_path as default_config_path
@@ -33,7 +35,13 @@ from generate_resume import (
 )
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
-from scan import run_with_saved_settings, scan_with_clean_output
+from scan import (
+    run_with_saved_settings,
+    scan_with_clean_output,
+    _find_all_project_roots,
+    _find_git_root,
+    _resolve_extracted_root,
+)
 from inspect_db import inspect_connection
 
 
@@ -75,6 +83,22 @@ class ProjectUploadRequest(BaseModel):
     save_to_db: bool = True
     thumbnail_path: Optional[str] = None
     llm_summary: bool = False
+    manual_contributors_by_path: Optional[Dict[str, List[str]]] = None
+
+
+class ScanPlanProject(BaseModel):
+    project_name: str
+    project_path: str
+    is_git: bool
+    requires_contributor_assignment: bool
+
+
+class ScanPlanResponse(BaseModel):
+    root_path: str
+    total_projects: int
+    is_multi_project: bool
+    projects: List[ScanPlanProject]
+    existing_contributors: List[str]
 
 
 class ResumeGenerateRequest(BaseModel):
@@ -247,6 +271,14 @@ def _load_llm_summary(project_name: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _list_existing_contributors() -> List[str]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
+        ).fetchall()
+    return [row["name"] for row in rows]
+
+
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
@@ -328,6 +360,51 @@ def upload_project(payload: ProjectUploadRequest):
     }
 
 
+@app.post("/projects/scan-plan", response_model=ScanPlanResponse)
+def get_project_scan_plan(payload: ProjectUploadRequest):
+    config = load_config(default_config_path())
+    if not config.get("data_consent"):
+        raise HTTPException(status_code=403, detail="Data consent not granted")
+
+    if not os.path.exists(payload.project_path):
+        raise HTTPException(status_code=400, detail="project_path not found")
+
+    root_path = os.path.abspath(payload.project_path)
+    zip_extract_ctx = None
+    scan_target = root_path
+    try:
+        if os.path.isfile(root_path) and root_path.lower().endswith(".zip"):
+            zip_extract_ctx = tempfile.TemporaryDirectory()
+            with zipfile.ZipFile(root_path) as zf:
+                zf.extractall(zip_extract_ctx.name)
+            scan_target = _resolve_extracted_root(zip_extract_ctx.name)
+
+        project_roots = _find_all_project_roots(scan_target)
+        if not project_roots:
+            project_roots = [scan_target]
+
+        projects = [
+            {
+                "project_name": os.path.basename(os.path.abspath(project_root)),
+                "project_path": os.path.abspath(project_root),
+                "is_git": _find_git_root(project_root) is not None,
+                "requires_contributor_assignment": _find_git_root(project_root) is None,
+            }
+            for project_root in project_roots
+        ]
+    finally:
+        if zip_extract_ctx is not None:
+            zip_extract_ctx.cleanup()
+
+    return {
+        "root_path": root_path,
+        "total_projects": len(projects),
+        "is_multi_project": len(projects) > 1,
+        "projects": projects,
+        "existing_contributors": _list_existing_contributors(),
+    }
+
+
 @app.post("/projects/scan-stream")
 def stream_project_scan(payload: ProjectUploadRequest):
     # Enforce the same consent gate used by the CLI scanner.
@@ -360,6 +437,9 @@ def stream_project_scan(payload: ProjectUploadRequest):
         def flush(self) -> None:
             return None
 
+    def emit_event(event: Dict[str, Any]) -> None:
+        q.put(f"SCAN_EVENT::{json.dumps(event)}")
+
     def run_scan() -> None:
         try:
             writer = StreamWriter()
@@ -371,6 +451,10 @@ def stream_project_scan(payload: ProjectUploadRequest):
                     save_to_db=True,
                     thumbnail_source=payload.thumbnail_path,
                     generate_llm_summary=payload.llm_summary,
+                    manual_contributors_by_path=payload.manual_contributors_by_path or {},
+                    prompt_for_manual_contributors=False,
+                    prompt_between_projects=False,
+                    progress_callback=emit_event,
                 )
             if writer.buffer:
                 q.put(writer.buffer)
@@ -389,8 +473,11 @@ def stream_project_scan(payload: ProjectUploadRequest):
 
             summary = {
                 "success": bool(result.get("success")),
+                "partial_success": bool(result.get("partial_success")),
                 "project_name": result.get("project_name"),
                 "project_names": result.get("project_names"),
+                "project_results": result.get("project_results"),
+                "failed_projects": result.get("failed_projects"),
                 "output_dir": result.get("output_dir"),
                 "error": result.get("error"),
                 "summaries": summaries,
