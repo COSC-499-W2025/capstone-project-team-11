@@ -571,6 +571,187 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(data["llm_summary"]["model"], "llama3")
         self.assertEqual(data["llm_summary"]["updated_at"], "2026-03-11T12:00:00")
 
+        def test_delete_project_endpoint(self):
+         with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Delete Me", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Delete Me",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/projects/{project_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["message"], "Project deleted successfully")
+
+        with api_mod.get_connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM projects WHERE id = ?",
+                (project_id,),
+            ).fetchone()
+            self.assertIsNone(row)
+
+    def test_project_details_includes_llm_summary(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects
+                (name, repo_url, summary_text, summary_model, summary_updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "LLM Project",
+                    None,
+                    "This is an LLM-generated summary.",
+                    "llama3",
+                    "2026-03-11T12:00:00",
+                ),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("LLM Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.json()
+        self.assertIn("llm_summary", data)
+        self.assertIsNotNone(data["llm_summary"])
+        self.assertEqual(data["llm_summary"]["text"], "This is an LLM-generated summary.")
+        self.assertEqual(data["llm_summary"]["model"], "llama3")
+        self.assertEqual(data["llm_summary"]["updated_at"], "2026-03-11T12:00:00")
+
+    def test_update_project_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects (name, custom_name, repo_url, thumbnail_path)
+                VALUES (?, ?, ?, ?)
+                """,
+                ("demo_project", None, "https://old-url.com", "/old/thumb.png"),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.patch(
+            f"/projects/{project_id}",
+            json={
+                "custom_name": "Updated Display Name",
+                "repo_url": "https://new-url.com",
+                "thumbnail_path": "/new/thumb.png",
+            },
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("project", body)
+        self.assertEqual(body["project"]["custom_name"], "Updated Display Name")
+        self.assertEqual(body["project"]["repo_url"], "https://new-url.com")
+        self.assertEqual(body["project"]["thumbnail_path"], "/new/thumb.png")
+
+        with api_mod.get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT custom_name, repo_url, thumbnail_path
+                FROM projects
+                WHERE id = ?
+                """,
+                (project_id,),
+            ).fetchone()
+
+        self.assertEqual(row["custom_name"], "Updated Display Name")
+        self.assertEqual(row["repo_url"], "https://new-url.com")
+        self.assertEqual(row["thumbnail_path"], "/new/thumb.png")
+
+    def test_delete_project_endpoint_removes_orphaned_contributors_and_languages(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Delete Me", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Delete Me",),
+            ).fetchone()["id"]
+
+            conn.execute(
+                "INSERT INTO scans (project, notes) VALUES (?, ?)",
+                ("Delete Me", "notes"),
+            )
+            scan_id = conn.execute(
+                "SELECT id FROM scans WHERE project = ?",
+                ("Delete Me",),
+            ).fetchone()["id"]
+
+            conn.execute(
+                """
+                INSERT INTO files
+                (scan_id, file_name, file_path, file_extension, file_size, created_at, modified_at, owner, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    scan_id,
+                    "main.py",
+                    "/tmp/main.py",
+                    ".py",
+                    10,
+                    None,
+                    None,
+                    "alice",
+                    "{}",
+                ),
+            )
+            file_id = conn.execute(
+                "SELECT id FROM files WHERE scan_id = ?",
+                (scan_id,),
+            ).fetchone()["id"]
+
+            conn.execute("INSERT INTO contributors (name) VALUES (?)", ("alice",))
+            contributor_id = conn.execute(
+                "SELECT id FROM contributors WHERE name = ?",
+                ("alice",),
+            ).fetchone()["id"]
+
+            conn.execute("INSERT INTO languages (name) VALUES (?)", ("Python",))
+            language_id = conn.execute(
+                "SELECT id FROM languages WHERE name = ?",
+                ("Python",),
+            ).fetchone()["id"]
+
+            conn.execute(
+                "INSERT INTO file_contributors (file_id, contributor_id) VALUES (?, ?)",
+                (file_id, contributor_id),
+            )
+            conn.execute(
+                "INSERT INTO file_languages (file_id, language_id) VALUES (?, ?)",
+                (file_id, language_id),
+            )
+            conn.commit()
+
+        resp = self.client.delete(f"/projects/{project_id}")
+        self.assertEqual(resp.status_code, 200)
+
+        with api_mod.get_connection() as conn:
+            contributor_row = conn.execute(
+                "SELECT id FROM contributors WHERE name = ?",
+                ("alice",),
+            ).fetchone()
+            language_row = conn.execute(
+                "SELECT id FROM languages WHERE name = ?",
+                ("Python",),
+            ).fetchone()
+
+        self.assertIsNone(contributor_row)
+        self.assertIsNone(language_row)   
+
 
 if __name__ == "__main__":
     unittest.main()
