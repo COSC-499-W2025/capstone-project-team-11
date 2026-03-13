@@ -1752,12 +1752,25 @@ def run_with_saved_settings(
 # PER-PROJECT SCAN HELPERS [used by scan_with_clean_output()]
 # =============================================================================
 
-def _scan_single_project_phases(project_root: str, progress: ScanProgress) -> dict:
+def _scan_single_project_phases(
+    project_root: str,
+    progress: ScanProgress,
+    manual_contributors=None,
+    prompt_for_manual_contributors: bool = True,
+    progress_callback=None,
+) -> dict:
     """Run language/skill/contributor detection for a single project root.
 
     Returns dict with detection results for CLI display and DB persistence.
     """
     # Phase: Detecting Languages & Frameworks
+    if progress_callback:
+        progress_callback({
+            "type": "project_phase",
+            "project_path": os.path.abspath(project_root),
+            "project_name": os.path.basename(os.path.abspath(project_root)),
+            "phase": "Detecting Languages & Frameworks",
+        })
     progress.header("Detecting Languages & Frameworks")
     langs_res, _, _ = _run_with_progress(
         detect_languages_and_frameworks, args=(project_root,), total_steps=25
@@ -1781,6 +1794,13 @@ def _scan_single_project_phases(project_root: str, progress: ScanProgress) -> di
         progress.item(f"Frameworks: {', '.join(frameworks_all[:3])} (low confidence)")
 
     # Phase: Detecting Skills
+    if progress_callback:
+        progress_callback({
+            "type": "project_phase",
+            "project_path": os.path.abspath(project_root),
+            "project_name": os.path.basename(os.path.abspath(project_root)),
+            "phase": "Detecting Skills",
+        })
     progress.header("Detecting Skills")
     skills_res, _, _ = _run_with_progress(
         detect_skills, args=(project_root,), total_steps=25
@@ -1793,6 +1813,13 @@ def _scan_single_project_phases(project_root: str, progress: ScanProgress) -> di
         progress.item("None detected")
 
     # Phase: Analyzing Project
+    if progress_callback:
+        progress_callback({
+            "type": "project_phase",
+            "project_path": os.path.abspath(project_root),
+            "project_name": os.path.basename(os.path.abspath(project_root)),
+            "phase": "Analyzing Project",
+        })
     progress.header("Analyzing Project")
     metrics = None
     contributors = []
@@ -1819,9 +1846,13 @@ def _scan_single_project_phases(project_root: str, progress: ScanProgress) -> di
     # Prompt manual contributor assignment for non-git projects
     has_real_contributors = contributors and contributors != ['Unknown']
     if not has_real_contributors and _find_git_root(project_root) is None:
-        manual = _prompt_manual_contributors(os.path.basename(os.path.abspath(project_root)))
+        manual = manual_contributors or []
         if manual:
             contributors = manual
+        elif prompt_for_manual_contributors:
+            manual = _prompt_manual_contributors(os.path.basename(os.path.abspath(project_root)))
+            if manual:
+                contributors = manual
 
     for i in range(25):
         progress.progress(i + 1, 25)
@@ -1915,10 +1946,15 @@ def scan_with_clean_output(
     save_to_db: bool = True,
     thumbnail_source: str = None,
     generate_llm_summary: bool = False,
+    manual_contributors_by_path=None,
+    prompt_for_manual_contributors: bool = True,
+    prompt_between_projects: bool = True,
+    progress_callback=None,
 ) -> dict:
     
     # Unified scan entry point with clean CLI output (returns dict with scan results)
     progress = get_scan_progress(reset=True)
+    manual_contributors_by_path = manual_contributors_by_path or {}
 
     if not directory:
         print("Error: No directory provided.")
@@ -1942,6 +1978,8 @@ def scan_with_clean_output(
 
     try:
         # PHASE 1: Scanning Files
+        if progress_callback:
+            progress_callback({"type": "scan_phase", "phase": "Scanning Files"})
         progress.header("Scanning Files")
 
         # Count files for progress display
@@ -1993,6 +2031,20 @@ def scan_with_clean_output(
 
         if is_multi:
             progress.item(f"Multiple projects detected ({len(repo_roots)})! Scan times may vary.")
+        if progress_callback:
+            progress_callback({
+                "type": "projects_detected",
+                "total_projects": len(repo_roots) if is_multi else 1,
+                "projects": [
+                    {
+                        "project_name": os.path.basename(os.path.abspath(root)),
+                        "project_path": os.path.abspath(root),
+                        "is_git": _find_git_root(root) is not None,
+                        "requires_contributor_assignment": _find_git_root(root) is None,
+                    }
+                    for root in (repo_roots if is_multi else [scan_target])
+                ],
+            })
 
         # Build file metadata shared by single and multi-project paths
         file_meta = {}
@@ -2007,7 +2059,13 @@ def scan_with_clean_output(
             # =================================================================
             # SINGLE PROJECT PATH
             # =================================================================
-            result_data = _scan_single_project_phases(scan_target, progress)
+            result_data = _scan_single_project_phases(
+                scan_target,
+                progress,
+                manual_contributors=manual_contributors_by_path.get(os.path.abspath(scan_target)),
+                prompt_for_manual_contributors=prompt_for_manual_contributors,
+                progress_callback=progress_callback,
+            )
 
             # Store results for progress.complete() summary
             progress.store('languages', result_data['high_conf_langs'] or result_data['languages_all'])
@@ -2054,11 +2112,19 @@ def scan_with_clean_output(
 
             progress.complete(project_name, output_dir)
 
-            return {
+            result = {
                 'success': True,
+                'partial_success': False,
                 'is_multi_project': False,
                 'project_name': project_name,
                 'project_names': [project_name],
+                'project_results': [{
+                    'project_name': project_name,
+                    'project_path': os.path.abspath(scan_target),
+                    'success': True,
+                    'contributors': result_data['contributors'],
+                }],
+                'failed_projects': [],
                 'output_dir': output_dir,
                 'files_found': len(files_found),
                 'languages': result_data['high_conf_langs'] or result_data['languages_all'],
@@ -2067,6 +2133,9 @@ def scan_with_clean_output(
                 'contributors': result_data['contributors'],
                 'project_type': result_data['collab_status'],
             }
+            if progress_callback:
+                progress_callback({"type": "scan_completed", **result})
+            return result
 
         else:
             # =================================================================
@@ -2077,69 +2146,119 @@ def scan_with_clean_output(
             repo_file_map = _map_files_to_repos(files_found, repo_roots)
 
             detected_project_names = []
+            project_results = []
+            failed_projects = []
 
             for idx, repo_root in enumerate(repo_roots):
                 proj_name = os.path.basename(os.path.abspath(repo_root))
                 files_for_repo = repo_file_map.get(repo_root, [])
+                if progress_callback:
+                    progress_callback({
+                        "type": "project_started",
+                        "project_index": idx + 1,
+                        "total_projects": len(repo_roots),
+                        "project_name": proj_name,
+                        "project_path": os.path.abspath(repo_root),
+                        "files_found": len(files_for_repo),
+                    })
 
-                # Print project banner
-                print(f"\n{'=' * 50}")
-                print(f"  Project {idx + 1}/{len(repo_roots)}: {proj_name}")
-                print(f"{'=' * 50}")
-                progress.item(f"{len(files_for_repo)} files in this project")
+                try:
+                    print(f"\n{'=' * 50}")
+                    print(f"  Project {idx + 1}/{len(repo_roots)}: {proj_name}")
+                    print(f"{'=' * 50}")
+                    progress.item(f"{len(files_for_repo)} files in this project")
 
-                # Run language/skill/contributor detection for this project
-                proj_result = _scan_single_project_phases(repo_root, progress)
-
-                # Update file ownership for non-git projects with manual contributors
-                if proj_result['contributors'] and _find_git_root(repo_root) is None:
-                    owner_val = _format_owner_from_names(proj_result['contributors'])
-                    for f_item in files_for_repo:
-                        f_display = f_item[0] if isinstance(f_item, tuple) else f_item
-                        if f_display in file_meta and isinstance(file_meta[f_display], dict):
-                            file_meta[f_display]['owner'] = owner_val
-
-                detected_project_names.append(proj_name)
-
-                # Save this project to DB
-                if save_to_db:
-                    _persist_single_project(
-                        repo_root, proj_name, files_for_repo,
-                        proj_result, file_meta, generate_llm_summary,
+                    proj_result = _scan_single_project_phases(
+                        repo_root,
+                        progress,
+                        manual_contributors=manual_contributors_by_path.get(os.path.abspath(repo_root)),
+                        prompt_for_manual_contributors=prompt_for_manual_contributors,
+                        progress_callback=progress_callback,
                     )
-                    progress.item(f"Saved to database: {proj_name}")
 
-                # Generate TXT/JSON summary
-                if output_project_info is not None:
-                    try:
-                        skills_res = proj_result.get('skills_res') or {}
-                        contrib_data = identify_contributions(repo_root, write_output=False)
-                        proj_info = {
+                    if proj_result['contributors'] and _find_git_root(repo_root) is None:
+                        owner_val = _format_owner_from_names(proj_result['contributors'])
+                        for f_item in files_for_repo:
+                            f_display = f_item[0] if isinstance(f_item, tuple) else f_item
+                            if f_display in file_meta and isinstance(file_meta[f_display], dict):
+                                file_meta[f_display]['owner'] = owner_val
+
+                    detected_project_names.append(proj_name)
+
+                    if save_to_db:
+                        _persist_single_project(
+                            repo_root, proj_name, files_for_repo,
+                            proj_result, file_meta, generate_llm_summary,
+                        )
+                        progress.item(f"Saved to database: {proj_name}")
+
+                    if output_project_info is not None:
+                        try:
+                            skills_res = proj_result.get('skills_res') or {}
+                            contrib_data = identify_contributions(repo_root, write_output=False)
+                            proj_info = {
+                                "project_name": proj_name,
+                                "project_path": os.path.abspath(repo_root),
+                                "detected_type": "coding_project",
+                                "languages": skills_res.get("languages", []),
+                                "frameworks": skills_res.get("frameworks", []),
+                                "skills": skills_res.get("skills", []),
+                                "high_confidence_languages": skills_res.get("high_confidence_languages", []),
+                                "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
+                                "low_confidence_languages": skills_res.get("low_confidence_languages", []),
+                                "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
+                                "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
+                                "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
+                                "contributions": contrib_data,
+                                "git_metrics": proj_result.get('metrics'),
+                                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                            }
+                            proj_output_dir = os.path.join("output", proj_name)
+                            os.makedirs(proj_output_dir, exist_ok=True)
+                            output_project_info(proj_info, output_dir=proj_output_dir, quiet=True)
+                            progress.item(f"Summary files written to output/{proj_name}/")
+                        except Exception:
+                            pass
+
+                    project_results.append({
+                        "project_name": proj_name,
+                        "project_path": os.path.abspath(repo_root),
+                        "success": True,
+                        "contributors": proj_result['contributors'],
+                    })
+                    if progress_callback:
+                        progress_callback({
+                            "type": "project_completed",
+                            "project_index": idx + 1,
+                            "total_projects": len(repo_roots),
                             "project_name": proj_name,
                             "project_path": os.path.abspath(repo_root),
-                            "detected_type": "coding_project",
-                            "languages": skills_res.get("languages", []),
-                            "frameworks": skills_res.get("frameworks", []),
-                            "skills": skills_res.get("skills", []),
-                            "high_confidence_languages": skills_res.get("high_confidence_languages", []),
-                            "medium_confidence_languages": skills_res.get("medium_confidence_languages", []),
-                            "low_confidence_languages": skills_res.get("low_confidence_languages", []),
-                            "high_confidence_frameworks": skills_res.get("high_confidence_frameworks", []),
-                            "medium_confidence_frameworks": skills_res.get("medium_confidence_frameworks", []),
-                            "low_confidence_frameworks": skills_res.get("low_confidence_frameworks", []),
-                            "contributions": contrib_data,
-                            "git_metrics": proj_result.get('metrics'),
-                            "generated_at": datetime.now().isoformat(timespec="seconds"),
-                        }
-                        proj_output_dir = os.path.join("output", proj_name)
-                        os.makedirs(proj_output_dir, exist_ok=True)
-                        output_project_info(proj_info, output_dir=proj_output_dir, quiet=True)
-                        progress.item(f"Summary files written to output/{proj_name}/")
-                    except Exception:
-                        pass
+                            "success": True,
+                        })
+                except Exception as exc:
+                    failed_projects.append({
+                        "project_name": proj_name,
+                        "project_path": os.path.abspath(repo_root),
+                        "error": str(exc),
+                    })
+                    project_results.append({
+                        "project_name": proj_name,
+                        "project_path": os.path.abspath(repo_root),
+                        "success": False,
+                        "error": str(exc),
+                    })
+                    progress.item(f"Project failed: {proj_name} ({exc})")
+                    if progress_callback:
+                        progress_callback({
+                            "type": "project_failed",
+                            "project_index": idx + 1,
+                            "total_projects": len(repo_roots),
+                            "project_name": proj_name,
+                            "project_path": os.path.abspath(repo_root),
+                            "error": str(exc),
+                        })
 
-                # Prompt before next project (skip after the last one)
-                if idx < len(repo_roots) - 1:
+                if prompt_between_projects and idx < len(repo_roots) - 1:
                     next_name = os.path.basename(os.path.abspath(repo_roots[idx + 1]))
                     if not ask_yes_no(f"\nReady to proceed with next project? ({next_name}) (y/n): ", default=True):
                         progress.item("Remaining projects skipped by user.")
@@ -2151,11 +2270,14 @@ def scan_with_clean_output(
             for pn in detected_project_names:
                 progress.item(pn)
 
-            return {
-                'success': True,
+            result = {
+                'success': bool(detected_project_names),
+                'partial_success': bool(detected_project_names) and bool(failed_projects),
                 'is_multi_project': True,
                 'project_name': project_name,
                 'project_names': detected_project_names,
+                'project_results': project_results,
+                'failed_projects': failed_projects,
                 'output_dir': None,
                 'files_found': len(files_found),
                 'languages': [],
@@ -2164,6 +2286,9 @@ def scan_with_clean_output(
                 'contributors': [],
                 'project_type': 'Multiple Projects',
             }
+            if progress_callback:
+                progress_callback({"type": "scan_completed", **result})
+            return result
 
     finally:
         if zip_extract_ctx is not None:

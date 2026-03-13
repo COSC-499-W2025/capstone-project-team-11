@@ -4,6 +4,8 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+import zipfile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -235,6 +237,108 @@ class TestAPI(unittest.TestCase):
         resp_list = self.client.get("/projects")
         self.assertEqual(resp_list.status_code, 200)
         self.assertTrue(isinstance(resp_list.json(), list))
+
+    def test_scan_plan_reports_projects_and_existing_contributors(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+
+        root_dir = os.path.join(self.tmpdir.name, "workspace")
+        git_project = os.path.join(root_dir, "git_project")
+        nongit_project = os.path.join(root_dir, "nongit_project")
+        os.makedirs(os.path.join(git_project, ".git"), exist_ok=True)
+        os.makedirs(nongit_project, exist_ok=True)
+
+        with open(os.path.join(git_project, "main.py"), "w", encoding="utf-8") as fh:
+            fh.write("print('git')\n")
+        with open(os.path.join(nongit_project, "app.js"), "w", encoding="utf-8") as fh:
+            fh.write("console.log('nongit');\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute("INSERT INTO contributors (name) VALUES (?)", ("alice",))
+            conn.commit()
+
+        resp = self.client.post("/projects/scan-plan", json={"project_path": root_dir})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["total_projects"], 2)
+        self.assertIn("alice", body["existing_contributors"])
+        projects = {item["project_name"]: item for item in body["projects"]}
+        self.assertTrue(projects["git_project"]["is_git"])
+        self.assertFalse(projects["git_project"]["requires_contributor_assignment"])
+        self.assertFalse(projects["nongit_project"]["is_git"])
+        self.assertTrue(projects["nongit_project"]["requires_contributor_assignment"])
+
+    def test_scan_plan_for_zip_detects_inner_projects_not_zip_file(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+
+        source_dir = os.path.join(self.tmpdir.name, "zip_workspace")
+        git_project = os.path.join(source_dir, "git_project")
+        other_project = os.path.join(source_dir, "other_project")
+        os.makedirs(os.path.join(git_project, ".git"), exist_ok=True)
+        os.makedirs(other_project, exist_ok=True)
+
+        with open(os.path.join(git_project, "main.py"), "w", encoding="utf-8") as fh:
+            fh.write("print('git')\n")
+        with open(os.path.join(other_project, "app.js"), "w", encoding="utf-8") as fh:
+            fh.write("console.log('other');\n")
+
+        zip_path = os.path.join(self.tmpdir.name, "projects.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for root, _, files in os.walk(source_dir):
+                for file_name in files:
+                    full_path = os.path.join(root, file_name)
+                    rel_path = os.path.relpath(full_path, source_dir)
+                    zf.write(full_path, arcname=rel_path)
+
+        resp = self.client.post("/projects/scan-plan", json={"project_path": zip_path})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["total_projects"], 2)
+        project_names = sorted(item["project_name"] for item in body["projects"])
+        self.assertEqual(project_names, ["git_project", "other_project"])
+        self.assertTrue(all(not item["project_name"].endswith(".zip") for item in body["projects"]))
+
+    def test_scan_stream_includes_structured_multi_project_results(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+
+        root_dir = os.path.join(self.tmpdir.name, "stream_project")
+        os.makedirs(root_dir, exist_ok=True)
+
+        fake_result = {
+            "success": True,
+            "partial_success": True,
+            "project_name": "workspace",
+            "project_names": ["proj_a"],
+            "project_results": [
+                {"project_name": "proj_a", "project_path": "/tmp/proj_a", "success": True},
+                {"project_name": "proj_b", "project_path": "/tmp/proj_b", "success": False, "error": "boom"},
+            ],
+            "failed_projects": [
+                {"project_name": "proj_b", "project_path": "/tmp/proj_b", "error": "boom"},
+            ],
+            "output_dir": None,
+            "error": None,
+        }
+
+        with patch.object(api_mod, "scan_with_clean_output", return_value=fake_result), \
+             patch.object(api_mod, "_load_latest_project_summary", return_value={"project_name": "proj_a"}), \
+             patch.object(api_mod, "_load_llm_summary", return_value=None):
+            with self.client.stream(
+                "POST",
+                "/projects/scan-stream",
+                json={
+                    "project_path": root_dir,
+                    "manual_contributors_by_path": {"/tmp/proj_b": ["alice"]},
+                },
+            ) as resp:
+                self.assertEqual(resp.status_code, 200)
+                body = "".join(resp.iter_text())
+
+        self.assertIn("SCAN_DONE::", body)
+        payload = json.loads(body.split("SCAN_DONE::", 1)[1].strip())
+        self.assertTrue(payload["success"])
+        self.assertTrue(payload["partial_success"])
+        self.assertEqual(len(payload["failed_projects"]), 1)
+        self.assertEqual(payload["failed_projects"][0]["project_name"], "proj_b")
 
     def test_project_detail_and_skills(self):
         with db_mod.get_connection() as conn:
