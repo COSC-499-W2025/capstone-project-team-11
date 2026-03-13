@@ -84,7 +84,7 @@ describe("ScannedProjectsPage", () => {
 
     expect(await screen.findByText(/demo_project/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Edit Project/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Edit Project/i }));
 
     const displayNameInput = await screen.findByDisplayValue("");
     const repoUrlInput = screen.getByDisplayValue("https://old-url.com");
@@ -138,6 +138,8 @@ describe("ScannedProjectsPage", () => {
     axios.delete.mockResolvedValueOnce({ data: { message: "Project deleted successfully" } });
 
     render(<ScannedProjectsPage onBack={() => {}} />);
+
+    expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
 

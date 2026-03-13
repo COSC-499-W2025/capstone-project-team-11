@@ -65,6 +65,16 @@ function ScannedProjectsPage({ onBack }) {
     loadProjectDetails();
   }, [selectedProjectId]);
 
+
+
+  useEffect(() => {
+    if (selectedProject && isEditing) {
+      setEditCustomName(selectedProject.project?.custom_name || '');
+      setEditRepoUrl(selectedProject.project?.repo_url || '');
+      setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+    }
+  }, [selectedProject, isEditing]);
+
   const handleEditProject = () => {
     if (!selectedProject) {
       return;
