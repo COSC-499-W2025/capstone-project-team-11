@@ -305,6 +305,16 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
     }
 
 
+@app.get("/config")
+def get_config() -> Dict[str, bool]:
+    current = load_config(default_config_path())
+    return {
+        "data_consent": bool(current.get("data_consent", False)),
+        "llm_summary_consent": bool(current.get("llm_summary_consent", False)),
+        "llm_resume_consent": bool(current.get("llm_resume_consent", False)),
+    }
+
+
 @app.post("/projects/upload", status_code=201)
 def upload_project(payload: ProjectUploadRequest):
     # Enforce the same consent gate used by the CLI scanner.
@@ -633,11 +643,15 @@ def list_skills():
 
 @app.get("/contributors")
 def list_contributors():
+    blacklist = {"githubclassroombot", "unknown", "n/a", "none"}
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name"
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
         ).fetchall()
-    return [row["name"] for row in rows]
+    return sorted(
+        row["name"] for row in rows
+        if row["name"].lower() not in blacklist
+    )
 
 
 @app.get("/rank-projects")
@@ -730,6 +744,43 @@ def get_resume(resume_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Resume not found")
     return _resume_payload(row)
+
+
+@app.get("/resumes")
+def list_resumes(username: Optional[str] = Query(default=None)):
+    username_filter = (username or "").strip()
+    with get_connection() as conn:
+        if username_filter:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                WHERE username = ?
+                ORDER BY generated_at DESC
+                """,
+                (username_filter,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                ORDER BY generated_at DESC
+                """
+            ).fetchall()
+
+    items = []
+    for row in rows:
+        metadata = _parse_metadata(row["metadata_json"])
+        items.append(
+            {
+                "id": row["id"],
+                "username": row["username"],
+                "generated_at": row["generated_at"],
+                "llm_used": bool(metadata.get("llm_summary")),
+            }
+        )
+    return items
 
 
 @app.post("/resume/generate", status_code=201)
