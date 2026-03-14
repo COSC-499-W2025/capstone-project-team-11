@@ -12,6 +12,10 @@ describe("ScannedProjectsPage", () => {
     window.confirm = vi.fn(() => true);
   });
 
+  afterEach(() => {
+    delete window.api;
+  });
+
   test("renders back button and empty state", async () => {
     axios.get.mockResolvedValueOnce({ data: [] });
 
@@ -113,6 +117,7 @@ describe("ScannedProjectsPage", () => {
   });
 
   test("delete confirmation uses project name", async () => {
+    window.confirm = vi.fn(() => false);
     axios.get
       .mockResolvedValueOnce({
         data: [{ id: 1, name: "demo_project", custom_name: "Pretty Project Name" }],
@@ -138,8 +143,6 @@ describe("ScannedProjectsPage", () => {
         },
       });
 
-    axios.delete.mockResolvedValueOnce({ data: { message: "Project deleted successfully" } });
-
     render(<ScannedProjectsPage onBack={() => {}} />);
 
     expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
@@ -148,6 +151,79 @@ describe("ScannedProjectsPage", () => {
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Are you sure you want to delete "Pretty Project Name"?'
+    );
+  });
+
+  test("uses file picker to change thumbnail and renders preview", async () => {
+    axios.get
+      .mockResolvedValueOnce({
+        data: [{ id: 1, name: "demo_project", custom_name: null }],
+      })
+      .mockResolvedValueOnce({
+        data: {
+          project: {
+            id: 1,
+            name: "demo_project",
+            custom_name: null,
+            repo_url: "https://old-url.com",
+            created_at: "2025-01-01",
+            thumbnail_path: null,
+          },
+          skills: [],
+          languages: [],
+          contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
+          scans: [],
+          files_summary: { total_files: 0, extensions: {} },
+          evidence: [],
+          llm_summary: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          project: {
+            id: 1,
+            name: "demo_project",
+            custom_name: null,
+            repo_url: "https://old-url.com",
+            created_at: "2025-01-01",
+            thumbnail_path: "/picked/thumb.png",
+          },
+          skills: [],
+          languages: [],
+          contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
+          scans: [],
+          files_summary: { total_files: 0, extensions: {} },
+          evidence: [],
+          llm_summary: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 1, name: "demo_project", custom_name: null }],
+      });
+
+    axios.patch.mockResolvedValueOnce({ data: {} });
+    window.api = {
+      openThumbnailDialog: vi.fn().mockResolvedValue("/picked/thumb.png"),
+    };
+
+    render(<ScannedProjectsPage onBack={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Add Thumbnail/i }));
+
+    await waitFor(() => {
+      expect(window.api.openThumbnailDialog).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(axios.patch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/projects\/1$/),
+        { thumbnail_path: "/picked/thumb.png" }
+      );
+    });
+    expect(await screen.findByRole("img", { name: /demo_project thumbnail/i })).toHaveAttribute(
+      "src",
+      "http://127.0.0.1:8000/projects/1/thumbnail/image?v=%2Fpicked%2Fthumb.png"
     );
   });
 
