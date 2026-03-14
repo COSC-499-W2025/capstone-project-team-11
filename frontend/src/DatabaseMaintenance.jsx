@@ -7,6 +7,7 @@ function DatabaseMaintenance({ onBack }) {
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     inspectDatabase();
@@ -126,14 +127,25 @@ function DatabaseMaintenance({ onBack }) {
     setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // modified functions to show "functionality to be added later"
   const clearDatabase = () => {
-    alert("Clear database functionality to be added later.");
+    setShowConfirmModal(true);
   };
 
-  const loadProjects = () => {
-    alert("Delete project functionality to be added later.");
+  const confirmClearDatabase = async () => {
+    setShowConfirmModal(false);
+
+    try {
+      await axios.delete(`${API_BASE_URL}/database/clear`);
+      inspectDatabase();
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  const cancelClearDatabase = () => {
+    setShowConfirmModal(false);
+  };
+
 
   const renderTables = () => {
     const tableNames = Object.keys(tables);
@@ -194,8 +206,7 @@ function DatabaseMaintenance({ onBack }) {
         <section className="scan-panel">
           <h2>Database Tools</h2>
           <button onClick={inspectDatabase}>Refresh Database</button>
-          <button onClick={clearDatabase}>Clear Database</button>
-          <button className="danger" onClick={loadProjects}>Delete Project</button>
+          <button className="danger" onClick={clearDatabase}>Clear Database</button>
           <button className="secondary" onClick={onBack}>Back to Main Menu</button>
         </section>
 
@@ -205,6 +216,30 @@ function DatabaseMaintenance({ onBack }) {
           {content}
         </section>
       </div>
+
+      {showConfirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Clear Database</h3>
+
+            <p>
+              Are you sure you want to delete all database data?
+              <br />
+              <strong>This action cannot be undone.</strong>
+            </p>
+
+            <div className="modal-actions">
+              <button className="danger" onClick={confirmClearDatabase}>
+                Yes, Clear Database
+              </button>
+
+              <button className="secondary" onClick={cancelClearDatabase}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

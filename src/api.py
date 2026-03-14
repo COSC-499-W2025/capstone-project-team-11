@@ -1202,6 +1202,36 @@ from inspect_db import inspect_database_json
 def api_inspect_database():
     return inspect_database_json()
 
+@app.delete("/database/clear")
+def clear_database():
+    from db import get_connection
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Disable FK checks
+    cur.execute("PRAGMA foreign_keys = OFF;")
+
+    tables = cur.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name NOT LIKE 'sqlite_%';
+    """).fetchall()
+
+    for (table,) in tables:
+        cur.execute(f"DELETE FROM {table};")
+
+    # reset autoincrement ids
+    cur.execute("DELETE FROM sqlite_sequence;")
+
+    conn.commit()
+
+    # Re-enable FK checks
+    cur.execute("PRAGMA foreign_keys = ON;")
+
+    conn.close()
+
+    return {"message": "Database cleared successfully"}
+
 app.include_router(web_router)
 
 @app.delete("/projects/{project_id}")
