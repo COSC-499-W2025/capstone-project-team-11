@@ -39,6 +39,7 @@ describe("ScannedProjectsPage", () => {
           skills: [],
           languages: [],
           contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
           scans: [],
           files_summary: { total_files: 0, extensions: {} },
           evidence: [],
@@ -58,6 +59,7 @@ describe("ScannedProjectsPage", () => {
           skills: [],
           languages: [],
           contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
           scans: [],
           files_summary: { total_files: 0, extensions: {} },
           evidence: [],
@@ -128,6 +130,7 @@ describe("ScannedProjectsPage", () => {
           skills: [],
           languages: [],
           contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
           scans: [],
           files_summary: { total_files: 0, extensions: {} },
           evidence: [],
@@ -146,5 +149,58 @@ describe("ScannedProjectsPage", () => {
     expect(window.confirm).toHaveBeenCalledWith(
       'Are you sure you want to delete "Pretty Project Name"?'
     );
+  });
+
+  test("renders contributor role assignments in project details", async () => {
+    axios.get
+      .mockResolvedValueOnce({
+        data: [{ id: 1, name: "demo_project", custom_name: null }],
+      })
+      .mockResolvedValueOnce({
+        data: {
+          project: {
+            id: 1,
+            name: "demo_project",
+            custom_name: null,
+            repo_url: null,
+            created_at: "2025-01-01",
+            thumbnail_path: null,
+          },
+          skills: [],
+          languages: ["Python"],
+          contributors: ["alice"],
+          contributor_roles: {
+            contributors: [
+              {
+                name: "alice",
+                primary_role: "Backend Developer",
+                role_description: "Develops and maintains server-side systems, APIs, and business logic",
+                secondary_roles: ["Quality Assurance Developer"],
+                confidence: 0.82,
+              },
+            ],
+            summary: {
+              team_composition: "1 Backend Developer",
+            },
+          },
+          scans: [],
+          files_summary: { total_files: 3, extensions: { ".py": 3 } },
+          evidence: [],
+          llm_summary: null,
+        },
+      });
+
+    render(<ScannedProjectsPage onBack={() => {}} />);
+
+    expect(await screen.findByText(/^Contributor Roles$/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        (content, element) =>
+          element?.classList?.contains("contributor-role-primary") &&
+          content.includes("Backend Developer")
+      )
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Confidence: 82%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Team Composition: 1 Backend Developer/i)).toBeInTheDocument();
   });
 });

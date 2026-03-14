@@ -34,6 +34,8 @@ from generate_resume import (
 )
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
+from contrib_metrics import classify_file
+from detect_roles import analyze_project_roles
 from scan import (
     run_with_saved_settings,
     scan_with_clean_output,
@@ -283,6 +285,68 @@ def _list_existing_contributors() -> List[str]:
             "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
         ).fetchall()
     return [row["name"] for row in rows]
+
+
+def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str, Any]:
+    """Infer contributor roles for a project from per-file activity in all scans."""
+    if not project_name:
+        return {"contributors": [], "summary": {}}
+
+    rows = conn.execute(
+        """
+        SELECT c.name AS contributor_name, f.file_path
+        FROM scans s
+        JOIN files f ON f.scan_id = s.id
+        JOIN file_contributors fc ON fc.file_id = f.id
+        JOIN contributors c ON c.id = fc.contributor_id
+        WHERE s.project = ?
+          AND c.name IS NOT NULL
+          AND TRIM(c.name) <> ''
+        """,
+        (project_name,),
+    ).fetchall()
+
+    if not rows:
+        return {"contributors": [], "summary": {}}
+
+    contributors_data: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        contributor_name = row["contributor_name"]
+        file_path = row["file_path"] or ""
+
+        if contributor_name not in contributors_data:
+            contributors_data[contributor_name] = {
+                "files_changed": set(),
+                "activity_by_category": {
+                    "code": 0,
+                    "test": 0,
+                    "docs": 0,
+                    "design": 0,
+                    "other": 0,
+                },
+            }
+
+        file_set = contributors_data[contributor_name]["files_changed"]
+        if file_path and file_path not in file_set:
+            file_set.add(file_path)
+            category = classify_file(file_path)
+            activity = contributors_data[contributor_name]["activity_by_category"]
+            activity[category] = activity.get(category, 0) + 1
+
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for name, data in contributors_data.items():
+        files_changed = sorted(data["files_changed"])
+        file_count = len(files_changed)
+        normalized[name] = {
+            "files_changed": files_changed,
+            # Keep estimate strategy aligned with detect_roles DB loaders.
+            "commits": max(1, file_count),
+            "lines_added": file_count * 50,
+            "lines_removed": file_count * 10,
+            "activity_by_category": data["activity_by_category"],
+        }
+
+    return analyze_project_roles(normalized)
 
 
 @app.post("/privacy-consent")
@@ -622,12 +686,14 @@ def get_project(project_id: int):
         ).fetchall()
 
         llm_summary = _load_llm_summary(project["name"])
+        contributor_roles = _compute_project_contributor_roles(conn, project["name"])
 
     return {
         "project": dict(project),
         "skills": [row["name"] for row in skill_rows],
         "languages": languages,
         "contributors": contributors,
+        "contributor_roles": contributor_roles,
         "scans": [dict(row) for row in scans],
         "files_summary": files_summary,
         "evidence": [dict(row) for row in evidence_rows],
