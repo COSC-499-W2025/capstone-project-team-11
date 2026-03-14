@@ -214,6 +214,90 @@ class TestAPI(unittest.TestCase):
             data = json.load(fh)
         self.assertTrue(data.get("data_consent"))
 
+    def test_get_config_returns_consent_flags(self):
+        # Write a known config state using the privacy-consent endpoint first
+        self.client.post("/privacy-consent", json={
+            "data_consent": True,
+            "llm_summary_consent": False,
+            "llm_resume_consent": True,
+        })
+
+        resp = self.client.get("/config")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("data_consent", body)
+        self.assertIn("llm_summary_consent", body)
+        self.assertIn("llm_resume_consent", body)
+        self.assertIsInstance(body["data_consent"], bool)
+        self.assertIsInstance(body["llm_summary_consent"], bool)
+        self.assertIsInstance(body["llm_resume_consent"], bool)
+        self.assertTrue(body["data_consent"])
+        self.assertFalse(body["llm_summary_consent"])
+        self.assertTrue(body["llm_resume_consent"])
+
+    def test_list_resumes_empty(self):
+        resp = self.client.get("/resumes")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+    def test_list_resumes_filters_by_username(self):
+        # Seed two resumes for different users directly into the DB
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+
+        alice_path = os.path.join(resume_dir, "resume_alice.md")
+        bob_path = os.path.join(resume_dir, "resume_bob.md")
+        with open(alice_path, "w") as f:
+            f.write("# Resume — alice\n")
+        with open(bob_path, "w") as f:
+            f.write("# Resume — bob\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", alice_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("bob", bob_path, "{}", "2026-01-02 10:00:00Z"),
+            )
+            conn.commit()
+
+        resp = self.client.get("/resumes?username=alice")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.json()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["username"], "alice")
+
+    def test_list_resumes_llm_used_flag(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+
+        llm_path = os.path.join(resume_dir, "resume_llm.md")
+        no_llm_path = os.path.join(resume_dir, "resume_no_llm.md")
+        with open(llm_path, "w") as f:
+            f.write("# Resume — alice\n")
+        with open(no_llm_path, "w") as f:
+            f.write("# Resume — alice\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", llm_path, json.dumps({"llm_summary": "Some summary text"}), "2026-01-01 10:00:00Z"),
+            )
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", no_llm_path, json.dumps({}), "2026-01-02 10:00:00Z"),
+            )
+            conn.commit()
+
+        resp = self.client.get("/resumes?username=alice")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.json()
+        # ordered by generated_at DESC so no_llm is first
+        self.assertFalse(results[0]["llm_used"])
+        self.assertTrue(results[1]["llm_used"])
+
     def test_projects_upload_and_list(self):
         self.client.post("/privacy-consent", json={"data_consent": True})
         project_dir = os.path.join(self.tmpdir.name, "project")
