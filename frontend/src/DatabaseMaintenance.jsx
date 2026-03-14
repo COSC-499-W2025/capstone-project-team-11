@@ -127,8 +127,24 @@ function DatabaseMaintenance({ onBack }) {
   };
 
   // modified functions to show "functionality to be added later"
-  const clearDatabase = () => {
-    alert("Delete project functionality to be added later.");
+  const clearDatabase = async () => {
+    const confirmClear = window.confirm(
+      "Are you sure you want to clear the entire database? This cannot be undone."
+    );
+
+    if (!confirmClear) return;
+
+    try {
+      await axios.delete(`${API_BASE_URL}/database/clear`);
+
+      alert("Database cleared successfully.");
+
+      // reload the tables so UI updates
+      inspectDatabase();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to clear database.");
+    }
   };
 
   const renderTables = () => {
