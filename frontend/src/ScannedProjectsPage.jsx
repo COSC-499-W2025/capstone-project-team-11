@@ -11,6 +11,11 @@ function ScannedProjectsPage({ onBack }) {
   const [projectsError, setProjectsError] = useState('');
   const [detailsError, setDetailsError] = useState('');
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCustomName, setEditCustomName] = useState('');
+  const [editRepoUrl, setEditRepoUrl] = useState('');
+  const [editThumbnailPath, setEditThumbnailPath] = useState('');
+
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoadingProjects(true);
@@ -39,6 +44,7 @@ function ScannedProjectsPage({ onBack }) {
   useEffect(() => {
     if (selectedProjectId == null) {
       setSelectedProject(null);
+      setIsEditing(false);
       return;
     }
 
@@ -59,44 +65,95 @@ function ScannedProjectsPage({ onBack }) {
     loadProjectDetails();
   }, [selectedProjectId]);
 
-const handleDeleteProject = async () => {
+
+
+  useEffect(() => {
+    if (selectedProject && isEditing) {
+      setEditCustomName(selectedProject.project?.custom_name || '');
+      setEditRepoUrl(selectedProject.project?.repo_url || '');
+      setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+    }
+  }, [selectedProject, isEditing]);
+
+  const handleEditProject = () => {
+    if (!selectedProject) {
+      return;
+    }
+
+    setEditCustomName(selectedProject.project?.custom_name || '');
+    setEditRepoUrl(selectedProject.project?.repo_url || '');
+    setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+    setIsEditing(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (selectedProjectId == null) {
+      return;
+    }
+
+    try {
+      await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
+        custom_name: editCustomName,
+        repo_url: editRepoUrl,
+        thumbnail_path: editThumbnailPath,
+      });
+
+      alert('Project updated successfully');
+      setIsEditing(false);
+
+      const detailsResponse = await axios.get(`${API_BASE_URL}/projects/${selectedProjectId}`);
+      setSelectedProject(detailsResponse.data);
+
+      const listResponse = await axios.get(`${API_BASE_URL}/projects`);
+      setProjects(Array.isArray(listResponse.data) ? listResponse.data : []);
+    } catch (error) {
+      console.error('Failed to update project:', error);
+      alert('Failed to update project.');
+    }
+  };
+
+  const handleDeleteProject = async () => {
   if (selectedProjectId == null) {
     return;
   }
 
+  const projectName =
+    selectedProject?.project?.custom_name ||
+    selectedProject?.project?.name ||
+    `Project ${selectedProjectId}`;
+
   const confirmed = window.confirm(
-    `Are you sure you want to delete project ${selectedProjectId}?`
+    `Are you sure you want to delete "${projectName}"?`
   );
 
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}`);
-    alert("Project deleted successfully");
-
-    const updatedProjects = projects.filter((project) => {
-      const projectId = project.project_id ?? project.id;
-      return projectId !== selectedProjectId;
-    });
-
-    setProjects(updatedProjects);
-
-    if (updatedProjects.length > 0) {
-      const nextId = updatedProjects[0].project_id ?? updatedProjects[0].id;
-      setSelectedProjectId(nextId);
-    } else {
-      setSelectedProjectId(null);
-      setSelectedProject(null);
+    if (!confirmed) {
+      return;
     }
-  } catch (error) {
-    console.error("Failed to delete project:", error);
-    alert("Failed to delete project.");
-  }
-};
 
+    try {
+      await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}`);
+      alert('Project deleted successfully');
 
+      const updatedProjects = projects.filter((project) => {
+        const projectId = project.project_id ?? project.id;
+        return projectId !== selectedProjectId;
+      });
+
+      setProjects(updatedProjects);
+      setIsEditing(false);
+
+      if (updatedProjects.length > 0) {
+        const nextId = updatedProjects[0].project_id ?? updatedProjects[0].id;
+        setSelectedProjectId(nextId);
+      } else {
+        setSelectedProjectId(null);
+        setSelectedProject(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert('Failed to delete project.');
+    }
+  };
 
   return (
     <div className="page-shell scanned-projects-page">
@@ -130,6 +187,7 @@ const handleDeleteProject = async () => {
               {projects.map((project) => {
                 const projectId = project.project_id ?? project.id;
                 const projectName =
+                  project.custom_name ??
                   project.display_name ??
                   project.name ??
                   project.project_name ??
@@ -161,26 +219,48 @@ const handleDeleteProject = async () => {
 
           {!isLoadingDetails && !detailsError && selectedProject && (
             <div className="project-details-card">
-              <h3>{selectedProject.project?.name || `Project ${selectedProjectId}`}</h3>
+              <h3>
+                {selectedProject.project?.custom_name ||
+                  selectedProject.project?.name ||
+                  `Project ${selectedProjectId}`}
+              </h3>
 
-            <div style={{ margin: "0.75rem 0 1rem" }}>
-              <button
-              type="button"
-              onClick={handleDeleteProject}
-              style={{
-                background: "#ef4444",
-                border: "none",
-                color: "white",
-                padding: "0.45rem 0.75rem",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "0.8rem",
-                fontWeight: 600
-              }}
-            >
-               Delete Project
-               </button>
-            </div>
+              <div style={{ margin: '0.75rem 0 1rem' }}>
+                <button
+                  type="button"
+                  onClick={handleEditProject}
+                  style={{
+                    background: '#3b82f6',
+                    border: 'none',
+                    color: 'white',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    marginRight: '0.5rem',
+                  }}
+                >
+                  Edit Project
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteProject}
+                  style={{
+                    background: '#ef4444',
+                    border: 'none',
+                    color: 'white',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Delete Project
+                </button>
+              </div>
 
               <div className="detail-row">
                 <strong>Project ID:</strong> {selectedProject.project?.id ?? selectedProjectId}
@@ -204,6 +284,79 @@ const handleDeleteProject = async () => {
                 </div>
               )}
 
+              {isEditing && (
+                <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+                  <h4>Edit Project Info</h4>
+
+                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
+                    <strong>Display Name:</strong>
+                    <input
+                      type="text"
+                      value={editCustomName}
+                      onChange={(e) => setEditCustomName(e.target.value)}
+                      style={{ marginLeft: '0.5rem', padding: '0.35rem' }}
+                    />
+                  </div>
+
+                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
+                    <strong>Repo URL:</strong>
+                    <input
+                      type="text"
+                      value={editRepoUrl}
+                      onChange={(e) => setEditRepoUrl(e.target.value)}
+                      style={{ marginLeft: '0.5rem', padding: '0.35rem', width: '60%' }}
+                    />
+                  </div>
+
+                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
+                    <strong>Thumbnail Path:</strong>
+                    <input
+                      type="text"
+                      value={editThumbnailPath}
+                      onChange={(e) => setEditThumbnailPath(e.target.value)}
+                      style={{ marginLeft: '0.5rem', padding: '0.35rem', width: '60%' }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <button
+                      type="button"
+                      onClick={handleSaveProject}
+                      style={{
+                        background: '#10b981',
+                        border: 'none',
+                        color: 'white',
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        marginRight: '0.5rem',
+                      }}
+                    >
+                      Save Changes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      style={{
+                        background: '#6b7280',
+                        border: 'none',
+                        color: 'white',
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {Array.isArray(selectedProject.languages) && selectedProject.languages.length > 0 && (
                 <div className="detail-row">
                   <strong>Languages:</strong> {selectedProject.languages.join(', ')}
@@ -223,25 +376,24 @@ const handleDeleteProject = async () => {
                   </div>
                 )}
 
+              {selectedProject.llm_summary?.text && (
+                <div style={{ marginTop: '1rem' }}>
+                  <strong>LLM Summary:</strong>
+                  <p style={{ marginTop: '0.35rem' }}>{selectedProject.llm_summary.text}</p>
 
-                {selectedProject.llm_summary?.text && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <strong>LLM Summary:</strong>
-                    <p style={{ marginTop: '0.35rem' }}>{selectedProject.llm_summary.text}</p>
+                  {selectedProject.llm_summary?.model && (
+                    <p style={{ marginTop: '0.35rem' }}>
+                      <strong>Model:</strong> {selectedProject.llm_summary.model}
+                    </p>
+                  )}
 
-                    {selectedProject.llm_summary?.model && (
-                      <p style={{ marginTop: '0.35rem' }}>
-                        <strong>Model:</strong> {selectedProject.llm_summary.model}
-                      </p>
-                    )}
-
-                    {selectedProject.llm_summary?.updated_at && (
-                      <p style={{ marginTop: '0.35rem' }}>
-                        <strong>Updated At:</strong> {selectedProject.llm_summary.updated_at}
-                      </p>
-                    )}
-                  </div>
-                )}            
+                  {selectedProject.llm_summary?.updated_at && (
+                    <p style={{ marginTop: '0.35rem' }}>
+                      <strong>Updated At:</strong> {selectedProject.llm_summary.updated_at}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {selectedProject.files_summary?.total_files != null && (
                 <div className="detail-row">

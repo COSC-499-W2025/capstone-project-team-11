@@ -18,7 +18,6 @@ import threading
 import glob
 import tempfile
 import zipfile
-from fastapi import HTTPException
 
 from config import load_config, save_config, config_path as default_config_path
 from cli_username_selection import get_candidate_usernames
@@ -99,6 +98,13 @@ class ScanPlanResponse(BaseModel):
     is_multi_project: bool
     projects: List[ScanPlanProject]
     existing_contributors: List[str]
+
+
+class ProjectEditRequest(BaseModel):
+    custom_name: Optional[str] = None
+    repo_url: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+
 
 
 class ResumeGenerateRequest(BaseModel):
@@ -505,10 +511,10 @@ def list_projects():
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT p.id, p.name, p.repo_url, p.created_at, p.thumbnail_path,
-                   (SELECT MAX(scanned_at) FROM scans s WHERE s.project = p.name) AS latest_scan_at
-            FROM projects p
-            ORDER BY p.id
+            SELECT p.id, p.name, p.custom_name, p.repo_url, p.created_at, p.thumbnail_path,
+       (SELECT MAX(scanned_at) FROM scans s WHERE s.project = p.name) AS latest_scan_at
+FROM projects p
+ORDER BY p.id
             """
         ).fetchall()
     return [dict(row) for row in rows]
@@ -516,12 +522,12 @@ def list_projects():
 
 @app.get("/projects/{project_id}")
 def get_project(project_id: int):
-    # Aggregate enriched project data from related tables.
     with get_connection() as conn:
         project = conn.execute(
-            "SELECT id, name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
+            "SELECT id, name, custom_name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
+
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
@@ -529,18 +535,21 @@ def get_project(project_id: int):
             "SELECT id, scanned_at, notes FROM scans WHERE project = ? ORDER BY scanned_at DESC",
             (project["name"],),
         ).fetchall()
+
         scan_ids = [row["id"] for row in scans]
 
         files_summary = {"total_files": 0, "extensions": {}}
         languages: List[str] = []
         contributors: List[str] = []
+
         if scan_ids:
-            # Build dynamic IN clauses only when scans exist.
             placeholders = ",".join("?" for _ in scan_ids)
+
             files_summary["total_files"] = conn.execute(
                 f"SELECT COUNT(*) AS total FROM files WHERE scan_id IN ({placeholders})",
                 scan_ids,
             ).fetchone()["total"]
+
             ext_rows = conn.execute(
                 f"""
                 SELECT file_extension, COUNT(*) AS count
@@ -550,6 +559,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             files_summary["extensions"] = {
                 (row["file_extension"] or ""): row["count"] for row in ext_rows
             }
@@ -564,6 +574,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             languages = [row["name"] for row in languages_rows]
 
             contributor_rows = conn.execute(
@@ -576,6 +587,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             contributors = [row["name"] for row in contributor_rows]
 
         skill_rows = conn.execute(
@@ -588,17 +600,6 @@ def get_project(project_id: int):
             """,
             (project_id,),
         ).fetchall()
-
-        evidence_rows = conn.execute(
-            """
-            SELECT type, description, value, source, url, added_by_user, created_at
-            FROM project_evidence
-            WHERE project_id = ?
-            ORDER BY created_at DESC
-            """,
-            (project_id,),
-        ).fetchall()
-
 
         evidence_rows = conn.execute(
             """
@@ -1160,3 +1161,36 @@ def delete_project(project_id: int):
         raise HTTPException(status_code=404, detail="Project not found")
 
     return {"message": "Project deleted successfully"}
+
+@app.patch("/projects/{project_id}")
+def update_project(project_id: int, payload: ProjectEditRequest):
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+        if not existing:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        conn.execute(
+            """
+            UPDATE projects
+            SET custom_name = ?, repo_url = ?, thumbnail_path = ?
+            WHERE id = ?
+            """,
+            (
+                payload.custom_name,
+                payload.repo_url,
+                payload.thumbnail_path,
+                project_id,
+            ),
+        )
+        conn.commit()
+
+        updated = conn.execute(
+            "SELECT id, name, custom_name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    return {"project": dict(updated)}
