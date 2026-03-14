@@ -7,6 +7,7 @@ function DatabaseMaintenance({ onBack }) {
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     inspectDatabase();
@@ -126,26 +127,25 @@ function DatabaseMaintenance({ onBack }) {
     setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // modified functions to show "functionality to be added later"
-  const clearDatabase = async () => {
-    const confirmClear = window.confirm(
-      "Are you sure you want to clear the entire database? This cannot be undone."
-    );
+  const clearDatabase = () => {
+    setShowConfirmModal(true);
+  };
 
-    if (!confirmClear) return;
+  const confirmClearDatabase = async () => {
+    setShowConfirmModal(false);
 
     try {
       await axios.delete(`${API_BASE_URL}/database/clear`);
-
-      alert("Database cleared successfully.");
-
-      // reload the tables so UI updates
       inspectDatabase();
     } catch (err) {
       console.error(err);
-      alert("Failed to clear database.");
     }
   };
+
+  const cancelClearDatabase = () => {
+    setShowConfirmModal(false);
+  };
+
 
   const renderTables = () => {
     const tableNames = Object.keys(tables);
@@ -216,6 +216,30 @@ function DatabaseMaintenance({ onBack }) {
           {content}
         </section>
       </div>
+
+      {showConfirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Clear Database</h3>
+
+            <p>
+              Are you sure you want to delete all database data?
+              <br />
+              <strong>This action cannot be undone.</strong>
+            </p>
+
+            <div className="modal-actions">
+              <button className="danger" onClick={confirmClearDatabase}>
+                Yes, Clear Database
+              </button>
+
+              <button className="secondary" onClick={cancelClearDatabase}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
