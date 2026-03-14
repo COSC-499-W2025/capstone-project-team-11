@@ -128,10 +128,6 @@ function DatabaseMaintenance({ onBack }) {
 
   // modified functions to show "functionality to be added later"
   const clearDatabase = () => {
-    alert("Clear database functionality to be added later.");
-  };
-
-  const loadProjects = () => {
     alert("Delete project functionality to be added later.");
   };
 
@@ -194,8 +190,7 @@ function DatabaseMaintenance({ onBack }) {
         <section className="scan-panel">
           <h2>Database Tools</h2>
           <button onClick={inspectDatabase}>Refresh Database</button>
-          <button onClick={clearDatabase}>Clear Database</button>
-          <button className="danger" onClick={loadProjects}>Delete Project</button>
+          <button className="danger" onClick={clearDatabase}>Clear Database</button>
           <button className="secondary" onClick={onBack}>Back to Main Menu</button>
         </section>
 
