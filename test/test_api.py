@@ -417,7 +417,12 @@ class TestAPI(unittest.TestCase):
         self.assertIn("languages", data)
         self.assertIn("skills", data)
         self.assertIn("contributors", data)
+        self.assertIn("contributor_roles", data)
         self.assertIn("files_summary", data)
+        self.assertTrue(isinstance(data["contributor_roles"], dict))
+        self.assertIn("contributors", data["contributor_roles"])
+        self.assertTrue(len(data["contributor_roles"]["contributors"]) >= 1)
+        self.assertEqual(data["contributor_roles"]["contributors"][0]["name"], "alice")
 
         skills_resp = self.client.get("/skills")
         self.assertEqual(skills_resp.status_code, 200)

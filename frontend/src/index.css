@@ -1040,22 +1040,181 @@ button:disabled {
 .empty-state-card h3 {
   margin-top: 0;
   margin-bottom: 0.75rem;
-  font-size: 1rem;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   color: var(--text-primary);
 }
  
 .detail-row {
   margin-top: 0.75rem;
-  font-size: 0.88rem;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.7;
   word-break: break-word;
   color: var(--text-secondary);
+}
+
+.details-section {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.details-section:first-of-type {
+  margin-top: 0.65rem;
+}
+
+.details-section-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.detail-row-grid {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.detail-label {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detail-value {
+  min-width: 0;
+}
+
+.detail-empty {
+  color: var(--text-muted);
+}
+
+.pill-list,
+.extensions-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.text-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.text-pill-subtle {
+  background: var(--bg-surface-md);
+  color: var(--text-secondary);
+}
+
+.project-actions-row {
+  margin: 0.85rem 0 0.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.project-action-btn {
+  border: none;
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.project-action-btn-edit {
+  background: #3b82f6;
+}
+
+.project-action-btn-delete {
+  background: #ef4444;
+}
+
+.project-action-btn-save {
+  background: #10b981;
+}
+
+.project-action-btn-cancel {
+  background: #6b7280;
+}
+
+.detail-row-edit {
+  margin-top: 0.6rem;
+}
+
+.detail-input {
+  width: 100%;
+  max-width: 720px;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.llm-summary-text {
+  margin: 0.55rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  white-space: pre-wrap;
 }
  
 .error-text {
   color: var(--accent-red);
   font-weight: 600;
   font-size: 0.88rem;
+}
+
+.contributors-role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.contributor-role-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-surface);
+}
+
+.contributor-role-name {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.contributor-role-primary {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.contributor-role-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.contributor-role-summary {
+  margin: 0.55rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
 }
  
 /* ─── Portfolio Page ─────────────────────────────────────────────────────── */

@@ -2,6 +2,38 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
 
+function formatRoleConfidence(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '0%';
+  }
+  return `${Math.round(value * 100)}%`;
+}
+
+function DetailRow({ label, children }) {
+  return (
+    <div className="detail-row detail-row-grid">
+      <span className="detail-label">{label}</span>
+      <span className="detail-value">{children}</span>
+    </div>
+  );
+}
+
+function PillList({ items, emptyText = 'None' }) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return <span className="detail-empty">{emptyText}</span>;
+  }
+
+  return (
+    <span className="pill-list">
+      {items.map((item) => (
+        <span key={item} className="text-pill">
+          {item}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function ScannedProjectsPage({ onBack }) {
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -225,114 +257,94 @@ function ScannedProjectsPage({ onBack }) {
                   `Project ${selectedProjectId}`}
               </h3>
 
-              <div style={{ margin: '0.75rem 0 1rem' }}>
+              <div className="project-actions-row">
                 <button
                   type="button"
+                  className="project-action-btn project-action-btn-edit"
                   onClick={handleEditProject}
-                  style={{
-                    background: '#3b82f6',
-                    border: 'none',
-                    color: 'white',
-                    padding: '0.45rem 0.75rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    marginRight: '0.5rem',
-                  }}
                 >
                   Edit Project
                 </button>
 
                 <button
                   type="button"
+                  className="project-action-btn project-action-btn-delete"
                   onClick={handleDeleteProject}
-                  style={{
-                    background: '#ef4444',
-                    border: 'none',
-                    color: 'white',
-                    padding: '0.45rem 0.75rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                  }}
                 >
                   Delete Project
                 </button>
               </div>
 
-              <div className="detail-row">
-                <strong>Project ID:</strong> {selectedProject.project?.id ?? selectedProjectId}
-              </div>
+              <section className="details-section">
+                <h4 className="details-section-title">Overview</h4>
 
-              {selectedProject.project?.created_at && (
-                <div className="detail-row">
-                  <strong>Created At:</strong> {selectedProject.project.created_at}
-                </div>
-              )}
+                <DetailRow label="Project ID">{selectedProject.project?.id ?? selectedProjectId}</DetailRow>
 
-              {selectedProject.project?.repo_url && (
-                <div className="detail-row">
-                  <strong>Repo URL:</strong> {selectedProject.project.repo_url}
-                </div>
-              )}
+                {selectedProject.project?.created_at && (
+                  <DetailRow label="Created At">{selectedProject.project.created_at}</DetailRow>
+                )}
 
-              {selectedProject.project?.thumbnail_path && (
-                <div className="detail-row">
-                  <strong>Thumbnail Path:</strong> {selectedProject.project.thumbnail_path}
-                </div>
-              )}
+                {selectedProject.project?.repo_url && (
+                  <DetailRow label="Repo URL">{selectedProject.project.repo_url}</DetailRow>
+                )}
+
+                {selectedProject.project?.thumbnail_path && (
+                  <DetailRow label="Thumbnail Path">{selectedProject.project.thumbnail_path}</DetailRow>
+                )}
+
+                {Array.isArray(selectedProject.scans) && selectedProject.scans.length > 0 && (
+                  <DetailRow label="Latest Scan">{selectedProject.scans[0].scanned_at}</DetailRow>
+                )}
+              </section>
 
               {isEditing && (
-                <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-                  <h4>Edit Project Info</h4>
+                <section className="details-section details-section-edit">
+                  <h4 className="details-section-title">Edit Project Info</h4>
 
-                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
-                    <strong>Display Name:</strong>
+                  <div className="detail-row detail-row-grid detail-row-edit">
+                    <label className="detail-label" htmlFor="edit-custom-name">
+                      Display Name
+                    </label>
                     <input
+                      id="edit-custom-name"
                       type="text"
                       value={editCustomName}
                       onChange={(e) => setEditCustomName(e.target.value)}
-                      style={{ marginLeft: '0.5rem', padding: '0.35rem' }}
+                      className="detail-input"
                     />
                   </div>
 
-                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
-                    <strong>Repo URL:</strong>
+                  <div className="detail-row detail-row-grid detail-row-edit">
+                    <label className="detail-label" htmlFor="edit-repo-url">
+                      Repo URL
+                    </label>
                     <input
+                      id="edit-repo-url"
                       type="text"
                       value={editRepoUrl}
                       onChange={(e) => setEditRepoUrl(e.target.value)}
-                      style={{ marginLeft: '0.5rem', padding: '0.35rem', width: '60%' }}
+                      className="detail-input"
                     />
                   </div>
 
-                  <div className="detail-row" style={{ marginTop: '0.5rem' }}>
-                    <strong>Thumbnail Path:</strong>
+                  <div className="detail-row detail-row-grid detail-row-edit">
+                    <label className="detail-label" htmlFor="edit-thumbnail-path">
+                      Thumbnail Path
+                    </label>
                     <input
+                      id="edit-thumbnail-path"
                       type="text"
                       value={editThumbnailPath}
                       onChange={(e) => setEditThumbnailPath(e.target.value)}
-                      style={{ marginLeft: '0.5rem', padding: '0.35rem', width: '60%' }}
+                      className="detail-input"
                     />
                   </div>
 
-                  <div style={{ marginTop: '0.75rem' }}>
+                  <div className="project-actions-row">
                     <button
                       type="button"
                       onClick={handleSaveProject}
-                      style={{
-                        background: '#10b981',
-                        border: 'none',
-                        color: 'white',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        marginRight: '0.5rem',
-                      }}
+                      className="project-action-btn project-action-btn-save"
                     >
                       Save Changes
                     </button>
@@ -340,88 +352,100 @@ function ScannedProjectsPage({ onBack }) {
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
-                      style={{
-                        background: '#6b7280',
-                        border: 'none',
-                        color: 'white',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                      }}
+                      className="project-action-btn project-action-btn-cancel"
                     >
                       Cancel
                     </button>
                   </div>
-                </div>
+                </section>
               )}
 
-              {Array.isArray(selectedProject.languages) && selectedProject.languages.length > 0 && (
-                <div className="detail-row">
-                  <strong>Languages:</strong> {selectedProject.languages.join(', ')}
-                </div>
-              )}
+              <section className="details-section">
+                <h4 className="details-section-title">Contributors and Skills</h4>
+                <DetailRow label="Languages">
+                  <PillList items={selectedProject.languages} emptyText="No languages detected" />
+                </DetailRow>
+                <DetailRow label="Skills">
+                  <PillList items={selectedProject.skills} emptyText="No skills detected" />
+                </DetailRow>
+                <DetailRow label="Contributors">
+                  <PillList items={selectedProject.contributors} emptyText="No contributors found" />
+                </DetailRow>
+              </section>
 
-              {Array.isArray(selectedProject.skills) && selectedProject.skills.length > 0 && (
-                <div className="detail-row">
-                  <strong>Skills:</strong> {selectedProject.skills.join(', ')}
-                </div>
-              )}
-
-              {Array.isArray(selectedProject.contributors) &&
-                selectedProject.contributors.length > 0 && (
-                  <div className="detail-row">
-                    <strong>Contributors:</strong> {selectedProject.contributors.join(', ')}
-                  </div>
+              {Array.isArray(selectedProject.contributor_roles?.contributors) &&
+                selectedProject.contributor_roles.contributors.length > 0 && (
+                  <section className="details-section">
+                    <h4 className="details-section-title">Contributor Roles</h4>
+                    <div className="contributors-role-list">
+                      {selectedProject.contributor_roles.contributors.map((contributor) => (
+                        <div
+                          key={`${contributor.name}-${contributor.primary_role}`}
+                          className="contributor-role-card"
+                        >
+                          <p className="contributor-role-name">{contributor.name}</p>
+                          <p className="contributor-role-primary">
+                            {contributor.primary_role}
+                            {contributor.role_description ? ` - ${contributor.role_description}` : ''}
+                          </p>
+                          <p className="contributor-role-meta">
+                            Confidence: {formatRoleConfidence(contributor.confidence)}
+                          </p>
+                          {Array.isArray(contributor.secondary_roles) &&
+                            contributor.secondary_roles.length > 0 && (
+                              <p className="contributor-role-meta">
+                                Secondary: {contributor.secondary_roles.join(', ')}
+                              </p>
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                    {selectedProject.contributor_roles.summary?.team_composition && (
+                      <p className="contributor-role-summary">
+                        Team Composition: {selectedProject.contributor_roles.summary.team_composition}
+                      </p>
+                    )}
+                  </section>
                 )}
 
               {selectedProject.llm_summary?.text && (
-                <div style={{ marginTop: '1rem' }}>
-                  <strong>LLM Summary:</strong>
-                  <p style={{ marginTop: '0.35rem' }}>{selectedProject.llm_summary.text}</p>
+                <section className="details-section">
+                  <h4 className="details-section-title">LLM Summary</h4>
+                  <p className="llm-summary-text">{selectedProject.llm_summary.text}</p>
 
                   {selectedProject.llm_summary?.model && (
-                    <p style={{ marginTop: '0.35rem' }}>
-                      <strong>Model:</strong> {selectedProject.llm_summary.model}
-                    </p>
+                    <DetailRow label="Model">{selectedProject.llm_summary.model}</DetailRow>
                   )}
 
                   {selectedProject.llm_summary?.updated_at && (
-                    <p style={{ marginTop: '0.35rem' }}>
-                      <strong>Updated At:</strong> {selectedProject.llm_summary.updated_at}
-                    </p>
+                    <DetailRow label="Updated At">{selectedProject.llm_summary.updated_at}</DetailRow>
                   )}
-                </div>
+                </section>
               )}
 
-              {selectedProject.files_summary?.total_files != null && (
-                <div className="detail-row">
-                  <strong>Total Files:</strong> {selectedProject.files_summary.total_files}
-                </div>
-              )}
-
-              {selectedProject.files_summary?.extensions &&
-                Object.keys(selectedProject.files_summary.extensions).length > 0 && (
-                  <div className="detail-row">
-                    <strong>Extensions:</strong>{' '}
-                    {Object.entries(selectedProject.files_summary.extensions)
-                      .map(([ext, count]) => `${ext}: ${count}`)
-                      .join(', ')}
-                  </div>
+              <section className="details-section">
+                <h4 className="details-section-title">Project Stats</h4>
+                {selectedProject.files_summary?.total_files != null && (
+                  <DetailRow label="Total Files">{selectedProject.files_summary.total_files}</DetailRow>
                 )}
 
-              {Array.isArray(selectedProject.scans) && selectedProject.scans.length > 0 && (
-                <div className="detail-row">
-                  <strong>Latest Scan:</strong> {selectedProject.scans[0].scanned_at}
-                </div>
-              )}
+                {selectedProject.files_summary?.extensions &&
+                  Object.keys(selectedProject.files_summary.extensions).length > 0 && (
+                    <DetailRow label="Extensions">
+                      <span className="extensions-wrap">
+                        {Object.entries(selectedProject.files_summary.extensions).map(([ext, count]) => (
+                          <span key={ext || 'none'} className="text-pill text-pill-subtle">
+                            {ext || '(no ext)'}: {count}
+                          </span>
+                        ))}
+                      </span>
+                    </DetailRow>
+                  )}
 
-              {Array.isArray(selectedProject.evidence) && (
-                <div className="detail-row">
-                  <strong>Evidence Items:</strong> {selectedProject.evidence.length}
-                </div>
-              )}
+                {Array.isArray(selectedProject.evidence) && (
+                  <DetailRow label="Evidence Items">{selectedProject.evidence.length}</DetailRow>
+                )}
+              </section>
             </div>
           )}
 
