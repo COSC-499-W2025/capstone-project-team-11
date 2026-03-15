@@ -214,6 +214,90 @@ class TestAPI(unittest.TestCase):
             data = json.load(fh)
         self.assertTrue(data.get("data_consent"))
 
+    def test_get_config_returns_consent_flags(self):
+        # Write a known config state using the privacy-consent endpoint first
+        self.client.post("/privacy-consent", json={
+            "data_consent": True,
+            "llm_summary_consent": False,
+            "llm_resume_consent": True,
+        })
+
+        resp = self.client.get("/config")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("data_consent", body)
+        self.assertIn("llm_summary_consent", body)
+        self.assertIn("llm_resume_consent", body)
+        self.assertIsInstance(body["data_consent"], bool)
+        self.assertIsInstance(body["llm_summary_consent"], bool)
+        self.assertIsInstance(body["llm_resume_consent"], bool)
+        self.assertTrue(body["data_consent"])
+        self.assertFalse(body["llm_summary_consent"])
+        self.assertTrue(body["llm_resume_consent"])
+
+    def test_list_resumes_empty(self):
+        resp = self.client.get("/resumes")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+    def test_list_resumes_filters_by_username(self):
+        # Seed two resumes for different users directly into the DB
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+
+        alice_path = os.path.join(resume_dir, "resume_alice.md")
+        bob_path = os.path.join(resume_dir, "resume_bob.md")
+        with open(alice_path, "w") as f:
+            f.write("# Resume — alice\n")
+        with open(bob_path, "w") as f:
+            f.write("# Resume — bob\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", alice_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("bob", bob_path, "{}", "2026-01-02 10:00:00Z"),
+            )
+            conn.commit()
+
+        resp = self.client.get("/resumes?username=alice")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.json()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["username"], "alice")
+
+    def test_list_resumes_llm_used_flag(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+
+        llm_path = os.path.join(resume_dir, "resume_llm.md")
+        no_llm_path = os.path.join(resume_dir, "resume_no_llm.md")
+        with open(llm_path, "w") as f:
+            f.write("# Resume — alice\n")
+        with open(no_llm_path, "w") as f:
+            f.write("# Resume — alice\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", llm_path, json.dumps({"llm_summary": "Some summary text"}), "2026-01-01 10:00:00Z"),
+            )
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", no_llm_path, json.dumps({}), "2026-01-02 10:00:00Z"),
+            )
+            conn.commit()
+
+        resp = self.client.get("/resumes?username=alice")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.json()
+        # ordered by generated_at DESC so no_llm is first
+        self.assertFalse(results[0]["llm_used"])
+        self.assertTrue(results[1]["llm_used"])
+
     def test_projects_upload_and_list(self):
         self.client.post("/privacy-consent", json={"data_consent": True})
         project_dir = os.path.join(self.tmpdir.name, "project")
@@ -417,7 +501,12 @@ class TestAPI(unittest.TestCase):
         self.assertIn("languages", data)
         self.assertIn("skills", data)
         self.assertIn("contributors", data)
+        self.assertIn("contributor_roles", data)
         self.assertIn("files_summary", data)
+        self.assertTrue(isinstance(data["contributor_roles"], dict))
+        self.assertIn("contributors", data["contributor_roles"])
+        self.assertTrue(len(data["contributor_roles"]["contributors"]) >= 1)
+        self.assertEqual(data["contributor_roles"]["contributors"][0]["name"], "alice")
 
         skills_resp = self.client.get("/skills")
         self.assertEqual(skills_resp.status_code, 200)
@@ -670,6 +759,53 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(row["custom_name"], "Updated Display Name")
         self.assertEqual(row["repo_url"], "https://new-url.com")
         self.assertEqual(row["thumbnail_path"], "/new/thumb.png")
+
+    def test_update_project_endpoint_preserves_unspecified_fields(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects (name, custom_name, repo_url, thumbnail_path)
+                VALUES (?, ?, ?, ?)
+                """,
+                ("demo_project", "Existing Name", "https://keep-url.com", "/keep/thumb.png"),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.patch(
+            f"/projects/{project_id}",
+            json={"thumbnail_path": "/new/thumb.png"},
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["project"]["custom_name"], "Existing Name")
+        self.assertEqual(body["project"]["repo_url"], "https://keep-url.com")
+        self.assertEqual(body["project"]["thumbnail_path"], "/new/thumb.png")
+
+    def test_project_thumbnail_image_endpoint(self):
+        thumbnail_path = os.path.join(self.tmpdir.name, "thumb.png")
+        with open(thumbnail_path, "wb") as fh:
+            fh.write(b"fake-png-data")
+
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, thumbnail_path) VALUES (?, ?)",
+                ("demo_project", thumbnail_path),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.get(f"/projects/{project_id}/thumbnail/image")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"fake-png-data")
+        self.assertEqual(resp.headers["content-type"], "image/png")
 
     def test_delete_project_endpoint_removes_orphaned_contributors_and_languages(self):
         with api_mod.get_connection() as conn:

@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import os
 import sys
 from io import StringIO
@@ -10,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import contextlib
 import queue
@@ -34,6 +35,8 @@ from generate_resume import (
 )
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
+from contrib_metrics import classify_file
+from detect_roles import analyze_project_roles
 from scan import (
     run_with_saved_settings,
     scan_with_clean_output,
@@ -285,6 +288,68 @@ def _list_existing_contributors() -> List[str]:
     return [row["name"] for row in rows]
 
 
+def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str, Any]:
+    """Infer contributor roles for a project from per-file activity in all scans."""
+    if not project_name:
+        return {"contributors": [], "summary": {}}
+
+    rows = conn.execute(
+        """
+        SELECT c.name AS contributor_name, f.file_path
+        FROM scans s
+        JOIN files f ON f.scan_id = s.id
+        JOIN file_contributors fc ON fc.file_id = f.id
+        JOIN contributors c ON c.id = fc.contributor_id
+        WHERE s.project = ?
+          AND c.name IS NOT NULL
+          AND TRIM(c.name) <> ''
+        """,
+        (project_name,),
+    ).fetchall()
+
+    if not rows:
+        return {"contributors": [], "summary": {}}
+
+    contributors_data: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        contributor_name = row["contributor_name"]
+        file_path = row["file_path"] or ""
+
+        if contributor_name not in contributors_data:
+            contributors_data[contributor_name] = {
+                "files_changed": set(),
+                "activity_by_category": {
+                    "code": 0,
+                    "test": 0,
+                    "docs": 0,
+                    "design": 0,
+                    "other": 0,
+                },
+            }
+
+        file_set = contributors_data[contributor_name]["files_changed"]
+        if file_path and file_path not in file_set:
+            file_set.add(file_path)
+            category = classify_file(file_path)
+            activity = contributors_data[contributor_name]["activity_by_category"]
+            activity[category] = activity.get(category, 0) + 1
+
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for name, data in contributors_data.items():
+        files_changed = sorted(data["files_changed"])
+        file_count = len(files_changed)
+        normalized[name] = {
+            "files_changed": files_changed,
+            # Keep estimate strategy aligned with detect_roles DB loaders.
+            "commits": max(1, file_count),
+            "lines_added": file_count * 50,
+            "lines_removed": file_count * 10,
+            "activity_by_category": data["activity_by_category"],
+        }
+
+    return analyze_project_roles(normalized)
+
+
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
@@ -308,6 +373,16 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
         "llm_summary_consent": llm_value,
         "llm_resume_consent": resume_llm_value,
         "config_path": default_config_path(),
+    }
+
+
+@app.get("/config")
+def get_config() -> Dict[str, bool]:
+    current = load_config(default_config_path())
+    return {
+        "data_consent": bool(current.get("data_consent", False)),
+        "llm_summary_consent": bool(current.get("llm_summary_consent", False)),
+        "llm_resume_consent": bool(current.get("llm_resume_consent", False)),
     }
 
 
@@ -612,12 +687,14 @@ def get_project(project_id: int):
         ).fetchall()
 
         llm_summary = _load_llm_summary(project["name"])
+        contributor_roles = _compute_project_contributor_roles(conn, project["name"])
 
     return {
         "project": dict(project),
         "skills": [row["name"] for row in skill_rows],
         "languages": languages,
         "contributors": contributors,
+        "contributor_roles": contributor_roles,
         "scans": [dict(row) for row in scans],
         "files_summary": files_summary,
         "evidence": [dict(row) for row in evidence_rows],
@@ -634,11 +711,15 @@ def list_skills():
 
 @app.get("/contributors")
 def list_contributors():
+    blacklist = {"githubclassroombot", "unknown", "n/a", "none"}
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name"
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
         ).fetchall()
-    return [row["name"] for row in rows]
+    return sorted(
+        row["name"] for row in rows
+        if row["name"].lower() not in blacklist
+    )
 
 
 @app.get("/rank-projects")
@@ -731,6 +812,43 @@ def get_resume(resume_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Resume not found")
     return _resume_payload(row)
+
+
+@app.get("/resumes")
+def list_resumes(username: Optional[str] = Query(default=None)):
+    username_filter = (username or "").strip()
+    with get_connection() as conn:
+        if username_filter:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                WHERE username = ?
+                ORDER BY generated_at DESC
+                """,
+                (username_filter,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                ORDER BY generated_at DESC
+                """
+            ).fetchall()
+
+    items = []
+    for row in rows:
+        metadata = _parse_metadata(row["metadata_json"])
+        items.append(
+            {
+                "id": row["id"],
+                "username": row["username"],
+                "generated_at": row["generated_at"],
+                "llm_used": bool(metadata.get("llm_summary")),
+            }
+        )
+    return items
 
 
 @app.post("/resume/generate", status_code=201)
@@ -1196,7 +1314,7 @@ def delete_project(project_id: int):
 def update_project(project_id: int, payload: ProjectEditRequest):
     with get_connection() as conn:
         existing = conn.execute(
-            "SELECT id FROM projects WHERE id = ?",
+            "SELECT id, custom_name, repo_url, thumbnail_path FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
 
@@ -1210,9 +1328,9 @@ def update_project(project_id: int, payload: ProjectEditRequest):
             WHERE id = ?
             """,
             (
-                payload.custom_name,
-                payload.repo_url,
-                payload.thumbnail_path,
+                payload.custom_name if payload.custom_name is not None else existing["custom_name"],
+                payload.repo_url if payload.repo_url is not None else existing["repo_url"],
+                payload.thumbnail_path if payload.thumbnail_path is not None else existing["thumbnail_path"],
                 project_id,
             ),
         )
@@ -1224,3 +1342,24 @@ def update_project(project_id: int, payload: ProjectEditRequest):
         ).fetchone()
 
     return {"project": dict(updated)}
+
+
+@app.get("/projects/{project_id}/thumbnail/image")
+def get_project_thumbnail_image(project_id: int):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    thumbnail_path = project["thumbnail_path"]
+    if not thumbnail_path:
+        raise HTTPException(status_code=404, detail="Project thumbnail not found")
+    if not os.path.isfile(thumbnail_path):
+        raise HTTPException(status_code=404, detail="Thumbnail file not found")
+
+    media_type = mimetypes.guess_type(thumbnail_path)[0] or "application/octet-stream"
+    return FileResponse(thumbnail_path, media_type=media_type)
