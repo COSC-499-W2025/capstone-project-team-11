@@ -760,6 +760,53 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(row["repo_url"], "https://new-url.com")
         self.assertEqual(row["thumbnail_path"], "/new/thumb.png")
 
+    def test_update_project_endpoint_preserves_unspecified_fields(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO projects (name, custom_name, repo_url, thumbnail_path)
+                VALUES (?, ?, ?, ?)
+                """,
+                ("demo_project", "Existing Name", "https://keep-url.com", "/keep/thumb.png"),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.patch(
+            f"/projects/{project_id}",
+            json={"thumbnail_path": "/new/thumb.png"},
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["project"]["custom_name"], "Existing Name")
+        self.assertEqual(body["project"]["repo_url"], "https://keep-url.com")
+        self.assertEqual(body["project"]["thumbnail_path"], "/new/thumb.png")
+
+    def test_project_thumbnail_image_endpoint(self):
+        thumbnail_path = os.path.join(self.tmpdir.name, "thumb.png")
+        with open(thumbnail_path, "wb") as fh:
+            fh.write(b"fake-png-data")
+
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, thumbnail_path) VALUES (?, ?)",
+                ("demo_project", thumbnail_path),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("demo_project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.get(f"/projects/{project_id}/thumbnail/image")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"fake-png-data")
+        self.assertEqual(resp.headers["content-type"], "image/png")
+
     def test_delete_project_endpoint_removes_orphaned_contributors_and_languages(self):
         with api_mod.get_connection() as conn:
             conn.execute(

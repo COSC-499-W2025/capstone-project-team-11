@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
 
+function getThumbnailSrc(projectId, path) {
+  if (!projectId || !path) return '';
+  if (/^https?:\/\//i.test(path) || /^data:/i.test(path)) {
+    return path;
+  }
+  return `${API_BASE_URL}/projects/${projectId}/thumbnail/image?v=${encodeURIComponent(path)}`;
+}
+
 function formatRoleConfidence(value) {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return '0%';
@@ -40,6 +48,7 @@ function ScannedProjectsPage({ onBack }) {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isUpdatingThumbnail, setIsUpdatingThumbnail] = useState(false);
   const [projectsError, setProjectsError] = useState('');
   const [detailsError, setDetailsError] = useState('');
 
@@ -187,6 +196,44 @@ function ScannedProjectsPage({ onBack }) {
     }
   };
 
+  const handleUpdateThumbnail = async () => {
+    if (selectedProjectId == null || !selectedProject?.project) {
+      return;
+    }
+
+    const nextThumbnailPath = await window.api?.openThumbnailDialog?.();
+    if (!nextThumbnailPath) {
+      return;
+    }
+
+    try {
+      setIsUpdatingThumbnail(true);
+      await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
+        thumbnail_path: nextThumbnailPath,
+      });
+
+      if (isEditing) {
+        setEditThumbnailPath(nextThumbnailPath);
+      }
+
+      const detailsResponse = await axios.get(`${API_BASE_URL}/projects/${selectedProjectId}`);
+      setSelectedProject(detailsResponse.data);
+
+      const listResponse = await axios.get(`${API_BASE_URL}/projects`);
+      setProjects(Array.isArray(listResponse.data) ? listResponse.data : []);
+    } catch (error) {
+      console.error('Failed to update project thumbnail:', error);
+      alert('Failed to update project thumbnail.');
+    } finally {
+      setIsUpdatingThumbnail(false);
+    }
+  };
+
+  const thumbnailSrc = getThumbnailSrc(
+    selectedProjectId,
+    selectedProject?.project?.thumbnail_path
+  );
+
   return (
     <div className="page-shell scanned-projects-page">
       <header className="app-header">
@@ -273,6 +320,17 @@ function ScannedProjectsPage({ onBack }) {
                 >
                   Delete Project
                 </button>
+
+                <button
+                  type="button"
+                  className="project-action-btn project-action-btn-thumbnail"
+                  onClick={handleUpdateThumbnail}
+                  disabled={isUpdatingThumbnail}
+                >
+                  {isUpdatingThumbnail
+                    ? 'Saving Thumbnail...'
+                    : (selectedProject.project?.thumbnail_path ? 'Change Thumbnail' : 'Add Thumbnail')}
+                </button>
               </div>
 
               <section className="details-section">
@@ -290,6 +348,20 @@ function ScannedProjectsPage({ onBack }) {
 
                 {selectedProject.project?.thumbnail_path && (
                   <DetailRow label="Thumbnail Path">{selectedProject.project.thumbnail_path}</DetailRow>
+                )}
+
+                {selectedProject.project?.thumbnail_path && (
+                  <div className="project-thumbnail-preview">
+                    <img
+                      src={thumbnailSrc}
+                      alt={`${
+                        selectedProject.project?.custom_name ||
+                        selectedProject.project?.name ||
+                        `Project ${selectedProjectId}`
+                      } thumbnail`}
+                      className="project-thumbnail-image"
+                    />
+                  </div>
                 )}
 
                 {Array.isArray(selectedProject.scans) && selectedProject.scans.length > 0 && (

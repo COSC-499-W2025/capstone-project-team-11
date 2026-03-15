@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import os
 import sys
 from io import StringIO
@@ -10,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import contextlib
 import queue
@@ -1283,7 +1284,7 @@ def delete_project(project_id: int):
 def update_project(project_id: int, payload: ProjectEditRequest):
     with get_connection() as conn:
         existing = conn.execute(
-            "SELECT id FROM projects WHERE id = ?",
+            "SELECT id, custom_name, repo_url, thumbnail_path FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
 
@@ -1297,9 +1298,9 @@ def update_project(project_id: int, payload: ProjectEditRequest):
             WHERE id = ?
             """,
             (
-                payload.custom_name,
-                payload.repo_url,
-                payload.thumbnail_path,
+                payload.custom_name if payload.custom_name is not None else existing["custom_name"],
+                payload.repo_url if payload.repo_url is not None else existing["repo_url"],
+                payload.thumbnail_path if payload.thumbnail_path is not None else existing["thumbnail_path"],
                 project_id,
             ),
         )
@@ -1311,3 +1312,24 @@ def update_project(project_id: int, payload: ProjectEditRequest):
         ).fetchone()
 
     return {"project": dict(updated)}
+
+
+@app.get("/projects/{project_id}/thumbnail/image")
+def get_project_thumbnail_image(project_id: int):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    thumbnail_path = project["thumbnail_path"]
+    if not thumbnail_path:
+        raise HTTPException(status_code=404, detail="Project thumbnail not found")
+    if not os.path.isfile(thumbnail_path):
+        raise HTTPException(status_code=404, detail="Thumbnail file not found")
+
+    media_type = mimetypes.guess_type(thumbnail_path)[0] or "application/octet-stream"
+    return FileResponse(thumbnail_path, media_type=media_type)

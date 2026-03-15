@@ -1141,6 +1141,10 @@ button:disabled {
   background: #ef4444;
 }
 
+.project-action-btn-thumbnail {
+  background: #0f766e;
+}
+
 .project-action-btn-save {
   background: #10b981;
 }
@@ -1168,6 +1172,20 @@ button:disabled {
   color: var(--text-secondary);
   line-height: 1.75;
   white-space: pre-wrap;
+}
+
+.project-thumbnail-preview {
+  margin-top: 0.85rem;
+}
+
+.project-thumbnail-image {
+  width: 100%;
+  max-width: 380px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
 }
  
 .error-text {

@@ -4,4 +4,5 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   openProjectDialog: () => ipcRenderer.invoke('dialog:openProject'),
+  openThumbnailDialog: () => ipcRenderer.invoke('dialog:openThumbnail'),
 });
