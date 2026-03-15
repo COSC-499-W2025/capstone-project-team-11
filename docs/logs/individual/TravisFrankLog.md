@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Week 10 (Mar 9 – Mar 15, 2026)](#semester-2--week-10-personal-log-march-9th--march-15th-2026)
 - [Week 9 (Mar 2 – Mar 8, 2026)](#semester-2--week-9-personal-log-march-2nd--march-8th-2026)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#semester-2--weeks-4--5-personal-log-january-26th--february-8th-2026)
@@ -513,3 +514,67 @@ This PR also introduced blacklist filtering in the contributors endpoint to ensu
 - Complete peer testing outline documentation  
 - Support integration testing as dashboard functionality expands
 
+---
+
+# Semester 2 – Week 10 Personal Log (March 9th – March 15th, 2026)
+
+During Week 10, my primary focus shifted toward a large-scale frontend refactor and UI redesign to improve structure, consistency, and responsiveness across Milestone 3 features. After implementing core resume-generation functionality in Week 9, this week centered on unifying the design system and strengthening resume UX with expanded backend support.
+
+I began by refactoring the main application structure in **PR #438 (Redesign App.jsx)**, reorganizing layout logic and cleaning up routing and component composition to make future visualization work easier to integrate. Following this, I updated the frontend test suite in **PR #441** to ensure tests aligned with the refactored structure and continued to provide reliable coverage.
+
+The majority of the week was dedicated to a three-part CSS redesign:
+
+- **PR #444** – Redesign index.css part 1/3: core, base, and shared components  
+- **PR #445** – Redesign index.css part 2/3: scan and rank page styles  
+- **PR #447** – Redesign index.css 3/3: portfolio, scanned projects, and responsiveness  
+
+These updates standardized spacing, typography, layout containers, and reusable UI patterns. The redesign improved responsiveness across screen sizes and reduced duplicated styling logic. Splitting the redesign into three focused PRs kept reviews manageable and reduced merge complexity.
+
+In parallel, I implemented **PR #449 (Resume page enhancements)**, which introduced new UX capabilities and supporting backend endpoints for LLM configuration and resume history.
+
+Key enhancements included:
+
+- **LLM Summary via Ollama** — added a checkbox allowing users to optionally include a locally generated AI summary in their resume. The feature is gated behind `llm_resume_consent` and includes an inline consent panel that calls the existing `/privacy-consent` endpoint.
+- **Multi-format downloads** — replaced the single `.md` download button with `.md`, `.txt`, and `.pdf` export options. The `.pdf` export uses browser print via a hidden iframe (no additional dependencies). While basic download functionality works, `.txt` and `.pdf` formatting fidelity require further refinement.
+- Added supporting backend endpoints:
+  - `GET /config` — returns current consent flags without mutating state  
+  - `GET /resumes` — lists saved resumes with optional `username` filter and `llm_used` flag  
+  - Refactored `GET /contributors` — added blacklist filtering and consistent sorting  
+
+Overall, this week significantly improved frontend maintainability, UI consistency, and resume-generation capabilities.
+
+<img width="984" height="628" alt="Image" src="https://github.com/user-attachments/assets/997da8a5-e4a4-409b-9086-13b8822a314d" />
+
+## Coding Tasks
+
+- Refactored main application layout and routing structure for improved modularity (**PR #438**)  
+- Updated frontend test suite to match refactored App.jsx structure (**PR #441**)  
+- Implemented core/base/shared styling system (**PR #444**)  
+- Redesigned scan and rank page styles (**PR #445**)  
+- Redesigned portfolio and scanned project views with improved responsiveness (**PR #447**)  
+- Implemented resume UX enhancements, LLM gating, and multi-format export functionality (**PR #449**)  
+- Added `GET /config`, `GET /resumes`, and refactored `GET /contributors` backend endpoints (**PR #449**)  
+
+## Testing Tasks
+
+- Updated frontend tests following App.jsx refactor to prevent regressions (**PR #441**)  
+- Manually validated LLM consent gating and `/privacy-consent` integration  
+- Tested multi-format resume download flows (.md, .txt, .pdf)  
+- Verified resume history endpoint behavior and contributor filtering  
+- Confirmed no UI regressions introduced during CSS restructuring  
+
+## Reviewing / Collaboration Tasks
+
+- Reviewed **Add project edit endpoint and UI support** (PR #448)  
+- Reviewed **Frontend portfolio generation: Project cards (initialization, animations, & favouriting)** (PR #440)  
+- Reviewed **Add project delete endpoint and LLM summary display with backend and frontend tests** (PR #439)  
+- Coordinated styling alignment with teammates to maintain consistent UI direction  
+
+<img width="913" height="244" alt="Image" src="https://github.com/user-attachments/assets/06b45208-5088-4a61-b48c-7a7acf648f14" />
+
+### Plans Going Forward
+
+- Refine `.txt` and `.pdf` export formatting to improve output fidelity and layout consistency  
+- Clean up and reorganize frontend repository structure (including `/config` folder) to improve maintainability  
+- Enforce single-page resume constraints to maintain professional formatting standards  
+- Continue strengthening frontend-to-backend integration and expanding integration test coverage  
