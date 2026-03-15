@@ -589,4 +589,44 @@ This week I focused on improving the resume generation workflow by strengthening
 
 <img width="832" height="659" alt="Screenshot 2026-03-08 at 8 40 23 PM" src="https://github.com/user-attachments/assets/cd73578f-b8f6-4e87-a386-9a627c9cadf3" />
 
+# T2 Week 10 Personal Logs (Mar 9th - 15th)
 
+### Overview
+
+This week I worked on improving both the project scanning workflow and the user interface used to explore scanned projects. The work focused on fixing multi-project scanning behavior, expanding the backend API to support better scanning workflows, and significantly improving the frontend project summary page. These updates improved the reliability of the scanning pipeline and introduced a more interactive dashboard for viewing project information.
+
+### Coding Tasks
+
+- Fixed issues with scanning multiple projects from a single directory or zip file and restored proper sequential project scanning in the backend pipeline (PR #443).
+- Implemented a new backend endpoint to support scan planning and allow the UI to detect projects before starting the scan process (PR #443).
+- Updated the Electron scanning workflow to support contributor assignment for non-git projects and display structured progress during scanning (PR #443).
+- Added thumbnail management functionality to the scanned projects page, including thumbnail selection, preview rendering, and update support through the backend API (PR #452).
+- Updated backend project update logic to allow partial updates so thumbnail changes do not overwrite other project fields (PR #452).
+- Redesigned the scanned projects page into a dashboard interface with searchable project lists, overview tiles, and tabbed project detail sections (PR #455).
+- Added new dashboard components such as project hero sections, signal summaries, and activity views to better visualize scanned project information (PR #455).
+- Refined the dashboard layout by introducing a dedicated Contributors tab and reorganizing contributor role information for improved readability (PR #456).
+- Updated the UI layout and styling to improve the organization of project details and contributor information within the dashboard (PR #456).
+
+### Testing and Debugging
+
+- Tested scanning workflows to ensure multiple projects within a directory or zip file are detected and processed sequentially (PR #443).
+- Verified the new scan planning endpoint correctly identifies projects before the scan begins (PR #443).
+- Tested thumbnail upload, preview rendering, and backend update behavior to ensure thumbnails are stored without overwriting other project data (PR #452).
+- Verified that the redesigned dashboard correctly loads project data, supports project searching, and switches between tabbed views (PR #455).
+- Tested the new Contributors tab and updated layout to confirm contributor roles and project information render correctly in the UI (PR #456).
+
+### Reviewing and Collaboration
+
+- Travis's Update T2 Week 10 individual log (PR #454)
+- Travis's Fix failing ResumePage tests (PR #453)
+- Daniel's Added key roles UI (PR #450)
+- Travis's Redesign index.css part 2/3: scan and rank page styles (PR #445)
+- Travis's Redesign index.css part 1/3: core, base, and shared components (PR #444)
+- Daniel's Added custom ranking UI (PR #442)
+- Tanner's Frontend portfolio generation: Data aggregation & UI reworks (PR #437)
+
+### Issues / Blockers
+
+- No major blockers occurred during this development period.
+- Some additional testing was required to ensure multi-project scanning behaved correctly across both CLI and Electron workflows (PR #443).
+- Minor UI adjustments were needed while refining the dashboard layout to ensure contributor information remained clear and readable (PR #456).
