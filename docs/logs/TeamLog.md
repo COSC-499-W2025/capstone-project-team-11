@@ -3,7 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #3)
-- [Team #11 – T2 Week 10 Team Log (March 9 – March 15)](#team-11-t2-week-10-team-log-march-9-march-15)
+- [Team #11 – T2 Week 10 Team Log (March 9 – March 15)](#team-11--t2-week-10-team-log-march-9--march-15)
 - [Team #11 – T2 Week 9 Team Log (March 2 – March 8)](#team-11-t2-week-9-team-log-march-2-march-8)
 
 ### Term 2 (Milestone #2)
