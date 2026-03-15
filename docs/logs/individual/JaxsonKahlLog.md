@@ -1,7 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
-- [T2 Week 10 (Mar 9th – Mar 15th)](#t2-week-9-personal-logs-mar-9th---15th)
+- [T2 Week 10 (Mar 9th – Mar 15th)](#t2-week-10-personal-logs-mar-9th---15th)
 - [T2 Week 9 (Mar 2nd – Mar 8th)](#t2-week-9-personal-logs-mar-2nd---8th)
 - [T2 Week 6/8 (Feb 9th - Mar 1st)](#t2-week-68-personal-logs-feb-9th---mar-1st)
 - [T2 Week 4/5 (Jan 26 – Feb 8th)](#t2-week-45-personal-logs-jan-26th---feb-8th)
