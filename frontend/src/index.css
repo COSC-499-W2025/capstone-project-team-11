@@ -1969,3 +1969,44 @@ button:disabled {
   .project-card-16-9.featured { flex: 1 1 auto; }
   .project-card-16-9.all-projects { flex: 1 1 auto; }
 }
+
+/* ─── Modal ───────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  width: 420px;
+  max-width: 90%;
+  background: var(--bg-surface);
+  color: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+}
+
+.modal-card p {
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
