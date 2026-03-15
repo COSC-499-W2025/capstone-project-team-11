@@ -4,6 +4,116 @@ import { API_BASE_URL } from './api';
 
 const MAX_FEATURED = 3;
 
+function formatRoleConfidence(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '0%';
+  return `${Math.round(value * 100)}%`;
+}
+
+function ProjectModal({ project, detail, username, displayName, onClose }) {
+  const name = project.display_name ?? project.name ?? '(unnamed)';
+  const projectId = project.id ?? project.project_id;
+  const thumbSrc = getThumbnailSrc(projectId, project.thumbnail_path);
+
+  const languages = Array.isArray(detail?.languages) ? detail.languages : [];
+  const skills = Array.isArray(detail?.skills) ? detail.skills : [];
+  const llmSummary = detail?.llm_summary?.text ?? null;
+  const repoUrl = detail?.project?.repo_url ?? null;
+
+  // Filter contributor roles to only the selected portfolio user
+  const allRoles = Array.isArray(detail?.contributor_roles?.contributors)
+    ? detail.contributor_roles.contributors
+    : [];
+  const userRole = allRoles.find(
+    (c) => c.name?.toLowerCase() === username?.toLowerCase()
+  ) ?? null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} details`}>
+      <div
+        className="modal-card"
+        style={{ width: '680px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="detail-card-header" style={{ marginBottom: '1rem' }}>
+          <div>
+            <span className="panel-eyebrow">Project</span>
+            <h3 style={{ margin: 0 }}>{name}</h3>
+          </div>
+          <button type="button" className="hero-action-button" onClick={onClose}>✕ Close</button>
+        </div>
+
+        {thumbSrc && (
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: '1rem', overflow: 'hidden', border: 'none'}}>
+            <img src={thumbSrc} alt={`${name} thumbnail`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'rgba(255,255,255,0)' }} />
+          </div>
+        )}
+
+        {llmSummary && (
+          <div className="llm-summary-card" style={{ marginBottom: '1rem' }}>
+            <span className="panel-eyebrow">About</span>
+            <p style={{ margin: '0.25rem 0 0' }}>{llmSummary}</p>
+          </div>
+        )}
+
+        <div className="detail-grid" style={{ marginBottom: '1rem' }}>
+          {languages.length > 0 && (
+            <article className="detail-card">
+              <div className="detail-card-header">
+                <span className="panel-eyebrow">Languages</span>
+              </div>
+              <div className="chip-cloud">
+                {languages.map((lang) => <span key={lang} className="detail-chip">{lang}</span>)}
+              </div>
+            </article>
+          )}
+          {skills.length > 0 && (
+            <article className="detail-card">
+              <div className="detail-card-header">
+                <span className="panel-eyebrow">Skills</span>
+              </div>
+              <div className="chip-cloud">
+                {skills.map((skill) => <span key={skill} className="detail-chip">{skill}</span>)}
+              </div>
+            </article>
+          )}
+        </div>
+
+        {userRole && (
+          <div style={{ marginBottom: '1rem' }}>
+            <span className="panel-eyebrow">{displayName}'s Role</span>
+            <div className="contributor-role-card" style={{ marginTop: '0.4rem' }}>
+              <p className="contributor-role-primary">
+                {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
+              </p>
+              <p className="contributor-role-meta">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
+              {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
+                <p className="contributor-role-meta">Secondary: {userRole.secondary_roles.join(', ')}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          {repoUrl && (
+            <a className="hero-action-button" href={repoUrl} target="_blank" rel="noreferrer">
+              Open Repository
+            </a>
+          )}
+          <button type="button" className="hero-action-button" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getThumbnailSrc(projectId, thumbnailPath) {
+  if (!projectId || !thumbnailPath) return null;
+  if (/^https?:\/\//i.test(thumbnailPath) || /^data:/i.test(thumbnailPath)) {
+    return thumbnailPath;
+  }
+  return `${API_BASE_URL}/projects/${projectId}/thumbnail/image?v=${encodeURIComponent(thumbnailPath)}`;
+}
+
 function PortfolioPage({ onBack, showStars = true }) {
   const [phase, setPhase] = useState('setup');
 
@@ -29,6 +139,9 @@ function PortfolioPage({ onBack, showStars = true }) {
   const [timelineData, setTimelineData] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
+  // Map of project id → full /projects/{id} response (fetched at generation time)
+  const [projectDetails, setProjectDetails] = useState({});
+  const [expandedProjectId, setExpandedProjectId] = useState(null);
 
   // Universal toast (4 seconds, auto-dismiss, auto-restart, clears on new toast received)
   const [toast, setToast] = useState(null); 
@@ -46,7 +159,11 @@ function PortfolioPage({ onBack, showStars = true }) {
   useEffect(() => {
     axios
       .get(`${API_BASE_URL}/projects`)
-      .then((res) => setAllProjects(Array.isArray(res.data) ? res.data : []))
+      .then((res) => {
+        const raw = Array.isArray(res.data) ? res.data : [];
+        // Expose custom_name as display_name so we can use custom display names within project cards
+        setAllProjects(raw.map((p) => ({ ...p, display_name: p.custom_name || p.name })));
+      })
       .catch((err) => showToast(err.message, 'error'))
       .finally(() => setIsLoadingProjects(false));
   }, []);
@@ -130,6 +247,20 @@ function PortfolioPage({ onBack, showStars = true }) {
       setHeatmapData(heatmapRes.data);
       setTimelineData(timelineRes.data.timeline || []);
 
+      // Fetch per-project detail in parallel to get llm_summary text for card footers.
+      // Failures are silently swallowed so they don't block portfolio generation.
+      const detailResults = await Promise.allSettled(
+        eligible.map((p) => axios.get(`${API_BASE_URL}/projects/${p.id ?? p.project_id}`))
+      );
+      const detailMap = {};
+      detailResults.forEach((result, i) => {
+        const id = eligible[i].id ?? eligible[i].project_id;
+        if (result.status === 'fulfilled') {
+          detailMap[id] = result.value.data ?? null;
+        }
+      });
+      setProjectDetails(detailMap);
+
       // Auto-star the top 3 ranked projects that are in the "eligible" set
       const eligibleNames = new Set(eligible.map((p) => p.display_name ?? p.name));
       const topThree = (showcaseRes.data.projects || [])
@@ -180,6 +311,8 @@ function PortfolioPage({ onBack, showStars = true }) {
     setProjectSearch('');
     setIncludedProjects([]);
     setFeaturedIds(new Set());
+    setProjectDetails({});
+    setExpandedProjectId(null);
     clearTimeout(toastTimer.current);
     setToast(null);
   };
@@ -245,21 +378,35 @@ function PortfolioPage({ onBack, showStars = true }) {
                 .filter((p) => featuredIds.has(p.display_name ?? p.name))
                 .map((p) => {
                   const name = p.display_name ?? p.name ?? '(unnamed)';
+                  const projectId = p.id ?? p.project_id;
+                  const thumbSrc = getThumbnailSrc(projectId, p.thumbnail_path);
+                  const summary = projectDetails[projectId]?.llm_summary?.text ?? null;
                   return (
-                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 featured">
-                      <span className="project-card-name">{name}</span>
-                      {/* Star/Favourite/Feature button */}
-                      {showStars && (
-                        <button
-                          type="button"
-                          className="star-btn starred"
-                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
-                          aria-label="Unfeature project"
-                          title="Remove from Featured"
-                        >
-                          ★
-                        </button>
-                      )}
+                    <div key={projectId ?? name} className="project-card-16-9 featured" onClick={() => setExpandedProjectId(projectId)} style={{ cursor: 'pointer' }}>
+                      <div className="project-card-header">
+                        <span className="project-card-name">{name}</span>
+                        {showStars && (
+                          <button
+                            type="button"
+                            className="star-btn starred"
+                            onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                            aria-label="Unfeature project"
+                            title="Remove from Featured"
+                          >
+                            ★
+                          </button>
+                        )}
+                      </div>
+                      <div className="project-card-image">
+                        {thumbSrc
+                          ? <img src={thumbSrc} alt={`${name} thumbnail`} />
+                          : <span className="project-card-no-thumb">No thumbnail</span>}
+                      </div>
+                      <div className="project-card-footer">
+                        <p className="project-card-summary">
+                          {summary ?? 'No summary available.'}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
@@ -294,27 +441,55 @@ function PortfolioPage({ onBack, showStars = true }) {
                 .map((p) => {
                   const name = p.display_name ?? p.name ?? '(unnamed)';
                   const isStarred = featuredIds.has(name);
+                  const projectId = p.id ?? p.project_id;
+                  const thumbSrc = getThumbnailSrc(projectId, p.thumbnail_path);
+                  const summary = projectDetails[projectId]?.llm_summary?.text ?? null;
                   return (
-                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 all-projects">
-                      <span className="project-card-name">{name}</span>
-                      {/* Star/Favourite/Feature button */}
-                      {showStars && (
-                        <button
-                          type="button"
-                          className={`star-btn${isStarred ? ' starred' : ''}`}
-                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
-                          aria-label={isStarred ? 'Unfeature project' : 'Feature project'}
-                          title={isStarred ? 'Remove from Featured' : 'Add to Featured'}
-                        >
-                          {isStarred ? '★' : '☆'}
-                        </button>
-                      )}
+                    <div key={projectId ?? name} className="project-card-16-9 all-projects" onClick={() => setExpandedProjectId(projectId)} style={{ cursor: 'pointer' }}>
+                      <div className="project-card-header">
+                        <span className="project-card-name">{name}</span>
+                        {showStars && (
+                          <button
+                            type="button"
+                            className={`star-btn${isStarred ? ' starred' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                            aria-label={isStarred ? 'Unfeature project' : 'Feature project'}
+                            title={isStarred ? 'Remove from Featured' : 'Add to Featured'}
+                          >
+                            {isStarred ? '★' : '☆'}
+                          </button>
+                        )}
+                      </div>
+                      <div className="project-card-image">
+                        {thumbSrc
+                          ? <img src={thumbSrc} alt={`${name} thumbnail`} />
+                          : <span className="project-card-no-thumb">No thumbnail</span>}
+                      </div>
+                      <div className="project-card-footer">
+                        <p className="project-card-summary">
+                          {summary ?? 'No summary available.'}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
             </div>
           </section>
         </div>
+
+        {expandedProjectId != null && (() => {
+          const p = includedProjects.find((x) => (x.id ?? x.project_id) === expandedProjectId);
+          if (!p) return null;
+          return (
+            <ProjectModal
+              project={p}
+              detail={projectDetails[expandedProjectId] ?? null}
+              username={username}
+              displayName={displayName}
+              onClose={() => setExpandedProjectId(null)}
+            />
+          );
+        })()}
       </div>
     );
   }
