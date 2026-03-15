@@ -3,6 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #3)
+- [Team #11 – T2 Week 10 Team Log (March 9 – March 15)](#team-11-t2-week-10-team-log-march-9-march-15)
 - [Team #11 – T2 Week 9 Team Log (March 2 – March 8)](#team-11-t2-week-9-team-log-march-2-march-8)
 
 ### Term 2 (Milestone #2)
@@ -2044,17 +2045,312 @@ This week we transitioned from a basic UI to a fully interactive frontend integr
 <img width="1919" height="850" alt="image" src="https://github.com/user-attachments/assets/5e952fa1-bae4-4354-a64e-0c6511f0fc64" />
 
 
-  
- 
+# Team #11 – T2 Week 10 Team Log (March 9 – March 15)
+Team Members --> GitHub Username
+
+- Daniel Sokic --> danielsokic
+- Jaxson Kahl --> jaxsonkahl
+- Priyanshu Chugh --> priyanshupc04
+- Tanner Dyck --> TannerDyck
+- Travis Frank --> travis-frank
+- Tyler Cummings --> TylerC-3042
+
+## Overveiw
+Week 10 focused on refining the frontend into a more polished, interactive, and manageable application. After Week 9 established the core pages and backend integrations, this week centered on improving the usability of those workflows. A major theme was turning previously basic views into richer interfaces that better support real user actions, such as editing scanned projects, saving custom rankings, clearing the database, and interacting with a more complete portfolio and resume experience.
+
+A large amount of work this week went into the Scanned Projects area. This included improving the scanning workflow for multi-project directories and zip files, adding thumbnail support, surfacing contributor role analysis, and redesigning the Scanned Projects page into a more dashboard-style interface. These changes made the application much stronger both at the point of scanning and when reviewing project data afterward.
+
+The team also continued expanding the portfolio and resume features. Portfolio generation became more data-driven, using real ranking, timeline, and heatmap data, while the UI gained working project cards, featured project favouriting, expandable project detail views, and search. Resume generation was extended with optional local LLM summary support, more download formats, and improved test coverage. Alongside these feature additions, the frontend also underwent a substantial visual redesign through a new shared dark-theme styling system that unified the application’s look and feel across pages.
+
+Overall, Week 10 was about moving from functional to usable and polished. The application now supports richer management workflows, clearer presentation of scanned project data, and a more cohesive frontend experience.
+
+---
+
+## Completed Work By Member
+
+### Daniel
+**PR 442 - Added custom ranking UI**  
+[442](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/442)
+
+- Expanded the Rank Projects page to support custom user-created rankings instead of only built-in ranking modes.
+- Implemented a workflow for creating, saving, viewing, collapsing, and deleting saved rankings.
+- Added support for storing a ranking title, short description, and ordered project list.
+- Added backend persistence and new endpoints:
+  - `GET /custom-rankings`
+  - `POST /custom-rankings`
+  - `GET /custom-rankings/{name}`
+  - `DELETE /custom-rankings/{name}`
+- Turned project ranking into a persistent and manageable feature rather than a temporary page interaction.
+
+**PR 450 - Added key roles UI**  
+[450](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/450)
+
+- Extended scanned project details to include contributor role analysis.
+- Added a new `contributor_roles` field to the `GET /projects/{project_id}` backend response.
+- Refactored the Scanned Projects details layout to improve readability and component organization.
+- Added frontend sections displaying each contributor’s primary role, role description, confidence level, and secondary roles.
+- Added a Team Composition summary to give a higher-level view of contributor distribution.
+- Added tests to confirm the contributor roles section renders correctly.
+
+---
+
+### Jaxson
+**PR 443 - Fixed scanner bugs related to multi-project directories**  
+[443](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/443)
+
+- Fixed scan workflow issues for folders and zip files containing multiple projects.
+- Added a new `POST /projects/scan-plan` endpoint to detect projects before scanning begins.
+- Updated `POST /projects/scan-stream` to support manual contributor assignment and more structured progress events.
+- Improved the frontend scan workflow so users can assign contributors to non-git projects and follow project-by-project progress.
+- Added support for handling partial scan success so one failed project does not stop the full scan.
+- Added backend regression tests covering multi-project and zipped-input scanning cases.
+
+**PR 452 - Thumbnail management for scanned projects**  
+[452](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/452)
+
+- Added thumbnail image support to the Scanned Projects page.
+- Implemented frontend thumbnail selection and preview in Electron.
+- Added backend support to serve thumbnails by project ID.
+- Improved project patch/update logic so changes to thumbnails do not overwrite unrelated project metadata.
+- Added frontend and backend tests for thumbnail upload and safer partial project updates.
+
+**PR 455 - Revamped scanned projects page into an interactive dashboard**  
+[455](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/455)
+
+- Redesigned the Scanned Projects page into a more complete dashboard-style interface.
+- Added searchable project browsing with overview summary tiles and a richer selected-project display.
+- Introduced tabbed project sections for Overview, Signals, Activity, and better organization of project information.
+- Improved the display of project evidence, scan activity, extensions, summaries, and supporting metadata.
+- Preserved project management actions like edit, delete, thumbnail updates, and opening repo links.
+- Updated tests to cover search, tab switching, and the new dashboard rendering.
+
+**PR 456 - Refined contributor and overview layout on the scanned projects dashboard**  
+[456](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/456)
+
+- Refined the new dashboard layout created in PR 455.
+- Added a dedicated Contributors tab for contributor-specific information.
+- Moved the Edit Project action into the Overview section for better organization.
+- Reorganized contributor-role information so it appears beneath contributor data for clearer reading flow.
+- Updated frontend tests to match the new tab layout and revised button placement.
+
+---
+
+### Priyanshu
+**PR 439 - Added project deletion and LLM summary display**  
+[439](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/439)
+
+- Added a backend `DELETE /projects/{project_id}` endpoint so scanned projects can be removed from the database.
+- Connected deletion to the frontend with a Delete button and confirmation prompt.
+- Refreshed the scanned project list automatically after deletion.
+- Added support for displaying LLM-generated project summaries in the project details panel when available.
+- Added frontend and backend tests for project deletion and LLM summary rendering.
+
+**PR 448 - Added project editing support and improved delete cleanup**  
+[448](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/448)
+
+- Added a backend `PATCH /projects/{project_id}` endpoint to update project metadata.
+- Implemented an Edit Project flow in the frontend for fields such as display name, repo URL, and thumbnail path.
+- Improved project deletion cleanup by removing orphaned contributor and language records no longer tied to files.
+- Updated the delete confirmation prompt to display the project name instead of only the project ID.
+- Added backend and frontend tests for project editing and cleanup behavior.
+
+---
+
+### Tyler
+**PR 451 - Delete database functionality**  
+[451](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/451)
+
+- Added backend support to fully clear the database through a new `/database/clear` endpoint.
+- Connected the Clear Database button in the Database Maintenance page to the new endpoint.
+- Refreshed the displayed database contents after clearing.
+- Replaced the default browser confirmation with a custom modal for a cleaner and safer destructive-action workflow.
+- Removed the older Delete Project action from the Database Maintenance page to simplify the interface.
+- Added frontend tests covering modal behavior, API calls, table refresh, and database clearing flow.
+
+---
+
+### Tanner
+**PR 437 - Portfolio data aggregation and UI reworks**  
+[437](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/437)
+
+- Expanded portfolio generation so the frontend now loads real portfolio metadata after generation.
+- Updated the portfolio workflow to call `POST /portfolio/generate` with `save_to_db:true`.
+- Added follow-up data loading for portfolio metadata, ranked projects, activity heatmap, and skills timeline.
+- Improved the portfolio header with selected display name, project count, and generation timestamp.
+- Added a loading spinner and improved error-state formatting during portfolio generation.
+- Updated contributor-specific project validation by pulling included projects from:
+  - `GET /rank-projects?mode=contributor&contributor_name={username}`
+- Updated frontend tests to reflect the expanded portfolio generation flow.
+
+**PR 440 - Initial project cards, search, and favouriting in portfolio view**  
+[440](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/440)
+
+- Added real project cards to the Featured Projects and All Projects sections of the portfolio page.
+- Implemented live search for the All Projects section.
+- Added star/favourite controls so users can choose which projects appear in Featured Projects.
+- Limited Featured Projects to a maximum of 3 items.
+- Set default featured projects using the highest-ranked included projects, with a fallback to the first 3 included projects if needed.
+- Added empty-state handling for the featured section.
+- Replaced some alerts with toast-based feedback for a more consistent user experience.
+
+**PR 457 - Expanded and redesigned portfolio project cards**  
+[457](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/457)
+
+- Enhanced the web portfolio by adding expandable project cards so users can open a larger detailed project view.
+- Added a `ProjectModal` overlay component to display fuller project information, including title, thumbnail, LLM summary, languages/frameworks, skills, contributor role, and repository access.
+- Reworked collapsed project cards into a clearer structure with a header, thumbnail area, and footer.
+- Added thumbnail support to portfolio cards using the `/projects/{id}/thumbnail/image` endpoint.
+- Updated project display naming so cards prioritize a project’s custom name and fall back to the repository name when needed.
+- Added an Open Repository button in the expanded card view for direct access to the project’s GitHub page.
+- Added supporting CSS and verified the feature through testing and manual validation.
+
+---
+
+### Travis
+**PR 438 - Redesign App.jsx**  
+[438](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/438)
+
+- Redesigned the main Electron app shell and menu layout.
+- Added a more modern dark glass visual style with Framer Motion animations for transitions and hover states.
+- Refactored the frontend into smaller reusable components such as `MenuCard`, `StatCard`, and `InfoPanel`.
+- Replaced chained conditional routing logic with cleaner lookup-based navigation structures.
+- Improved maintainability and overall polish of the application shell.
+
+**PR 441 - Update frontend tests to match refactored App.jsx**  
+[441](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/441)
+
+- Updated frontend tests to match the redesigned app structure introduced in PR 438.
+- Fixed outdated assertions and removed duplicate tests.
+- Improved async navigation checks so they confirm actual rendered page changes.
+- Added safer shared mocks for API calls in the test environment.
+- Split portfolio-related test coverage into its own more focused location.
+
+**PR 444 - Redesign index.css part 1/3**  
+[444](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/444)
+
+- Replaced the old light-theme base styling with a new shared dark-theme design system.
+- Added CSS variables for colors, spacing, shadows, radii, and typography.
+- Styled shared UI elements such as buttons, forms, cards, the app shell, sidebar, and toast notifications.
+- Established the foundational styling system used across the rest of the frontend.
+
+**PR 445 - Redesign index.css part 2/3**  
+[445](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/445)
+
+- Applied the new shared styling system to the Scan and Rank Projects pages.
+- Styled scan layouts, dropzones, logs, progress bars, summary cards, and recent item sections.
+- Styled ranking controls, explanation panels, results tables, and custom ranking UI.
+- Added responsive behavior for ranking and scan-related layouts.
+
+**PR 447 - Redesign index.css part 3/3**  
+[447](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/447)
+
+- Completed the styling migration across the remaining major pages.
+- Added styling for the Portfolio and Scanned Projects pages.
+- Styled portfolio setup views, project cards, favourite controls, and generation states.
+- Styled scanned project panels and supporting responsive layouts.
+- Finished the broad frontend visual redesign so the app now feels more cohesive across pages.
+
+**PR 449 - Resume page enhancements**  
+[449](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/449)
+
+- Expanded the Generate Resume page with optional locally generated LLM summaries using Ollama.
+- Added consent-based handling for LLM summaries through `llm_resume_consent` and `/privacy-consent`.
+- Added multi-format download support for generated resumes:
+  - `.md`
+  - `.txt`
+  - `.pdf`
+- Added new backend endpoints:
+  - `GET /config`
+  - `GET /resumes`
+- Improved contributor loading and sorting behavior for resume generation workflows.
+- Extended the overall resume generation experience with more flexibility and backend support.
+
+**PR 453 - Fix failing ResumePage tests**  
+[453](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/453)
+
+- Fixed failing tests in `ResumePage.test.jsx` after the resume enhancements changed component behavior.
+- Updated tests for successful API rendering and error handling.
+- Restored full frontend test reliability for the resume page.
+
+---
+
+### All Members
+- Code reviews and verification of Week 10 PRs prior to merge
+- Continued coordination through GitHub and Discord
+- Participation in in-class meetings, milestone discussions, and progress tracking
+- Completion of individual logs and ongoing collaboration across frontend and backend feature work
+
+---
+
+## Testing Report
+All new and existing unit tests pass successfully.
+
+Testing during Week 10 focused on verifying new management workflows, frontend redesign changes, and expanded project review functionality. Because many features built in Week 9 were further refined this week, a large portion of testing involved ensuring that UI refactors and added interactions did not break earlier functionality. The team also continued adding targeted frontend and backend tests for each new feature area.
+
+### Tests Added/Updated
+
+`App.test.jsx`  
+Updated to match the redesigned `App.jsx` shell and routing behavior:
+- Confirmed navigation still works correctly after the menu redesign.
+- Updated assertions to check rendered destination pages rather than only route changes.
+- Added more reliable mocks for shared frontend API interactions.
+
+`ResumePage.test.jsx`  
+Expanded and updated for the revised resume workflow:
+- Verified contributor loading and resume generation still work correctly after UI changes.
+- Covered updated success and error rendering behavior.
+- Added follow-up fixes after resume page enhancements changed component behavior.
+
+`PortfolioPage.test.jsx`  
+Updated to reflect a more data-driven portfolio workflow:
+- Validated contributor-specific project selection and generation requirements.
+- Covered expanded loading flow for generated portfolio data.
+- Verified portfolio sections render with real project card behavior, featured selections, and search interactions.
+
+`ScannedProjectsPage` related frontend tests  
+Added and updated to cover the expanded scanned project workflow:
+- Verified project deletion and project editing behavior.
+- Tested thumbnail handling and safer partial project updates.
+- Covered the dashboard-style layout, project search, tab switching, and contributor display.
+- Confirmed contributor roles and team composition information render correctly.
+
+`Database Maintenance` frontend tests  
+Added and updated to cover destructive database actions:
+- Verified database table inspection and refresh behavior.
+- Tested the Clear Database modal flow and confirmation behavior.
+- Confirmed the clear action correctly calls the backend and updates the UI.
+
+Backend tests  
+Added and updated to validate new backend endpoints and scan flows:
+- Regression tests for multi-project and zipped-directory scan cases.
+- Tests for `DELETE /projects/{project_id}` and `PATCH /projects/{project_id}`.
+- Tests for thumbnail and safer partial project update behavior.
+- Tests for contributor role data in project details.
+- Tests for `/database/clear` and related maintenance behavior.
+
+Backend: `pytest -q` all tests pass locally.  
+Frontend: `npm test` all Vitest tests pass successfully.
 
 
 
+---
+
+## Reflection
+
+Week 10 was a strong refinement week for the project. Rather than only adding isolated features, the team improved how the application behaves as a complete product. The Scanned Projects workflow became much more powerful through better scan handling, richer project details, edit/delete capabilities, thumbnails, contributor role analysis, and a dashboard-style interface. Portfolio and resume generation also moved closer to a polished user-facing experience by incorporating real data, improved controls, and more output options.
+
+Another major success this week was frontend consistency. The app now has a much more unified visual system, and the redesign made the interface feel more intentional and professional across major pages. At the same time, the team maintained strong testing discipline by updating existing tests after refactors and adding new coverage for each major feature area. Overall, Week 10 showed meaningful progress not just in what the application can do, but in how well the different parts now fit together.
+
+## Plans Moving Forward (Week 11+)
+- Continue refining the Portfolio page so all sections present richer real project data and stronger visualizations.
+- Further polish the Scanned Projects dashboard and contributor insights for clarity and usability.
+- Improve formatting and output quality for downloaded resume files, especially `.txt` and `.pdf`.
+- Expand management workflows for scanned projects and database maintenance as edge cases appear.
+- Continue extending frontend and backend test coverage for newly refined user flows.
+- Monitor performance and UX as the application handles more scanned repositories and more complex datasets.
+- Use metrics from Peer Testing to improve the application
+
+## Burnup Chart
 
 
-
-
-
-
-
-
-
+## Kanban Board
