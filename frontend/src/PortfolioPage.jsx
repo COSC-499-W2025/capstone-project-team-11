@@ -4,6 +4,14 @@ import { API_BASE_URL } from './api';
 
 const MAX_FEATURED = 3;
 
+function getThumbnailSrc(projectId, thumbnailPath) {
+  if (!projectId || !thumbnailPath) return null;
+  if (/^https?:\/\//i.test(thumbnailPath) || /^data:/i.test(thumbnailPath)) {
+    return thumbnailPath;
+  }
+  return `${API_BASE_URL}/projects/${projectId}/thumbnail/image?v=${encodeURIComponent(thumbnailPath)}`;
+}
+
 function PortfolioPage({ onBack, showStars = true }) {
   const [phase, setPhase] = useState('setup');
 
@@ -29,6 +37,8 @@ function PortfolioPage({ onBack, showStars = true }) {
   const [timelineData, setTimelineData] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
+  // Map of project id → llm summary text (fetched at generation time)
+  const [projectSummaries, setProjectSummaries] = useState({});
 
   // Universal toast (4 seconds, auto-dismiss, auto-restart, clears on new toast received)
   const [toast, setToast] = useState(null); 
@@ -46,7 +56,11 @@ function PortfolioPage({ onBack, showStars = true }) {
   useEffect(() => {
     axios
       .get(`${API_BASE_URL}/projects`)
-      .then((res) => setAllProjects(Array.isArray(res.data) ? res.data : []))
+      .then((res) => {
+        const raw = Array.isArray(res.data) ? res.data : [];
+        // Expose custom_name as display_name so we can use custom display names within project cards
+        setAllProjects(raw.map((p) => ({ ...p, display_name: p.custom_name || p.name })));
+      })
       .catch((err) => showToast(err.message, 'error'))
       .finally(() => setIsLoadingProjects(false));
   }, []);
@@ -130,6 +144,20 @@ function PortfolioPage({ onBack, showStars = true }) {
       setHeatmapData(heatmapRes.data);
       setTimelineData(timelineRes.data.timeline || []);
 
+      // Fetch per-project detail in parallel to get llm_summary text for card footers.
+      // Failures are silently swallowed so they don't block portfolio generation.
+      const detailResults = await Promise.allSettled(
+        eligible.map((p) => axios.get(`${API_BASE_URL}/projects/${p.id ?? p.project_id}`))
+      );
+      const summaryMap = {};
+      detailResults.forEach((result, i) => {
+        const id = eligible[i].id ?? eligible[i].project_id;
+        if (result.status === 'fulfilled') {
+          summaryMap[id] = result.value.data?.llm_summary?.text ?? null;
+        }
+      });
+      setProjectSummaries(summaryMap);
+
       // Auto-star the top 3 ranked projects that are in the "eligible" set
       const eligibleNames = new Set(eligible.map((p) => p.display_name ?? p.name));
       const topThree = (showcaseRes.data.projects || [])
@@ -180,6 +208,7 @@ function PortfolioPage({ onBack, showStars = true }) {
     setProjectSearch('');
     setIncludedProjects([]);
     setFeaturedIds(new Set());
+    setProjectSummaries({});
     clearTimeout(toastTimer.current);
     setToast(null);
   };
@@ -245,21 +274,35 @@ function PortfolioPage({ onBack, showStars = true }) {
                 .filter((p) => featuredIds.has(p.display_name ?? p.name))
                 .map((p) => {
                   const name = p.display_name ?? p.name ?? '(unnamed)';
+                  const projectId = p.id ?? p.project_id;
+                  const thumbSrc = getThumbnailSrc(projectId, p.thumbnail_path);
+                  const summary = projectSummaries[projectId] ?? null;
                   return (
-                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 featured">
-                      <span className="project-card-name">{name}</span>
-                      {/* Star/Favourite/Feature button */}
-                      {showStars && (
-                        <button
-                          type="button"
-                          className="star-btn starred"
-                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
-                          aria-label="Unfeature project"
-                          title="Remove from Featured"
-                        >
-                          ★
-                        </button>
-                      )}
+                    <div key={projectId ?? name} className="project-card-16-9 featured">
+                      <div className="project-card-header">
+                        <span className="project-card-name">{name}</span>
+                        {showStars && (
+                          <button
+                            type="button"
+                            className="star-btn starred"
+                            onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                            aria-label="Unfeature project"
+                            title="Remove from Featured"
+                          >
+                            ★
+                          </button>
+                        )}
+                      </div>
+                      <div className="project-card-image">
+                        {thumbSrc
+                          ? <img src={thumbSrc} alt={`${name} thumbnail`} />
+                          : <span className="project-card-no-thumb">No thumbnail</span>}
+                      </div>
+                      <div className="project-card-footer">
+                        <p className="project-card-summary">
+                          {summary ?? 'No summary available.'}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
@@ -294,21 +337,35 @@ function PortfolioPage({ onBack, showStars = true }) {
                 .map((p) => {
                   const name = p.display_name ?? p.name ?? '(unnamed)';
                   const isStarred = featuredIds.has(name);
+                  const projectId = p.id ?? p.project_id;
+                  const thumbSrc = getThumbnailSrc(projectId, p.thumbnail_path);
+                  const summary = projectSummaries[projectId] ?? null;
                   return (
-                    <div key={p.id ?? p.project_id ?? name} className="project-card-16-9 all-projects">
-                      <span className="project-card-name">{name}</span>
-                      {/* Star/Favourite/Feature button */}
-                      {showStars && (
-                        <button
-                          type="button"
-                          className={`star-btn${isStarred ? ' starred' : ''}`}
-                          onClick={(e) => { e.stopPropagation(); handleStar(name); }}
-                          aria-label={isStarred ? 'Unfeature project' : 'Feature project'}
-                          title={isStarred ? 'Remove from Featured' : 'Add to Featured'}
-                        >
-                          {isStarred ? '★' : '☆'}
-                        </button>
-                      )}
+                    <div key={projectId ?? name} className="project-card-16-9 all-projects">
+                      <div className="project-card-header">
+                        <span className="project-card-name">{name}</span>
+                        {showStars && (
+                          <button
+                            type="button"
+                            className={`star-btn${isStarred ? ' starred' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); handleStar(name); }}
+                            aria-label={isStarred ? 'Unfeature project' : 'Feature project'}
+                            title={isStarred ? 'Remove from Featured' : 'Add to Featured'}
+                          >
+                            {isStarred ? '★' : '☆'}
+                          </button>
+                        )}
+                      </div>
+                      <div className="project-card-image">
+                        {thumbSrc
+                          ? <img src={thumbSrc} alt={`${name} thumbnail`} />
+                          : <span className="project-card-no-thumb">No thumbnail</span>}
+                      </div>
+                      <div className="project-card-footer">
+                        <p className="project-card-summary">
+                          {summary ?? 'No summary available.'}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
