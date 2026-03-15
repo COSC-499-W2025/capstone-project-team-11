@@ -84,6 +84,11 @@ describe("ScannedProjectsPage", () => {
     expect(await screen.findByText(/Detected Stack/i)).toBeInTheDocument();
     expect(screen.getByText(/Python/i)).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: /contributors/i }));
+    expect(await screen.findByRole("heading", { name: /Contributor Roles/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Confidence: 82%/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Team Composition: 1 Backend Developer/i)).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
     expect(await screen.findByText(/Scan Activity/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Won hackathon/i).length).toBeGreaterThan(0);
@@ -151,7 +156,8 @@ describe("ScannedProjectsPage", () => {
 
     expect(await screen.findByText(/demo_project/i)).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Edit Project/i }));
+    const [editButton] = await screen.findAllByRole("button", { name: /Edit Project/i });
+    fireEvent.click(editButton);
 
     fireEvent.change(screen.getByLabelText(/Display Name/i), {
       target: { value: "Updated Display Name" },

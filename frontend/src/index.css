@@ -1304,6 +1304,11 @@ button:disabled {
   gap: 0.9rem;
 }
 
+.contributors-panel-stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
 .detail-card,
 .empty-state-card {
   background: rgba(255, 255, 255, 0.03);
@@ -1317,7 +1322,15 @@ button:disabled {
 }
 
 .detail-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.8rem;
   margin-bottom: 0.85rem;
+}
+
+.detail-card-header > div h4 {
+  margin: 0.18rem 0 0;
 }
 
 .detail-card-header h4,
@@ -1556,7 +1569,7 @@ button:disabled {
   .project-panel-tabs {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .project-panel-tab {

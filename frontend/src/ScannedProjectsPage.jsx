@@ -386,7 +386,6 @@ function ScannedProjectsPage({ onBack }) {
                 </div>
 
                 <div className="project-hero-actions">
-                  <button type="button" className="hero-action-button" onClick={handleEditProject}>Edit Project</button>
                   <button type="button" className="danger" onClick={handleDeleteProject}>Delete Project</button>
                   <button
                     type="button"
@@ -416,7 +415,7 @@ function ScannedProjectsPage({ onBack }) {
               </div>
 
               <div className="project-panel-tabs" role="tablist" aria-label="Project detail panels">
-                {['overview', 'signals', 'activity'].map((panel) => (
+                {['overview', 'signals', 'contributors', 'activity'].map((panel) => (
                   <button
                     key={panel}
                     type="button"
@@ -434,8 +433,11 @@ function ScannedProjectsPage({ onBack }) {
                 <div className="detail-grid">
                   <article className="detail-card detail-card-wide">
                     <div className="detail-card-header">
-                      <span className="panel-eyebrow">Summary</span>
-                      <h4>Project Snapshot</h4>
+                      <div>
+                        <span className="panel-eyebrow">Summary</span>
+                        <h4>Project Snapshot</h4>
+                      </div>
+                      <button type="button" className="hero-action-button" onClick={handleEditProject}>Edit Project</button>
                     </div>
                     <div className="metadata-grid">
                       <div className="detail-row">
@@ -492,43 +494,23 @@ function ScannedProjectsPage({ onBack }) {
 
                   <article className="detail-card">
                     <div className="detail-card-header">
-                      <span className="panel-eyebrow">People</span>
-                      <h4>Contributor Roles</h4>
+                      <span className="panel-eyebrow">Summary</span>
+                      <h4>Quick Read</h4>
                     </div>
-                    {contributors.length > 0 ? (
-                      <div className="chip-cloud">
-                        {contributors.map((contributor) => (
-                          <span key={contributor} className="detail-chip">{contributor}</span>
-                        ))}
+                    <div className="metadata-grid">
+                      <div className="detail-row">
+                        <strong>Contributors</strong>
+                        <span>{contributors.length}</span>
                       </div>
-                    ) : (
-                      <p className="empty-copy">No contributors recorded.</p>
-                    )}
-
-                    {contributorRoles.length > 0 ? (
-                      <div className="contributors-role-list">
-                        {contributorRoles.map((contributor) => (
-                          <div key={`${contributor.name}-${contributor.primary_role}`} className="contributor-role-card">
-                            <p className="contributor-role-name">{contributor.name}</p>
-                            <p className="contributor-role-primary">
-                              {contributor.primary_role}
-                              {contributor.role_description ? ` - ${contributor.role_description}` : ''}
-                            </p>
-                            <p className="contributor-role-meta">Confidence: {formatRoleConfidence(contributor.confidence)}</p>
-                            {Array.isArray(contributor.secondary_roles) && contributor.secondary_roles.length > 0 ? (
-                              <p className="contributor-role-meta">Secondary: {contributor.secondary_roles.join(', ')}</p>
-                            ) : null}
-                          </div>
-                        ))}
-                        {selectedProject.contributor_roles?.summary?.team_composition ? (
-                          <p className="contributor-role-summary">
-                            Team Composition: {selectedProject.contributor_roles.summary.team_composition}
-                          </p>
-                        ) : null}
+                      <div className="detail-row">
+                        <strong>Primary Roles</strong>
+                        <span>{contributorRoles.length}</span>
                       </div>
-                    ) : (
-                      <p className="empty-copy">No contributor roles inferred yet.</p>
-                    )}
+                      <div className="detail-row">
+                        <strong>Team Composition</strong>
+                        <span>{selectedProject.contributor_roles?.summary?.team_composition || 'Not available'}</span>
+                      </div>
+                    </div>
                   </article>
                 </div>
               ) : null}
@@ -588,6 +570,57 @@ function ScannedProjectsPage({ onBack }) {
                       </div>
                     ) : (
                       <p className="empty-copy">No skills recorded.</p>
+                    )}
+                  </article>
+                </div>
+              ) : null}
+
+              {activePanel === 'contributors' ? (
+                <div className="contributors-panel-stack">
+                  <article className="detail-card">
+                    <div className="detail-card-header">
+                      <span className="panel-eyebrow">People</span>
+                      <h4>Contributors</h4>
+                    </div>
+                    {contributors.length > 0 ? (
+                      <div className="chip-cloud">
+                        {contributors.map((contributor) => (
+                          <span key={contributor} className="detail-chip">{contributor}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-copy">No contributors recorded.</p>
+                    )}
+                  </article>
+
+                  <article className="detail-card">
+                    <div className="detail-card-header">
+                      <span className="panel-eyebrow">Roles</span>
+                      <h4>Contributor Roles</h4>
+                    </div>
+                    {contributorRoles.length > 0 ? (
+                      <div className="contributors-role-list">
+                        {contributorRoles.map((contributor) => (
+                          <div key={`${contributor.name}-${contributor.primary_role}`} className="contributor-role-card">
+                            <p className="contributor-role-name">{contributor.name}</p>
+                            <p className="contributor-role-primary">
+                              {contributor.primary_role}
+                              {contributor.role_description ? ` - ${contributor.role_description}` : ''}
+                            </p>
+                            <p className="contributor-role-meta">Confidence: {formatRoleConfidence(contributor.confidence)}</p>
+                            {Array.isArray(contributor.secondary_roles) && contributor.secondary_roles.length > 0 ? (
+                              <p className="contributor-role-meta">Secondary: {contributor.secondary_roles.join(', ')}</p>
+                            ) : null}
+                          </div>
+                        ))}
+                        {selectedProject.contributor_roles?.summary?.team_composition ? (
+                          <p className="contributor-role-summary">
+                            Team Composition: {selectedProject.contributor_roles.summary.team_composition}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="empty-copy">No contributor roles inferred yet.</p>
                     )}
                   </article>
                 </div>
