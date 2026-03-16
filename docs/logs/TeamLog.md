@@ -2328,10 +2328,13 @@ Added and updated to validate new backend endpoints and scan flows:
 - Tests for contributor role data in project details.
 - Tests for `/database/clear` and related maintenance behavior.
 
-Backend: `pytest -q` all tests pass locally.  
+Backend: `pytest -q` all tests pass locally.
+
+<img width="1166" height="631" alt="Screenshot 2026-03-15 at 5 59 40 PM" src="https://github.com/user-attachments/assets/bccc0df7-b8b5-4fe5-9351-8fa766043747" />
+
 Frontend: `npm test` all Vitest tests pass successfully.
 
-
+<img width="689" height="266" alt="Screenshot 2026-03-15 at 6 00 28 PM" src="https://github.com/user-attachments/assets/0cd0ac87-c350-48e9-9a79-b10f5546abe6" />
 
 ---
 
@@ -2352,5 +2355,8 @@ Another major success this week was frontend consistency. The app now has a much
 
 ## Burnup Chart
 
+<img width="898" height="457" alt="Screenshot 2026-03-15 at 6 01 35 PM" src="https://github.com/user-attachments/assets/8a3d4c7d-a684-4159-bec7-01fe9a1de418" />
 
 ## Kanban Board
+
+<img width="981" height="625" alt="Screenshot 2026-03-15 at 6 01 59 PM" src="https://github.com/user-attachments/assets/72ce5fff-bf33-496c-a71a-9d0bb996a5f1" />
