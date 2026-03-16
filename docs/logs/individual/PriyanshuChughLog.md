@@ -2,6 +2,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [T2 Week 10](#t2-week-10-march-9th---march-15th-2026)
 - [Week 9 (Mar 2 – Mar 8, 2026)](#t2-week-9-march-2nd---march-8th)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
 - [Weeks 4 + 5 (Jan 26 – Feb 8, 2026)](#t2-week-45-personal-logs-jan-26th---feb-8th)
@@ -616,6 +617,74 @@ Overall this week went pretty well,the feature came together pretty smoothly. I 
 - Continue reviewing frontend PRs as the resume and portfolio pages get more fleshed out.
 - Improve consistency across frontend pages, especially shared API usage and routing.
 
+
+
+
+# T2 Week 10 (March 9th - March 15th, 2026)
+
+<img width="1196" height="633" alt="Image" src="https://github.com/user-attachments/assets/fd34711f-0415-4d20-a415-a3dae4d1591a" />
+
+## Overview
+This week I completed two pull requests focused on improving the **View/Manage Scanned Projects** workflow. The first PR added project deletion support and surfaced LLM generated summaries directly in the scanned project details view. The second PR added full project editing support, including a new backend update endpoint and frontend edit flow for project metadata like display name, repository URL, and thumbnail path.
+
+I also addressed review feedback from the first PR by cleaning up orphaned contributor and language records during project deletion and improving the delete confirmation dialog to show the project name instead of just the ID.
+
+Closed issue: #413
+
+## Reflection
+This week felt productive because my work built directly on earlier scanned projects functionality and reviewer feedback. After the first PR, I was able to quickly incorporate suggestions into the follow up PR instead of leaving them unresolved. That made the second PR stronger and more polished, and it also helped me get more comfortable working through review comments, retesting changes, and updating both frontend and backend behavior together.
+
+## Coding Tasks
+- Added project delete endpoint and LLM summary display with backend and frontend tests [#439](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/439)
+  - Added backend `DELETE /projects/{project_id}` endpoint
+  - Added delete button and confirmation flow to the scanned projects page
+  - Refreshed the project list automatically after deletion
+  - Exposed LLM project summary data in the project details API response
+  - Rendered LLM summaries in the frontend project details panel
+  - Added backend and frontend tests for delete flow and summary display
+
+- Added project edit endpoint and UI support [#448](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/448)
+  - Added backend `PATCH /projects/{project_id}` endpoint
+  - Added frontend edit flow for:
+    - display name
+    - repo URL
+    - thumbnail path
+  - Updated the UI after save so edits persist in the scanned projects page
+  - Cleaned up orphaned contributor and language rows when deleting projects
+  - Updated delete confirmation dialog to show the project name
+  - Fixed edit form sync when switching between selected projects
+  - Updated frontend tests to match the new edit/delete flow
+
+## Tests and Debugging
+`test/test_api.py`
+- Added backend coverage for `DELETE /projects/{project_id}`
+- Added backend coverage for `PATCH /projects/{project_id}`
+- Verified associated records were removed correctly during deletion
+- Added checks for cleanup of orphaned contributor and language records
+
+`ScannedProjectsPage.test.jsx`
+- Verified delete confirmation appears and uses the project name
+- Confirmed deleting a project updates the list correctly
+- Verified LLM summary content renders when present
+- Verified editing and saving project info works through the new PATCH flow
+- Fixed async button lookup issues in tests after UI changes
+- Added coverage for syncing edit state when `selectedProject` changes
+
+## Reviews and Collaboration
+- Tanner's Frontend portfolio generation: Project cards (initialization, animations, & favouriting) [#440](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/440)
+- Daniel's Added custom ranking UI [#442](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/442)
+- Tyler's Delete database functionality [#451](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/451)
+- Jaxson's Project Summary Page Update: Thumbnail Management [#452](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/452)
+- Jaxson's Project Summary Page Update: Revamp scanned projects page into interactive dashboard [#455](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/455)
+- Jaxson's Project Summary Page Update: Refine scanned projects contributor and overview layout [#456](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/456)
+
+## Issues and blockers
+One issue I ran into this week was around the new edit flow for scanned projects. During review, a bug was found where the edit form could stay stuck on the previously selected project’s values if the user switched projects while editing. I fixed this by syncing the form state when `selectedProject` changed. There were also a couple frontend test failures tied to async rendering of the Edit/Delete buttons, which I resolved by updating the tests to wait for those elements properly.
+
+## Plans for Week 11
+- Continue improving the scanned projects / project summary experience
+- Help with additional UI testing and bug fixes before milestone handoff
+- Review remaining open PRs and support merge cleanup where needed
 
 
 
