@@ -1168,6 +1168,172 @@ def get_web_heatmap(
     }
 
 
+@web_router.get("/{portfolio_id}/heatmap/project")
+def get_web_project_heatmap(
+    portfolio_id: int,
+    project_id: int = Query(..., ge=1),
+    granularity: str = Query("week", pattern="^(day|week|month)$"),
+    metric: str = Query("contrib_files", pattern="^(scans|files|contrib_files)$"),
+    mode: str = Query("private", pattern="^(public|private)$"),
+):
+    row = _load_portfolio_row_or_404(portfolio_id)
+    cfg = _web_cfg_from_row(row)
+    _ensure_mode_allowed(cfg, mode)
+
+    allowed_projects = set(_resolve_project_names_for_web(row["username"], cfg, mode))
+    with get_connection() as conn:
+        project_row = conn.execute(
+            "SELECT id, name, git_metrics_json, created_at FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+        if not project_row:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        project_name = project_row["name"]
+        if project_name not in allowed_projects:
+            raise HTTPException(status_code=403, detail="Project is not available in this portfolio")
+
+        period_expr_map = {
+            "day": "date(s.scanned_at)",
+            # Normalize each timestamp to the Monday of its week.
+            "week": "date(s.scanned_at, '-' || ((CAST(strftime('%w', s.scanned_at) AS INTEGER) + 6) % 7) || ' days')",
+            "month": "strftime('%Y-%m', s.scanned_at)",
+        }
+        period_expr = period_expr_map[granularity]
+
+        git_metrics = None
+        if project_row["git_metrics_json"]:
+            try:
+                git_metrics = json.loads(project_row["git_metrics_json"])
+            except Exception:
+                git_metrics = None
+
+        range_start = None
+        range_end = None
+        if isinstance(git_metrics, dict):
+            project_start_raw = git_metrics.get("project_start")
+            project_end_raw = git_metrics.get("project_end")
+            if isinstance(project_start_raw, str) and len(project_start_raw) >= 10:
+                range_start = project_start_raw[:10]
+            if isinstance(project_end_raw, str) and len(project_end_raw) >= 10:
+                range_end = project_end_raw[:10]
+
+        if not range_start or not range_end:
+            duration_row = conn.execute(
+                """
+                SELECT MIN(date(scanned_at)) AS range_start,
+                       MAX(date(scanned_at)) AS range_end
+                FROM scans
+                WHERE project = ?
+                """,
+                (project_name,),
+            ).fetchone()
+            if duration_row:
+                range_start = range_start or duration_row["range_start"]
+                range_end = range_end or duration_row["range_end"]
+
+        project_created = None
+        if isinstance(project_row["created_at"], str) and len(project_row["created_at"]) >= 10:
+            project_created = project_row["created_at"][:10]
+
+        if project_created and (not range_start or project_created < range_start):
+            range_start = project_created
+
+        if range_start and not range_end:
+            range_end = datetime.now(timezone.utc).date().isoformat()
+
+        if range_start and range_end and range_end < range_start:
+            range_end = range_start
+
+        # For weekly contribution heatmaps, prefer repository activity from git metrics.
+        # This captures the full project history even when there is only one DB scan.
+        if metric == "contrib_files" and granularity == "week" and isinstance(git_metrics, dict):
+            commits_per_week = git_metrics.get("commits_per_week") or {}
+            week_cells: List[Dict[str, Any]] = []
+            if isinstance(commits_per_week, dict):
+                for key, value in commits_per_week.items():
+                    try:
+                        year_str, week_str = key.split("-W", 1)
+                        year = int(year_str)
+                        week = int(week_str)
+                        monday = datetime.fromisocalendar(year, week, 1).date().isoformat()
+                        week_cells.append({"period": monday, "value": int(value or 0)})
+                    except Exception:
+                        continue
+            week_cells.sort(key=lambda item: item["period"])
+            return {
+                "portfolio_id": portfolio_id,
+                "project_id": project_row["id"],
+                "project_name": project_name,
+                "granularity": granularity,
+                "metric": metric,
+                "range_start": range_start,
+                "range_end": range_end,
+                "value_unit": "commits",
+                "cells": week_cells,
+                "max_value": max((cell["value"] for cell in week_cells), default=0),
+            }
+
+        if metric == "scans":
+            rows = conn.execute(
+                f"""
+                  SELECT {period_expr} AS period,
+                       COUNT(*) AS value
+                FROM scans s
+                WHERE s.project = ?
+                GROUP BY period
+                ORDER BY period ASC
+                """,
+                (project_name,),
+            ).fetchall()
+        elif metric == "files":
+            rows = conn.execute(
+                f"""
+                  SELECT {period_expr} AS period,
+                       COUNT(f.id) AS value
+                FROM scans s
+                JOIN files f ON f.scan_id = s.id
+                WHERE s.project = ?
+                GROUP BY period
+                ORDER BY period ASC
+                """,
+                (project_name,),
+            ).fetchall()
+        else:
+            # Contribution metric for the selected portfolio owner:
+            # count files linked to that contributor over time.
+            rows = conn.execute(
+                f"""
+                  SELECT {period_expr} AS period,
+                       COUNT(fc.file_id) AS value
+                FROM scans s
+                JOIN files f ON f.scan_id = s.id
+                JOIN file_contributors fc ON fc.file_id = f.id
+                JOIN contributors c ON c.id = fc.contributor_id
+                WHERE s.project = ?
+                  AND LOWER(c.name) = LOWER(?)
+                GROUP BY period
+                ORDER BY period ASC
+                """,
+                (project_name, row["username"]),
+            ).fetchall()
+
+    cells = [{"period": item["period"], "value": int(item["value"] or 0)} for item in rows]
+    return {
+        "portfolio_id": portfolio_id,
+        "project_id": project_row["id"],
+        "project_name": project_name,
+        "granularity": granularity,
+        "metric": metric,
+        "range_start": range_start,
+        "range_end": range_end,
+        "value_unit": "contrib_files",
+        "cells": cells,
+        "max_value": max((cell["value"] for cell in cells), default=0),
+    }
+
+
 @web_router.get("/{portfolio_id}/showcase")
 def get_web_showcase(
     portfolio_id: int,

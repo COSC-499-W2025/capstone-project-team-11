@@ -1745,6 +1745,131 @@ button:disabled {
   color: var(--text-muted);
   font-size: 0.82rem;
 }
+
+.heatmap-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.7rem;
+}
+
+.heatmap-project-select {
+  min-width: 220px;
+  margin-top: 0.35rem;
+}
+
+.heatmap-panel {
+  min-height: 188px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.heatmap-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.heatmap-stat {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 0.4rem 0.48rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.heatmap-stat-label {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.heatmap-stat-value {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.project-heatmap-grid {
+  display: grid;
+  grid-template-rows: 18px;
+  grid-auto-flow: column;
+  grid-auto-columns: 26px;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0.2rem;
+}
+
+.heatmap-cell {
+  width: 26px;
+  height: 18px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(241, 245, 249, 0.08);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.heatmap-cell--week {
+  border-radius: 3px;
+}
+
+.heatmap-cell--week:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.project-heatmap-weeks {
+  display: grid;
+  grid-template-rows: 16px;
+  grid-auto-flow: column;
+  grid-auto-columns: 26px;
+  gap: 4px;
+  overflow-x: auto;
+  margin-top: 0.42rem;
+  padding: 0 0.2rem;
+}
+
+.heatmap-week-label {
+  font-size: 0.62rem;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.heatmap-legend-swatch {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.heatmap-legend-text {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.heatmap-meta {
+  display: flex;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
  
 /* Portfolio generating state */
 .portfolio-generating {
@@ -2024,6 +2149,22 @@ button:disabled {
   .all-projects-card-container { flex-direction: column; }
   .project-card-16-9.featured { flex: 1 1 auto; }
   .project-card-16-9.all-projects { flex: 1 1 auto; }
+  .heatmap-project-select { min-width: 100%; }
+  .heatmap-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .project-heatmap-grid {
+    grid-auto-columns: 22px;
+  }
+  .heatmap-cell {
+    width: 22px;
+  }
+  .project-heatmap-weeks {
+    grid-auto-columns: 22px;
+  }
+  .heatmap-meta {
+    gap: 0.35rem;
+  }
 }
 
 /* --- Project Modal --- */
