@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import os
 import sys
 from io import StringIO
@@ -10,16 +11,18 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import contextlib
 import queue
 import threading
 import glob
+import tempfile
+import zipfile
 
 from config import load_config, save_config, config_path as default_config_path
 from cli_username_selection import get_candidate_usernames
-from db import get_connection, save_portfolio, save_resume
+from db import get_connection, save_portfolio, save_resume, delete_project_by_id
 from generate_portfolio import (
     aggregate_projects_for_portfolio,
     build_portfolio,
@@ -31,8 +34,16 @@ from generate_resume import (
     maybe_generate_resume_summary,
 )
 from project_info_output import gather_project_info, output_project_info
-from rank_projects import rank_projects, rank_projects_by_importance
-from scan import run_with_saved_settings, scan_with_clean_output
+from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
+from contrib_metrics import classify_file
+from detect_roles import analyze_project_roles
+from scan import (
+    run_with_saved_settings,
+    scan_with_clean_output,
+    _find_all_project_roots,
+    _find_git_root,
+    _resolve_extracted_root,
+)
 from inspect_db import inspect_connection
 
 
@@ -74,6 +85,29 @@ class ProjectUploadRequest(BaseModel):
     save_to_db: bool = True
     thumbnail_path: Optional[str] = None
     llm_summary: bool = False
+    manual_contributors_by_path: Optional[Dict[str, List[str]]] = None
+
+
+class ScanPlanProject(BaseModel):
+    project_name: str
+    project_path: str
+    is_git: bool
+    requires_contributor_assignment: bool
+
+
+class ScanPlanResponse(BaseModel):
+    root_path: str
+    total_projects: int
+    is_multi_project: bool
+    projects: List[ScanPlanProject]
+    existing_contributors: List[str]
+
+
+class ProjectEditRequest(BaseModel):
+    custom_name: Optional[str] = None
+    repo_url: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+
 
 
 class ResumeGenerateRequest(BaseModel):
@@ -246,6 +280,76 @@ def _load_llm_summary(project_name: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _list_existing_contributors() -> List[str]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
+        ).fetchall()
+    return [row["name"] for row in rows]
+
+
+def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str, Any]:
+    """Infer contributor roles for a project from per-file activity in all scans."""
+    if not project_name:
+        return {"contributors": [], "summary": {}}
+
+    rows = conn.execute(
+        """
+        SELECT c.name AS contributor_name, f.file_path
+        FROM scans s
+        JOIN files f ON f.scan_id = s.id
+        JOIN file_contributors fc ON fc.file_id = f.id
+        JOIN contributors c ON c.id = fc.contributor_id
+        WHERE s.project = ?
+          AND c.name IS NOT NULL
+          AND TRIM(c.name) <> ''
+        """,
+        (project_name,),
+    ).fetchall()
+
+    if not rows:
+        return {"contributors": [], "summary": {}}
+
+    contributors_data: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        contributor_name = row["contributor_name"]
+        file_path = row["file_path"] or ""
+
+        if contributor_name not in contributors_data:
+            contributors_data[contributor_name] = {
+                "files_changed": set(),
+                "activity_by_category": {
+                    "code": 0,
+                    "test": 0,
+                    "docs": 0,
+                    "design": 0,
+                    "other": 0,
+                },
+            }
+
+        file_set = contributors_data[contributor_name]["files_changed"]
+        if file_path and file_path not in file_set:
+            file_set.add(file_path)
+            category = classify_file(file_path)
+            activity = contributors_data[contributor_name]["activity_by_category"]
+            activity[category] = activity.get(category, 0) + 1
+
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for name, data in contributors_data.items():
+        files_changed = sorted(data["files_changed"])
+        file_count = len(files_changed)
+        normalized[name] = {
+            "files_changed": files_changed,
+            # Keep estimate strategy aligned with detect_roles DB loaders.
+            "commits": max(1, file_count),
+            "lines_added": file_count * 50,
+            "lines_removed": file_count * 10,
+            "activity_by_category": data["activity_by_category"],
+        }
+
+    return analyze_project_roles(normalized)
+
+
 @app.post("/privacy-consent")
 def update_privacy_consent(payload: PrivacyConsentRequest):
     # Persist consent in the user's config to mirror CLI behavior.
@@ -269,6 +373,16 @@ def update_privacy_consent(payload: PrivacyConsentRequest):
         "llm_summary_consent": llm_value,
         "llm_resume_consent": resume_llm_value,
         "config_path": default_config_path(),
+    }
+
+
+@app.get("/config")
+def get_config() -> Dict[str, bool]:
+    current = load_config(default_config_path())
+    return {
+        "data_consent": bool(current.get("data_consent", False)),
+        "llm_summary_consent": bool(current.get("llm_summary_consent", False)),
+        "llm_resume_consent": bool(current.get("llm_resume_consent", False)),
     }
 
 
@@ -327,6 +441,51 @@ def upload_project(payload: ProjectUploadRequest):
     }
 
 
+@app.post("/projects/scan-plan", response_model=ScanPlanResponse)
+def get_project_scan_plan(payload: ProjectUploadRequest):
+    config = load_config(default_config_path())
+    if not config.get("data_consent"):
+        raise HTTPException(status_code=403, detail="Data consent not granted")
+
+    if not os.path.exists(payload.project_path):
+        raise HTTPException(status_code=400, detail="project_path not found")
+
+    root_path = os.path.abspath(payload.project_path)
+    zip_extract_ctx = None
+    scan_target = root_path
+    try:
+        if os.path.isfile(root_path) and root_path.lower().endswith(".zip"):
+            zip_extract_ctx = tempfile.TemporaryDirectory()
+            with zipfile.ZipFile(root_path) as zf:
+                zf.extractall(zip_extract_ctx.name)
+            scan_target = _resolve_extracted_root(zip_extract_ctx.name)
+
+        project_roots = _find_all_project_roots(scan_target)
+        if not project_roots:
+            project_roots = [scan_target]
+
+        projects = [
+            {
+                "project_name": os.path.basename(os.path.abspath(project_root)),
+                "project_path": os.path.abspath(project_root),
+                "is_git": _find_git_root(project_root) is not None,
+                "requires_contributor_assignment": _find_git_root(project_root) is None,
+            }
+            for project_root in project_roots
+        ]
+    finally:
+        if zip_extract_ctx is not None:
+            zip_extract_ctx.cleanup()
+
+    return {
+        "root_path": root_path,
+        "total_projects": len(projects),
+        "is_multi_project": len(projects) > 1,
+        "projects": projects,
+        "existing_contributors": _list_existing_contributors(),
+    }
+
+
 @app.post("/projects/scan-stream")
 def stream_project_scan(payload: ProjectUploadRequest):
     # Enforce the same consent gate used by the CLI scanner.
@@ -359,6 +518,9 @@ def stream_project_scan(payload: ProjectUploadRequest):
         def flush(self) -> None:
             return None
 
+    def emit_event(event: Dict[str, Any]) -> None:
+        q.put(f"SCAN_EVENT::{json.dumps(event)}")
+
     def run_scan() -> None:
         try:
             writer = StreamWriter()
@@ -370,6 +532,10 @@ def stream_project_scan(payload: ProjectUploadRequest):
                     save_to_db=True,
                     thumbnail_source=payload.thumbnail_path,
                     generate_llm_summary=payload.llm_summary,
+                    manual_contributors_by_path=payload.manual_contributors_by_path or {},
+                    prompt_for_manual_contributors=False,
+                    prompt_between_projects=False,
+                    progress_callback=emit_event,
                 )
             if writer.buffer:
                 q.put(writer.buffer)
@@ -388,8 +554,11 @@ def stream_project_scan(payload: ProjectUploadRequest):
 
             summary = {
                 "success": bool(result.get("success")),
+                "partial_success": bool(result.get("partial_success")),
                 "project_name": result.get("project_name"),
                 "project_names": result.get("project_names"),
+                "project_results": result.get("project_results"),
+                "failed_projects": result.get("failed_projects"),
                 "output_dir": result.get("output_dir"),
                 "error": result.get("error"),
                 "summaries": summaries,
@@ -417,10 +586,10 @@ def list_projects():
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT p.id, p.name, p.repo_url, p.created_at, p.thumbnail_path,
-                   (SELECT MAX(scanned_at) FROM scans s WHERE s.project = p.name) AS latest_scan_at
-            FROM projects p
-            ORDER BY p.id
+            SELECT p.id, p.name, p.custom_name, p.repo_url, p.created_at, p.thumbnail_path,
+       (SELECT MAX(scanned_at) FROM scans s WHERE s.project = p.name) AS latest_scan_at
+FROM projects p
+ORDER BY p.id
             """
         ).fetchall()
     return [dict(row) for row in rows]
@@ -428,12 +597,12 @@ def list_projects():
 
 @app.get("/projects/{project_id}")
 def get_project(project_id: int):
-    # Aggregate enriched project data from related tables.
     with get_connection() as conn:
         project = conn.execute(
-            "SELECT id, name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
+            "SELECT id, name, custom_name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
+
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
@@ -441,18 +610,21 @@ def get_project(project_id: int):
             "SELECT id, scanned_at, notes FROM scans WHERE project = ? ORDER BY scanned_at DESC",
             (project["name"],),
         ).fetchall()
+
         scan_ids = [row["id"] for row in scans]
 
         files_summary = {"total_files": 0, "extensions": {}}
         languages: List[str] = []
         contributors: List[str] = []
+
         if scan_ids:
-            # Build dynamic IN clauses only when scans exist.
             placeholders = ",".join("?" for _ in scan_ids)
+
             files_summary["total_files"] = conn.execute(
                 f"SELECT COUNT(*) AS total FROM files WHERE scan_id IN ({placeholders})",
                 scan_ids,
             ).fetchone()["total"]
+
             ext_rows = conn.execute(
                 f"""
                 SELECT file_extension, COUNT(*) AS count
@@ -462,6 +634,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             files_summary["extensions"] = {
                 (row["file_extension"] or ""): row["count"] for row in ext_rows
             }
@@ -476,6 +649,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             languages = [row["name"] for row in languages_rows]
 
             contributor_rows = conn.execute(
@@ -488,6 +662,7 @@ def get_project(project_id: int):
                 """,
                 scan_ids,
             ).fetchall()
+
             contributors = [row["name"] for row in contributor_rows]
 
         skill_rows = conn.execute(
@@ -511,14 +686,19 @@ def get_project(project_id: int):
             (project_id,),
         ).fetchall()
 
+        llm_summary = _load_llm_summary(project["name"])
+        contributor_roles = _compute_project_contributor_roles(conn, project["name"])
+
     return {
         "project": dict(project),
         "skills": [row["name"] for row in skill_rows],
         "languages": languages,
         "contributors": contributors,
+        "contributor_roles": contributor_roles,
         "scans": [dict(row) for row in scans],
         "files_summary": files_summary,
         "evidence": [dict(row) for row in evidence_rows],
+        "llm_summary": llm_summary,
     }
 
 
@@ -531,11 +711,15 @@ def list_skills():
 
 @app.get("/contributors")
 def list_contributors():
+    blacklist = {"githubclassroombot", "unknown", "n/a", "none"}
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name"
+            "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
         ).fetchall()
-    return [row["name"] for row in rows]
+    return sorted(
+        row["name"] for row in rows
+        if row["name"].lower() not in blacklist
+    )
 
 
 @app.get("/rank-projects")
@@ -580,6 +764,44 @@ def get_rank_projects(
     return ranked
 
 
+# ── Custom Rankings ────────────────────────────────────────────
+
+class CustomRankingCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    description: str = Field("", max_length=500)
+    projects: List[str] = Field(..., min_length=1)
+
+
+@app.get("/custom-rankings")
+def api_list_custom_rankings():
+    return list_custom_rankings()
+
+
+@app.post("/custom-rankings", status_code=201)
+def api_create_custom_ranking(body: CustomRankingCreate):
+    try:
+        ranking_id = save_custom_ranking(body.name.strip(), body.projects, body.description.strip())
+        return {"id": ranking_id, "name": body.name.strip()}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/custom-rankings/{name}")
+def api_get_custom_ranking(name: str):
+    projects = get_custom_ranking(name)
+    if not projects:
+        raise HTTPException(status_code=404, detail="Custom ranking not found or empty")
+    return {"name": name, "projects": projects}
+
+
+@app.delete("/custom-rankings/{name}")
+def api_delete_custom_ranking(name: str):
+    deleted = delete_custom_ranking(name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Custom ranking not found")
+    return {"deleted": True}
+
+
 @app.get("/resume/{resume_id}")
 def get_resume(resume_id: int):
     with get_connection() as conn:
@@ -590,6 +812,43 @@ def get_resume(resume_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Resume not found")
     return _resume_payload(row)
+
+
+@app.get("/resumes")
+def list_resumes(username: Optional[str] = Query(default=None)):
+    username_filter = (username or "").strip()
+    with get_connection() as conn:
+        if username_filter:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                WHERE username = ?
+                ORDER BY generated_at DESC
+                """,
+                (username_filter,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, username, generated_at, metadata_json
+                FROM resumes
+                ORDER BY generated_at DESC
+                """
+            ).fetchall()
+
+    items = []
+    for row in rows:
+        metadata = _parse_metadata(row["metadata_json"])
+        items.append(
+            {
+                "id": row["id"],
+                "username": row["username"],
+                "generated_at": row["generated_at"],
+                "llm_used": bool(metadata.get("llm_summary")),
+            }
+        )
+    return items
 
 
 @app.post("/resume/generate", status_code=201)
@@ -1010,4 +1269,97 @@ from inspect_db import inspect_database_json
 def api_inspect_database():
     return inspect_database_json()
 
+@app.delete("/database/clear")
+def clear_database():
+    from db import get_connection
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Disable FK checks
+    cur.execute("PRAGMA foreign_keys = OFF;")
+
+    tables = cur.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name NOT LIKE 'sqlite_%';
+    """).fetchall()
+
+    for (table,) in tables:
+        cur.execute(f"DELETE FROM {table};")
+
+    # reset autoincrement ids
+    cur.execute("DELETE FROM sqlite_sequence;")
+
+    conn.commit()
+
+    # Re-enable FK checks
+    cur.execute("PRAGMA foreign_keys = ON;")
+
+    conn.close()
+
+    return {"message": "Database cleared successfully"}
+
 app.include_router(web_router)
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: int):
+    result = delete_project_by_id(project_id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return {"message": "Project deleted successfully"}
+
+@app.patch("/projects/{project_id}")
+def update_project(project_id: int, payload: ProjectEditRequest):
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id, custom_name, repo_url, thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+        if not existing:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        conn.execute(
+            """
+            UPDATE projects
+            SET custom_name = ?, repo_url = ?, thumbnail_path = ?
+            WHERE id = ?
+            """,
+            (
+                payload.custom_name if payload.custom_name is not None else existing["custom_name"],
+                payload.repo_url if payload.repo_url is not None else existing["repo_url"],
+                payload.thumbnail_path if payload.thumbnail_path is not None else existing["thumbnail_path"],
+                project_id,
+            ),
+        )
+        conn.commit()
+
+        updated = conn.execute(
+            "SELECT id, name, custom_name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    return {"project": dict(updated)}
+
+
+@app.get("/projects/{project_id}/thumbnail/image")
+def get_project_thumbnail_image(project_id: int):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT thumbnail_path FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    thumbnail_path = project["thumbnail_path"]
+    if not thumbnail_path:
+        raise HTTPException(status_code=404, detail="Project thumbnail not found")
+    if not os.path.isfile(thumbnail_path):
+        raise HTTPException(status_code=404, detail="Thumbnail file not found")
+
+    media_type = mimetypes.guess_type(thumbnail_path)[0] or "application/octet-stream"
+    return FileResponse(thumbnail_path, media_type=media_type)
