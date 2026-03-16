@@ -5,6 +5,7 @@
 - [T2 Week 4 and 5](#t2-week-4-and-5-january-26th--february-8th-2026)
 - [T2 Weeks 6–8](#t2--weeks-6-7-and-8-february-9th---march-1st)
 - [T2 Week 9](#t2-week-9-march-2nd---march-8th)
+- [T2 Week 10](#t2-week-10-march-9th---march-15th)
 
 # Week 3 Personal Log (15th-21st of September)
 
@@ -504,18 +505,68 @@ Overall the team worked pretty well but all the work was crammed in and finished
 
 
 
+# T2 Week 10 (March 9th - March 15th)
+<img width="871" height="592" alt="Image" src="https://github.com/user-attachments/assets/690cd937-3338-4be9-8fbb-86eac8a4419c" />
+
+## Overview
+This week I completed two pull requests that expanded project analysis and ranking features. The first PR added contributor role analysis to project details, including backend role computation and frontend UI updates to display contributor roles, confidence levels, and team composition. The second PR implemented a custom project ranking workflow, allowing users to create, save, view, and delete personalized rankings with a title, description, and ordered project list, supported by new backend API endpoints and UI components.
+
+Closed issue: #414, #413
 
 
-       
+## Reflection
+This week we improved the communication professionalism in terms of getting PRs up and merged. Previously we ran into quite a lot of merge conflicts because we left PRs open too long or would all do work at the end of the week. This week we spaced the work out and communicated well. This helped us make major strides in progressing the project and great.
 
 
+## Coding Tasks
+- Added custom ranking UI [#442](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/442)
+  - Save as Custom Ranking section (title + short description)
+  - Saved rankings list with view/collapse and delete
+  - Expandable saved ranking table view
+  - Custom rankings now store name, description, and ordered project list
+  - New endpoints:
+      - GET /custom-rankings
+      - POST /custom-rankings
+      - GET /custom-rankings/{name}
+      - DELETE /custom-rankings/{name}
 
- 
+- Added key roles UI [#450](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/450)
+  - Contributor role analysis is now computed and included in project details.
+  - Extended the GET /projects/{project_id} response to include the contributor_roles field.
+  - The Scanned Projects details page was refactored to improve layout, readability, and component reuse.
+  - Added and updated CSS classes in index.css to support the new layout
 
+ ## Tests and Debugging
+`ScannedProjectsPage.test.jsx`
+ - Verified the Contributor Roles section renders in the project details panel.
+ - Confirmed a contributor’s primary role is displayed correctly.
+ - Checked that confidence values (e.g., Confidence: 82%) appear in the UI.
+ - Verified the Team Composition summary section is displayed.
+ - Ensured existing features like edit and delete project actions still work after the UI refactor.
 
+`RankProjectsPage.test.jsx`
+- Verified users can create a custom ranking with a title and description.
+- Confirmed projects can be reordered to define ranking order.
+- Checked that a ranking is successfully saved and appears in the saved rankings list.
+- Verified saved rankings can be expanded/collapsed in the UI.
+- Confirmed users can delete a saved ranking and it is removed from the list.
 
+## Reviews and Collaboration
+- Tanner's Frontend portfolio generation: Data aggregation & UI reworks [#437](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/437)
+- Travis' Redesign App.jsx [#438](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/438)
+- Travis' Update frontend tests to match refactored App.jsx [#441](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/441)
+- Jaxson's Fixed Scanner Bugs Related to Multi-Project Directories [#443](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/443)
+- Travis' Redesign index.css part 1/3: core, base, and shared components [#444](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/444)
+- Travis' redesign index.css part 2/3: scan and rank page styles [#445](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/445)
+- Jaxson's Delete .DS_Store [#446](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/446)
+- Travis' redesign index.css 3/3: portfolio, scanned projects, and responsiveness [#447](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/447)
+- Pri's Add project edit endpoint and UI support [#448](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/448)
+- Travis' Resume page enhancements [#449](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/449)
+- Tanner's Frontend portfolio generation: Project cards (collapsed vs. expanded cards) [#457](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/457)
 
+## Issues and blockers
+No issues or blockers.
 
-
-
-
+## Plans for Week 11
+- Add activity heatmap and more functionality to the portfolio
+- Prep and fix bugs for peer testing
