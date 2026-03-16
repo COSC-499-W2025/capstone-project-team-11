@@ -114,6 +114,77 @@ function getThumbnailSrc(projectId, thumbnailPath) {
   return `${API_BASE_URL}/projects/${projectId}/thumbnail/image?v=${encodeURIComponent(thumbnailPath)}`;
 }
 
+function parseIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const [year, month, day] = value.split('-').map((item) => Number(item));
+  return new Date(year, month - 1, day);
+}
+
+function formatIsoDate(date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfWeekMonday(date) {
+  const result = new Date(date);
+  const offset = (result.getDay() + 6) % 7;
+  result.setDate(result.getDate() - offset);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildWeeklyEntries(cells, rangeStart, rangeEnd) {
+  const valuesByWeek = new Map(
+    (Array.isArray(cells) ? cells : [])
+      .filter((cell) => /^\d{4}-\d{2}-\d{2}$/.test(cell?.period || ''))
+      .map((item) => [item.period, Number(item.value) || 0])
+  );
+
+  const firstCellDate = parseIsoDate(
+    [...valuesByWeek.keys()].sort((a, b) => a.localeCompare(b))[0] || ''
+  );
+  const lastCellDate = parseIsoDate(
+    [...valuesByWeek.keys()].sort((a, b) => a.localeCompare(b)).slice(-1)[0] || ''
+  );
+
+  const startDate = parseIsoDate(rangeStart) || firstCellDate;
+  const endDate = parseIsoDate(rangeEnd) || lastCellDate;
+  if (!startDate || !endDate) return [];
+
+  const startWeek = startOfWeekMonday(startDate);
+  const endWeek = startOfWeekMonday(endDate);
+
+  const entries = [];
+  let cursor = new Date(startWeek);
+  while (cursor <= endWeek) {
+    const iso = formatIsoDate(cursor);
+    entries.push({ period: iso, value: valuesByWeek.get(iso) ?? 0 });
+    cursor = addDays(cursor, 7);
+  }
+  return entries;
+}
+
+function formatWeekLabel(isoDate) {
+  const parsed = parseIsoDate(isoDate);
+  if (!parsed) return isoDate;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function heatmapCellColor(value, maxValue) {
+  if (!value || value <= 0 || maxValue <= 0) return 'rgba(241, 245, 249, 0.08)';
+  const ratio = Math.min(1, value / maxValue);
+  const alpha = 0.22 + (ratio * 0.78);
+  return `rgba(74, 222, 128, ${alpha.toFixed(3)})`;
+}
+
 function PortfolioPage({ onBack, showStars = true }) {
   const [phase, setPhase] = useState('setup');
 
@@ -137,6 +208,9 @@ function PortfolioPage({ onBack, showStars = true }) {
   const [portfolioMeta, setPortfolioMeta] = useState(null);
   const [heatmapData, setHeatmapData] = useState({ cells: [], max_value: 0 });
   const [timelineData, setTimelineData] = useState([]);
+  const [selectedHeatmapProjectId, setSelectedHeatmapProjectId] = useState(null);
+  const [projectHeatmaps, setProjectHeatmaps] = useState({});
+  const [isLoadingProjectHeatmap, setIsLoadingProjectHeatmap] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
   // Map of project id → full /projects/{id} response (fetched at generation time)
@@ -210,6 +284,28 @@ function PortfolioPage({ onBack, showStars = true }) {
     );
   };
 
+  const loadProjectHeatmap = async (portfolioIdValue, project) => {
+    const projectId = project?.id ?? project?.project_id;
+    if (!portfolioIdValue || !projectId) return;
+
+    setIsLoadingProjectHeatmap(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/web/portfolio/${portfolioIdValue}/heatmap/project`, {
+        params: {
+          project_id: projectId,
+          granularity: 'week',
+          metric: 'contrib_files',
+          mode: 'private',
+        },
+      });
+      setProjectHeatmaps((prev) => ({ ...prev, [projectId]: response.data }));
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to load project heatmap.', 'error');
+    } finally {
+      setIsLoadingProjectHeatmap(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!username) {
       showToast('Please select a username.', 'error');
@@ -273,6 +369,14 @@ function PortfolioPage({ onBack, showStars = true }) {
         : eligible.slice(0, MAX_FEATURED).map((p) => p.display_name ?? p.name);
       setFeaturedIds(new Set(initialStars));
 
+      const initialProject = eligible[0] ?? null;
+      const initialProjectId = initialProject ? (initialProject.id ?? initialProject.project_id) : null;
+      setSelectedHeatmapProjectId(initialProjectId);
+      setProjectHeatmaps({});
+      if (initialProject) {
+        await loadProjectHeatmap(portfolio_id, initialProject);
+      }
+
       // Transition to dashboard phase after all data is loaded
       setPhase('dashboard');
     } catch (err) {
@@ -308,6 +412,9 @@ function PortfolioPage({ onBack, showStars = true }) {
     setPortfolioMeta(null);
     setHeatmapData({ cells: [], max_value: 0 });
     setTimelineData([]);
+    setSelectedHeatmapProjectId(null);
+    setProjectHeatmaps({});
+    setIsLoadingProjectHeatmap(false);
     setProjectSearch('');
     setIncludedProjects([]);
     setFeaturedIds(new Set());
@@ -319,6 +426,39 @@ function PortfolioPage({ onBack, showStars = true }) {
 
   // Store display name for web portfolio header
   const displayName = legalName.trim() || username;
+
+  const selectedHeatmapProject = includedProjects.find(
+    (project) => (project.id ?? project.project_id) === selectedHeatmapProjectId
+  ) ?? null;
+  const selectedHeatmap = selectedHeatmapProject
+    ? projectHeatmaps[selectedHeatmapProject.id ?? selectedHeatmapProject.project_id]
+    : null;
+  const heatmapEntries = buildWeeklyEntries(
+    selectedHeatmap?.cells || [],
+    selectedHeatmap?.range_start,
+    selectedHeatmap?.range_end
+  );
+  const heatmapMax = Math.max(selectedHeatmap?.max_value || 0, 1);
+  const heatmapUnit = selectedHeatmap?.value_unit === 'commits' ? 'commit(s)' : 'contributed file(s)';
+  const heatmapStartLabel = selectedHeatmap?.range_start
+    ? formatWeekLabel(selectedHeatmap.range_start)
+    : null;
+  const heatmapEndLabel = selectedHeatmap?.range_end
+    ? formatWeekLabel(selectedHeatmap.range_end)
+    : null;
+  const totalHeatmapValue = heatmapEntries.reduce((sum, item) => sum + (item.value || 0), 0);
+  const activeWeeks = heatmapEntries.filter((item) => (item.value || 0) > 0).length;
+  const avgActiveWeek = activeWeeks > 0 ? Math.round((totalHeatmapValue / activeWeeks) * 10) / 10 : 0;
+  const consistencyPct = heatmapEntries.length > 0
+    ? Math.round((activeWeeks / heatmapEntries.length) * 100)
+    : 0;
+  const recentWeeksTotal = heatmapEntries.slice(-4).reduce((sum, item) => sum + (item.value || 0), 0);
+  const prevWeeksTotal = heatmapEntries.slice(-8, -4).reduce((sum, item) => sum + (item.value || 0), 0);
+  const trendText = recentWeeksTotal > prevWeeksTotal
+    ? 'Increasing'
+    : recentWeeksTotal < prevWeeksTotal
+      ? 'Cooling'
+      : 'Stable';
 
   // Summary line in portfolio header (e.g. "XX projects | Generated on X/X/XXXX") [TODO: update later to be a user-centric summary]
   const headerSummary = portfolioMeta
@@ -358,8 +498,107 @@ function PortfolioPage({ onBack, showStars = true }) {
           <div className="portfolio-row">
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
-              <div className="placeholder">
-                <p className="tile-placeholder-text">Contribution activity over time will appear here.</p>
+              <div className="heatmap-toolbar">
+                <label className="portfolio-form-label" style={{ margin: 0 }}>
+                  Project
+                  <select
+                    className="portfolio-select heatmap-project-select"
+                    value={selectedHeatmapProjectId ?? ''}
+                    onChange={async (e) => {
+                      const nextProjectId = Number(e.target.value);
+                      setSelectedHeatmapProjectId(nextProjectId);
+                      const project = includedProjects.find((p) => (p.id ?? p.project_id) === nextProjectId);
+                      if (project && !projectHeatmaps[nextProjectId]) {
+                        await loadProjectHeatmap(portfolioId, project);
+                      }
+                    }}
+                  >
+                    {includedProjects.map((project) => {
+                      const id = project.id ?? project.project_id;
+                      return (
+                        <option key={id} value={id}>
+                          {project.display_name ?? project.name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+
+              <div className="heatmap-panel">
+                {isLoadingProjectHeatmap && <p className="tile-placeholder-text">Loading contribution activity...</p>}
+
+                {!isLoadingProjectHeatmap && selectedHeatmap && heatmapEntries.length > 0 && (
+                  <>
+                    <div className="heatmap-summary-grid">
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Total</span>
+                        <span className="heatmap-stat-value">{totalHeatmapValue} {heatmapUnit}</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Active Weeks</span>
+                        <span className="heatmap-stat-value">{activeWeeks}/{heatmapEntries.length}</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Consistency</span>
+                        <span className="heatmap-stat-value">{consistencyPct}%</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Trend (4w)</span>
+                        <span className="heatmap-stat-value">{trendText}</span>
+                      </div>
+                    </div>
+
+                    <div className="project-heatmap-grid" aria-label="Project contribution heatmap">
+                      {heatmapEntries.map((cell) => (
+                        <span
+                          key={cell.period}
+                          className="heatmap-cell heatmap-cell--week"
+                          title={`Week of ${cell.period}: ${cell.value} ${heatmapUnit}`}
+                          style={{ backgroundColor: heatmapCellColor(cell.value, heatmapMax) }}
+                        />
+                      ))}
+                    </div>
+                    <div className="project-heatmap-weeks" aria-hidden="true">
+                      {heatmapEntries.map((cell, index) => (
+                        <span key={`label-${cell.period}`} className="heatmap-week-label">
+                          {index % 6 === 0 || index === heatmapEntries.length - 1 ? formatWeekLabel(cell.period) : ''}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="heatmap-legend" aria-hidden="true">
+                      <span className="heatmap-legend-text">Less</span>
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(1, heatmapMax) }} />
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(Math.ceil(heatmapMax * 0.5), heatmapMax) }} />
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(heatmapMax, heatmapMax) }} />
+                      <span className="heatmap-legend-text">More</span>
+                    </div>
+                    <div className="heatmap-meta">
+                      <span>
+                        {selectedHeatmapProject?.display_name ?? selectedHeatmapProject?.name} 
+                      </span>
+                      <span>
+                        Duration: {heatmapStartLabel || 'N/A'} - {heatmapEndLabel || 'N/A'}
+                      </span>
+                      <span>
+                        Peak week: {selectedHeatmap.max_value || 0} {heatmapUnit}
+                      </span>
+                      <span>
+                        Avg active week: {avgActiveWeek} {heatmapUnit}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {!isLoadingProjectHeatmap && selectedHeatmap && heatmapEntries.length === 0 && (
+                  <p className="tile-placeholder-text">
+                    No contributor file activity found for this project yet.
+                  </p>
+                )}
+
+                {!isLoadingProjectHeatmap && !selectedHeatmap && (
+                  <p className="tile-placeholder-text">Select a project to view contribution activity.</p>
+                )}
               </div>
             </section>
             <section className="portfolio-tile">
