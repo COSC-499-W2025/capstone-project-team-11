@@ -2212,6 +2212,7 @@ button:disabled {
   min-height: 180px;
   resize: vertical;
   font: inherit;
+}
 /* --- Project Modal Sections --- */
 
 /* Shared card shell */
