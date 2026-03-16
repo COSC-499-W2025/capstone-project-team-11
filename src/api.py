@@ -689,16 +689,37 @@ def get_project(project_id: int):
         llm_summary = _load_llm_summary(project["name"])
         contributor_roles = _compute_project_contributor_roles(conn, project["name"])
 
+        git_metrics_row = conn.execute(
+            "SELECT git_metrics_json, tech_json FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        git_metrics = _parse_metadata(git_metrics_row["git_metrics_json"]) if git_metrics_row else {}
+        tech_summary = _parse_metadata(git_metrics_row["tech_json"]) if git_metrics_row else {}
+
+    # Look up this project's rank score from the project-mode importance ranking.
+    rank_score: Optional[float] = None
+    try:
+        all_ranked = rank_projects_by_importance(mode="project", contributor_name=None, limit=None)
+        for item in all_ranked:
+            if item.get("project") == project["name"]:
+                rank_score = item.get("top_score")
+                break
+    except Exception:
+        pass
+
     return {
         "project": dict(project),
         "skills": [row["name"] for row in skill_rows],
         "languages": languages,
+        "frameworks": tech_summary.get("high_confidence_frameworks") or tech_summary.get("frameworks") or [],
         "contributors": contributors,
         "contributor_roles": contributor_roles,
         "scans": [dict(row) for row in scans],
         "files_summary": files_summary,
         "evidence": [dict(row) for row in evidence_rows],
         "llm_summary": llm_summary,
+        "git_metrics": git_metrics,
+        "rank_score": rank_score,
     }
 
 

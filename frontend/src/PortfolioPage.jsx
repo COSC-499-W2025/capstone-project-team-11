@@ -9,13 +9,18 @@ function formatRoleConfidence(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+// Modal component to act as an expanded project card, showing all available information about the project and the user's contributions to it
 function ProjectModal({ project, detail, username, displayName, onClose }) {
   const name = project.display_name ?? project.name ?? '(unnamed)';
   const projectId = project.id ?? project.project_id;
   const thumbSrc = getThumbnailSrc(projectId, project.thumbnail_path);
-
   const languages = Array.isArray(detail?.languages) ? detail.languages : [];
+  const frameworks = Array.isArray(detail?.frameworks) ? detail.frameworks : [];
   const skills = Array.isArray(detail?.skills) ? detail.skills : [];
+  const contributors = Array.isArray(detail?.contributors) ? detail.contributors : [];
+  const evidence = Array.isArray(detail?.evidence) ? detail.evidence : [];
+  const filesSummary = detail?.files_summary ?? {};
+  const git = detail?.git_metrics ?? {};
   const llmSummary = detail?.llm_summary?.text ?? null;
   const repoUrl = detail?.project?.repo_url ?? null;
 
@@ -27,72 +32,270 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
     (c) => c.name?.toLowerCase() === username?.toLowerCase()
   ) ?? null;
 
+  // Git metrics helpers
+  const totalCommits = git?.total_commits ?? null;
+  const durationDays = git?.duration_days ?? null;
+  const projectStart = git?.project_start ? String(git.project_start).slice(0, 10) : null;
+  const projectEnd = git?.project_end ? String(git.project_end).slice(0, 10) : null;
+  const linesAdded = git?.lines_added_per_author?.[username] ?? null;
+  const linesRemoved = git?.lines_removed_per_author?.[username] ?? null;
+  const linesAddedPerAuthor = git?.lines_added_per_author ?? {};
+  const totalLinesAdded = Object.values(linesAddedPerAuthor).reduce((s, v) => s + (v ?? 0), 0) || null;
+  const userCommits = git?.commits_per_author?.[username] ?? null;
+  const commitsPerAuthor = git?.commits_per_author ?? {};
+  const allAuthors = Object.entries(commitsPerAuthor).sort((a, b) => b[1] - a[1]);
+  const userRank = allAuthors.findIndex(([n]) => n.toLowerCase() === username?.toLowerCase());
+  const commitPct = totalCommits && userCommits != null ? ((userCommits / totalCommits) * 100).toFixed(1) : null;
+  const avgCommitsPerWeek = (durationDays && userCommits != null && durationDays > 0)
+    ? (userCommits / Math.max(1, durationDays / 7)).toFixed(1)
+    : null;
+
+  // Rank Projects Score
+  const rankScore = detail?.rank_score ?? null;
+
+  // Contribution breakdown (from role analysis)
+  const breakdown = userRole?.contribution_breakdown ?? null;
+  const breakdownEntries = breakdown
+    ? Object.entries(breakdown).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+    : [];
+
+  // Top 6 file extensions (skip if empty)
+  const extEntries = Object.entries(filesSummary.extensions ?? {})
+    .filter(([ext]) => ext)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  const isCollaborative = contributors.length > 1;
+
+  // Expanded Project Card Modal
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} details`}>
       <div
         className="modal-card"
-        style={{ width: '680px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
+        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="detail-card-header" style={{ marginBottom: '1rem' }}>
           <div>
-            <span className="panel-eyebrow">Project</span>
+            <span className="panel-eyebrow">Project · {isCollaborative ? 'Collaborative' : 'Individual'}</span>
             <h3 style={{ margin: 0 }}>{name}</h3>
+            {(projectStart || projectEnd) && (
+              <span className="modal-date-range">
+                {projectStart ?? '?'} → {projectEnd ?? 'present'}
+              </span>
+            )}
           </div>
           <button type="button" className="hero-action-button" onClick={onClose}>✕ Close</button>
         </div>
 
+        {/* Thumbnail */}
         {thumbSrc && (
-          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: '1rem', overflow: 'hidden', border: 'none'}}>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: '1rem', overflow: 'hidden', border: 'none' }}>
             <img src={thumbSrc} alt={`${name} thumbnail`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'rgba(255,255,255,0)' }} />
           </div>
         )}
 
+        {/* LLM Project Summary */}
         {llmSummary && (
-          <div className="llm-summary-card" style={{ marginBottom: '1rem' }}>
+          <div className="modal-section">
             <span className="panel-eyebrow">About</span>
-            <p style={{ margin: '0.25rem 0 0' }}>{llmSummary}</p>
+            <p className="modal-section-body">{llmSummary}</p>
           </div>
         )}
 
-        <div className="detail-grid" style={{ marginBottom: '1rem' }}>
-          {languages.length > 0 && (
-            <article className="detail-card">
-              <div className="detail-card-header">
-                <span className="panel-eyebrow">Languages</span>
-              </div>
-              <div className="chip-cloud">
-                {languages.map((lang) => <span key={lang} className="detail-chip">{lang}</span>)}
-              </div>
-            </article>
-          )}
-          {skills.length > 0 && (
-            <article className="detail-card">
-              <div className="detail-card-header">
-                <span className="panel-eyebrow">Skills</span>
-              </div>
-              <div className="chip-cloud">
-                {skills.map((skill) => <span key={skill} className="detail-chip">{skill}</span>)}
-              </div>
-            </article>
-          )}
-        </div>
+        {/* Languages & Frameworks & File Extensions */}
+        {(languages.length > 0 || frameworks.length > 0 || extEntries.length > 0) && (
+          <div className="detail-grid modal-grid-row">
+            {(languages.length > 0 || frameworks.length > 0) && (
+              <article className="detail-card">
+                <div className="detail-card-header"><span className="panel-eyebrow">Languages &amp; Frameworks</span></div>
+                <div className="chip-cloud">
+                  {languages.map((lang) => <span key={lang} className="detail-chip">{lang}</span>)}
+                  {frameworks.map((fw) => <span key={fw} className="detail-chip">{fw}</span>)}
+                </div>
+              </article>
+            )}
+            {extEntries.length > 0 && (
+              <article className="detail-card">
+                <div className="detail-card-header"><span className="panel-eyebrow">File Breakdown</span></div>
+                <div className="chip-cloud">
+                  {extEntries.map(([ext, count]) => (
+                    <span key={ext} className="detail-chip">
+                      {ext}<span className="chip-count">×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </article>
+            )}
+          </div>
+        )}
 
-        {userRole && (
-          <div style={{ marginBottom: '1rem' }}>
-            <span className="panel-eyebrow">{displayName}'s Role</span>
-            <div className="contributor-role-card" style={{ marginTop: '0.4rem' }}>
-              <p className="contributor-role-primary">
-                {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
-              </p>
-              <p className="contributor-role-meta">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
-              {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
-                <p className="contributor-role-meta">Secondary: {userRole.secondary_roles.join(', ')}</p>
+        {/* Skills */}
+        {skills.length > 0 && (
+          <article className="detail-card modal-full-row">
+            <div className="detail-card-header"><span className="panel-eyebrow">Skills</span></div>
+            <div className="chip-cloud">
+              {skills.map((skill) => <span key={skill} className="detail-chip">{skill}</span>)}
+            </div>
+          </article>
+        )}
+
+        {/* Project Metrics (Total: Commits, Lines of Code, Files, Days Active) */}
+        {(totalCommits != null || totalLinesAdded != null || filesSummary.total_files > 0 || durationDays != null) && (
+          <>
+            <span className="modal-tiles-heading">Project Metrics</span>
+            <div className="modal-metric-tiles">
+              {totalCommits != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{totalCommits.toLocaleString()}</span>
+                  <span className="metric-tile-label">Total Commits</span>
+                </div>
               )}
+              {totalLinesAdded != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{totalLinesAdded.toLocaleString()}</span>
+                  <span className="metric-tile-label">Lines of Code</span>
+                </div>
+              )}
+              {filesSummary.total_files > 0 && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{filesSummary.total_files.toLocaleString()}</span>
+                  <span className="metric-tile-label">Files</span>
+                </div>
+              )}
+              {durationDays != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{durationDays.toLocaleString()}</span>
+                  <span className="metric-tile-label">Days Active</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* User Metrics (Commit Metrics, Lines Added/Removed, Contributor Rank) */}
+        {(userCommits != null || linesAdded != null || linesRemoved != null || userRank >= 0 || rankScore != null) && (
+          <>
+            <span className="modal-tiles-heading">{displayName}'s Metrics</span>
+            <div className="modal-metric-tiles modal-metric-tiles--2x2">
+
+              {/* Commits (3 columns: total commits by user, % of all project commits, average commits per week */}
+              {userCommits != null && (
+                <div className="metric-tile metric-tile--multi">
+                  <div className="metric-col">
+                    <span className="metric-col-value">{userCommits.toLocaleString()}</span>
+                    <span className="metric-col-label">Total</span>
+                    <span className="metric-col-sub">commits</span>
+                  </div>
+                  {commitPct != null && (
+                    <div className="metric-col">
+                      <span className="metric-col-value">{commitPct}%</span>
+                      <span className="metric-col-label">Share</span>
+                      <span className="metric-col-sub">of project</span>
+                    </div>
+                  )}
+                  {avgCommitsPerWeek != null && (
+                    <div className="metric-col">
+                      <span className="metric-col-value">{avgCommitsPerWeek}</span>
+                      <span className="metric-col-label">Avg</span>
+                      <span className="metric-col-sub">per week</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lines (2 columns: lines added, lines removed */}
+              {(linesAdded != null || linesRemoved != null) && (
+                <div className="metric-tile metric-tile--multi">
+                  <div className="metric-col">
+                    <span className="metric-col-value metric-col-value--added">+{(linesAdded ?? 0).toLocaleString()}</span>
+                    <span className="metric-col-label">Added</span>
+                    <span className="metric-col-sub">lines</span>
+                  </div>
+                  <div className="metric-col">
+                    <span className="metric-col-value metric-col-value--removed">-{(linesRemoved ?? 0).toLocaleString()}</span>
+                    <span className="metric-col-label">Removed</span>
+                    <span className="metric-col-sub">lines</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Contributor rank */}
+              {userRank >= 0 && allAuthors.length > 1 && (
+                <div className="metric-tile">
+                  <div className="metric-col">
+                    <span className="metric-col-value">#{userRank + 1}</span>
+                    <span className="metric-col-label">Contributor Rank</span>
+                    <span className="metric-col-sub">of {allAuthors.length} contributors</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Rank Projects score (essentially how important the user was to each project, ie. for a project with 5 users, each user's score should be roughly 20/100 = 1/5th) */}
+              {rankScore != null && (
+                <div className="metric-tile">
+                  <div className="metric-col">
+                    <span className="metric-col-value">{(rankScore * 100).toFixed(0)}<span style={{ fontSize: '0.9em', opacity: 0.5 }}>/100</span></span>
+                    <span className="metric-col-label">Rank Score</span>
+                    <span className="metric-col-sub">coverage · dominance · team size</span>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </>
+        )}
+
+        {/* User Role */}
+        {userRole && (
+          <div className="modal-section">
+            <span className="panel-eyebrow">{displayName}'s Role</span>
+            <p className="modal-section-body modal-section-body--primary">
+              {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
+            </p>
+            <p className="modal-section-body">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
+            {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
+              <p className="modal-section-body" style={{ color: 'var(--text-secondary)' }}>
+                Also: {userRole.secondary_roles.join(', ')}
+              </p>
+            )}
+            {breakdownEntries.length > 0 && (
+              <div className="chip-cloud modal-chip-cloud-gap">
+                {breakdownEntries.map(([cat, pct]) => (
+                  <span key={cat} className="detail-chip">
+                    {cat}<span className="chip-count">{Math.round(pct)}%</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Evidence of Success */}
+        {evidence.length > 0 && (
+          <div className="modal-section">
+            <span className="panel-eyebrow">Evidence of Success</span>
+            <div className="modal-evidence-list">
+              {evidence.map((ev, i) => (
+                <div key={i} className="modal-evidence-item">
+                  <p className="modal-section-body modal-section-body--primary">
+                    <span className="modal-evidence-type">{ev.type}</span>
+                    {ev.description ? ` — ${ev.description}` : ''}
+                  </p>
+                  {ev.value && <p className="modal-section-body">{ev.value}</p>}
+                  {ev.url && (
+                    <a className="modal-section-body modal-evidence-link" href={ev.url} target="_blank" rel="noreferrer">
+                      {ev.source || ev.url}
+                    </a>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
+        {/* Actions */}
         <div className="modal-actions">
           {repoUrl && (
             <a className="hero-action-button" href={repoUrl} target="_blank" rel="noreferrer">
