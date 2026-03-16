@@ -9,13 +9,18 @@ function formatRoleConfidence(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+// Modal component to act as an expanded project card, showing all available information about the project and the user's contributions to it
 function ProjectModal({ project, detail, username, displayName, onClose }) {
   const name = project.display_name ?? project.name ?? '(unnamed)';
   const projectId = project.id ?? project.project_id;
   const thumbSrc = getThumbnailSrc(projectId, project.thumbnail_path);
-
   const languages = Array.isArray(detail?.languages) ? detail.languages : [];
+  const frameworks = Array.isArray(detail?.frameworks) ? detail.frameworks : [];
   const skills = Array.isArray(detail?.skills) ? detail.skills : [];
+  const contributors = Array.isArray(detail?.contributors) ? detail.contributors : [];
+  const evidence = Array.isArray(detail?.evidence) ? detail.evidence : [];
+  const filesSummary = detail?.files_summary ?? {};
+  const git = detail?.git_metrics ?? {};
   const llmSummary = detail?.llm_summary?.text ?? null;
   const repoUrl = detail?.project?.repo_url ?? null;
 
@@ -27,72 +32,270 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
     (c) => c.name?.toLowerCase() === username?.toLowerCase()
   ) ?? null;
 
+  // Git metrics helpers
+  const totalCommits = git?.total_commits ?? null;
+  const durationDays = git?.duration_days ?? null;
+  const projectStart = git?.project_start ? String(git.project_start).slice(0, 10) : null;
+  const projectEnd = git?.project_end ? String(git.project_end).slice(0, 10) : null;
+  const linesAdded = git?.lines_added_per_author?.[username] ?? null;
+  const linesRemoved = git?.lines_removed_per_author?.[username] ?? null;
+  const linesAddedPerAuthor = git?.lines_added_per_author ?? {};
+  const totalLinesAdded = Object.values(linesAddedPerAuthor).reduce((s, v) => s + (v ?? 0), 0) || null;
+  const userCommits = git?.commits_per_author?.[username] ?? null;
+  const commitsPerAuthor = git?.commits_per_author ?? {};
+  const allAuthors = Object.entries(commitsPerAuthor).sort((a, b) => b[1] - a[1]);
+  const userRank = allAuthors.findIndex(([n]) => n.toLowerCase() === username?.toLowerCase());
+  const commitPct = totalCommits && userCommits != null ? ((userCommits / totalCommits) * 100).toFixed(1) : null;
+  const avgCommitsPerWeek = (durationDays && userCommits != null && durationDays > 0)
+    ? (userCommits / Math.max(1, durationDays / 7)).toFixed(1)
+    : null;
+
+  // Rank Projects Score
+  const rankScore = detail?.rank_score ?? null;
+
+  // Contribution breakdown (from role analysis)
+  const breakdown = userRole?.contribution_breakdown ?? null;
+  const breakdownEntries = breakdown
+    ? Object.entries(breakdown).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+    : [];
+
+  // Top 6 file extensions (skip if empty)
+  const extEntries = Object.entries(filesSummary.extensions ?? {})
+    .filter(([ext]) => ext)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  const isCollaborative = contributors.length > 1;
+
+  // Expanded Project Card Modal
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} details`}>
       <div
         className="modal-card"
-        style={{ width: '680px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
+        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="detail-card-header" style={{ marginBottom: '1rem' }}>
           <div>
-            <span className="panel-eyebrow">Project</span>
+            <span className="panel-eyebrow">Project · {isCollaborative ? 'Collaborative' : 'Individual'}</span>
             <h3 style={{ margin: 0 }}>{name}</h3>
+            {(projectStart || projectEnd) && (
+              <span className="modal-date-range">
+                {projectStart ?? '?'} → {projectEnd ?? 'present'}
+              </span>
+            )}
           </div>
           <button type="button" className="hero-action-button" onClick={onClose}>✕ Close</button>
         </div>
 
+        {/* Thumbnail */}
         {thumbSrc && (
-          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: '1rem', overflow: 'hidden', border: 'none'}}>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: '1rem', overflow: 'hidden', border: 'none' }}>
             <img src={thumbSrc} alt={`${name} thumbnail`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'rgba(255,255,255,0)' }} />
           </div>
         )}
 
+        {/* LLM Project Summary */}
         {llmSummary && (
-          <div className="llm-summary-card" style={{ marginBottom: '1rem' }}>
+          <div className="modal-section">
             <span className="panel-eyebrow">About</span>
-            <p style={{ margin: '0.25rem 0 0' }}>{llmSummary}</p>
+            <p className="modal-section-body">{llmSummary}</p>
           </div>
         )}
 
-        <div className="detail-grid" style={{ marginBottom: '1rem' }}>
-          {languages.length > 0 && (
-            <article className="detail-card">
-              <div className="detail-card-header">
-                <span className="panel-eyebrow">Languages</span>
-              </div>
-              <div className="chip-cloud">
-                {languages.map((lang) => <span key={lang} className="detail-chip">{lang}</span>)}
-              </div>
-            </article>
-          )}
-          {skills.length > 0 && (
-            <article className="detail-card">
-              <div className="detail-card-header">
-                <span className="panel-eyebrow">Skills</span>
-              </div>
-              <div className="chip-cloud">
-                {skills.map((skill) => <span key={skill} className="detail-chip">{skill}</span>)}
-              </div>
-            </article>
-          )}
-        </div>
+        {/* Languages & Frameworks & File Extensions */}
+        {(languages.length > 0 || frameworks.length > 0 || extEntries.length > 0) && (
+          <div className="detail-grid modal-grid-row">
+            {(languages.length > 0 || frameworks.length > 0) && (
+              <article className="detail-card">
+                <div className="detail-card-header"><span className="panel-eyebrow">Languages &amp; Frameworks</span></div>
+                <div className="chip-cloud">
+                  {languages.map((lang) => <span key={lang} className="detail-chip">{lang}</span>)}
+                  {frameworks.map((fw) => <span key={fw} className="detail-chip">{fw}</span>)}
+                </div>
+              </article>
+            )}
+            {extEntries.length > 0 && (
+              <article className="detail-card">
+                <div className="detail-card-header"><span className="panel-eyebrow">File Breakdown</span></div>
+                <div className="chip-cloud">
+                  {extEntries.map(([ext, count]) => (
+                    <span key={ext} className="detail-chip">
+                      {ext}<span className="chip-count">×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </article>
+            )}
+          </div>
+        )}
 
-        {userRole && (
-          <div style={{ marginBottom: '1rem' }}>
-            <span className="panel-eyebrow">{displayName}'s Role</span>
-            <div className="contributor-role-card" style={{ marginTop: '0.4rem' }}>
-              <p className="contributor-role-primary">
-                {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
-              </p>
-              <p className="contributor-role-meta">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
-              {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
-                <p className="contributor-role-meta">Secondary: {userRole.secondary_roles.join(', ')}</p>
+        {/* Skills */}
+        {skills.length > 0 && (
+          <article className="detail-card modal-full-row">
+            <div className="detail-card-header"><span className="panel-eyebrow">Skills</span></div>
+            <div className="chip-cloud">
+              {skills.map((skill) => <span key={skill} className="detail-chip">{skill}</span>)}
+            </div>
+          </article>
+        )}
+
+        {/* Project Metrics (Total: Commits, Lines of Code, Files, Days Active) */}
+        {(totalCommits != null || totalLinesAdded != null || filesSummary.total_files > 0 || durationDays != null) && (
+          <>
+            <span className="modal-tiles-heading">Project Metrics</span>
+            <div className="modal-metric-tiles">
+              {totalCommits != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{totalCommits.toLocaleString()}</span>
+                  <span className="metric-tile-label">Total Commits</span>
+                </div>
               )}
+              {totalLinesAdded != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{totalLinesAdded.toLocaleString()}</span>
+                  <span className="metric-tile-label">Lines of Code</span>
+                </div>
+              )}
+              {filesSummary.total_files > 0 && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{filesSummary.total_files.toLocaleString()}</span>
+                  <span className="metric-tile-label">Files</span>
+                </div>
+              )}
+              {durationDays != null && (
+                <div className="metric-tile">
+                  <span className="metric-tile-value">{durationDays.toLocaleString()}</span>
+                  <span className="metric-tile-label">Days Active</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* User Metrics (Commit Metrics, Lines Added/Removed, Contributor Rank) */}
+        {(userCommits != null || linesAdded != null || linesRemoved != null || userRank >= 0 || rankScore != null) && (
+          <>
+            <span className="modal-tiles-heading">{displayName}'s Metrics</span>
+            <div className="modal-metric-tiles modal-metric-tiles--2x2">
+
+              {/* Commits (3 columns: total commits by user, % of all project commits, average commits per week */}
+              {userCommits != null && (
+                <div className="metric-tile metric-tile--multi">
+                  <div className="metric-col">
+                    <span className="metric-col-value">{userCommits.toLocaleString()}</span>
+                    <span className="metric-col-label">Total</span>
+                    <span className="metric-col-sub">commits</span>
+                  </div>
+                  {commitPct != null && (
+                    <div className="metric-col">
+                      <span className="metric-col-value">{commitPct}%</span>
+                      <span className="metric-col-label">Share</span>
+                      <span className="metric-col-sub">of project</span>
+                    </div>
+                  )}
+                  {avgCommitsPerWeek != null && (
+                    <div className="metric-col">
+                      <span className="metric-col-value">{avgCommitsPerWeek}</span>
+                      <span className="metric-col-label">Avg</span>
+                      <span className="metric-col-sub">per week</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lines (2 columns: lines added, lines removed */}
+              {(linesAdded != null || linesRemoved != null) && (
+                <div className="metric-tile metric-tile--multi">
+                  <div className="metric-col">
+                    <span className="metric-col-value metric-col-value--added">+{(linesAdded ?? 0).toLocaleString()}</span>
+                    <span className="metric-col-label">Added</span>
+                    <span className="metric-col-sub">lines</span>
+                  </div>
+                  <div className="metric-col">
+                    <span className="metric-col-value metric-col-value--removed">-{(linesRemoved ?? 0).toLocaleString()}</span>
+                    <span className="metric-col-label">Removed</span>
+                    <span className="metric-col-sub">lines</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Contributor rank */}
+              {userRank >= 0 && allAuthors.length > 1 && (
+                <div className="metric-tile">
+                  <div className="metric-col">
+                    <span className="metric-col-value">#{userRank + 1}</span>
+                    <span className="metric-col-label">Contributor Rank</span>
+                    <span className="metric-col-sub">of {allAuthors.length} contributors</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Rank Projects score (essentially how important the user was to each project, ie. for a project with 5 users, each user's score should be roughly 20/100 = 1/5th) */}
+              {rankScore != null && (
+                <div className="metric-tile">
+                  <div className="metric-col">
+                    <span className="metric-col-value">{(rankScore * 100).toFixed(0)}<span style={{ fontSize: '0.9em', opacity: 0.5 }}>/100</span></span>
+                    <span className="metric-col-label">Rank Score</span>
+                    <span className="metric-col-sub">coverage · dominance · team size</span>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </>
+        )}
+
+        {/* User Role */}
+        {userRole && (
+          <div className="modal-section">
+            <span className="panel-eyebrow">{displayName}'s Role</span>
+            <p className="modal-section-body modal-section-body--primary">
+              {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
+            </p>
+            <p className="modal-section-body">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
+            {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
+              <p className="modal-section-body" style={{ color: 'var(--text-secondary)' }}>
+                Also: {userRole.secondary_roles.join(', ')}
+              </p>
+            )}
+            {breakdownEntries.length > 0 && (
+              <div className="chip-cloud modal-chip-cloud-gap">
+                {breakdownEntries.map(([cat, pct]) => (
+                  <span key={cat} className="detail-chip">
+                    {cat}<span className="chip-count">{Math.round(pct)}%</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Evidence of Success */}
+        {evidence.length > 0 && (
+          <div className="modal-section">
+            <span className="panel-eyebrow">Evidence of Success</span>
+            <div className="modal-evidence-list">
+              {evidence.map((ev, i) => (
+                <div key={i} className="modal-evidence-item">
+                  <p className="modal-section-body modal-section-body--primary">
+                    <span className="modal-evidence-type">{ev.type}</span>
+                    {ev.description ? ` — ${ev.description}` : ''}
+                  </p>
+                  {ev.value && <p className="modal-section-body">{ev.value}</p>}
+                  {ev.url && (
+                    <a className="modal-section-body modal-evidence-link" href={ev.url} target="_blank" rel="noreferrer">
+                      {ev.source || ev.url}
+                    </a>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
+        {/* Actions */}
         <div className="modal-actions">
           {repoUrl && (
             <a className="hero-action-button" href={repoUrl} target="_blank" rel="noreferrer">
@@ -112,6 +315,77 @@ function getThumbnailSrc(projectId, thumbnailPath) {
     return thumbnailPath;
   }
   return `${API_BASE_URL}/projects/${projectId}/thumbnail/image?v=${encodeURIComponent(thumbnailPath)}`;
+}
+
+function parseIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const [year, month, day] = value.split('-').map((item) => Number(item));
+  return new Date(year, month - 1, day);
+}
+
+function formatIsoDate(date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfWeekMonday(date) {
+  const result = new Date(date);
+  const offset = (result.getDay() + 6) % 7;
+  result.setDate(result.getDate() - offset);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildWeeklyEntries(cells, rangeStart, rangeEnd) {
+  const valuesByWeek = new Map(
+    (Array.isArray(cells) ? cells : [])
+      .filter((cell) => /^\d{4}-\d{2}-\d{2}$/.test(cell?.period || ''))
+      .map((item) => [item.period, Number(item.value) || 0])
+  );
+
+  const firstCellDate = parseIsoDate(
+    [...valuesByWeek.keys()].sort((a, b) => a.localeCompare(b))[0] || ''
+  );
+  const lastCellDate = parseIsoDate(
+    [...valuesByWeek.keys()].sort((a, b) => a.localeCompare(b)).slice(-1)[0] || ''
+  );
+
+  const startDate = parseIsoDate(rangeStart) || firstCellDate;
+  const endDate = parseIsoDate(rangeEnd) || lastCellDate;
+  if (!startDate || !endDate) return [];
+
+  const startWeek = startOfWeekMonday(startDate);
+  const endWeek = startOfWeekMonday(endDate);
+
+  const entries = [];
+  let cursor = new Date(startWeek);
+  while (cursor <= endWeek) {
+    const iso = formatIsoDate(cursor);
+    entries.push({ period: iso, value: valuesByWeek.get(iso) ?? 0 });
+    cursor = addDays(cursor, 7);
+  }
+  return entries;
+}
+
+function formatWeekLabel(isoDate) {
+  const parsed = parseIsoDate(isoDate);
+  if (!parsed) return isoDate;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function heatmapCellColor(value, maxValue) {
+  if (!value || value <= 0 || maxValue <= 0) return 'rgba(241, 245, 249, 0.08)';
+  const ratio = Math.min(1, value / maxValue);
+  const alpha = 0.22 + (ratio * 0.78);
+  return `rgba(74, 222, 128, ${alpha.toFixed(3)})`;
 }
 
 function PortfolioPage({ onBack, showStars = true }) {
@@ -137,6 +411,9 @@ function PortfolioPage({ onBack, showStars = true }) {
   const [portfolioMeta, setPortfolioMeta] = useState(null);
   const [heatmapData, setHeatmapData] = useState({ cells: [], max_value: 0 });
   const [timelineData, setTimelineData] = useState([]);
+  const [selectedHeatmapProjectId, setSelectedHeatmapProjectId] = useState(null);
+  const [projectHeatmaps, setProjectHeatmaps] = useState({});
+  const [isLoadingProjectHeatmap, setIsLoadingProjectHeatmap] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
   // Map of project id → full /projects/{id} response (fetched at generation time)
@@ -210,6 +487,28 @@ function PortfolioPage({ onBack, showStars = true }) {
     );
   };
 
+  const loadProjectHeatmap = async (portfolioIdValue, project) => {
+    const projectId = project?.id ?? project?.project_id;
+    if (!portfolioIdValue || !projectId) return;
+
+    setIsLoadingProjectHeatmap(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/web/portfolio/${portfolioIdValue}/heatmap/project`, {
+        params: {
+          project_id: projectId,
+          granularity: 'week',
+          metric: 'contrib_files',
+          mode: 'private',
+        },
+      });
+      setProjectHeatmaps((prev) => ({ ...prev, [projectId]: response.data }));
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to load project heatmap.', 'error');
+    } finally {
+      setIsLoadingProjectHeatmap(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!username) {
       showToast('Please select a username.', 'error');
@@ -273,6 +572,14 @@ function PortfolioPage({ onBack, showStars = true }) {
         : eligible.slice(0, MAX_FEATURED).map((p) => p.display_name ?? p.name);
       setFeaturedIds(new Set(initialStars));
 
+      const initialProject = eligible[0] ?? null;
+      const initialProjectId = initialProject ? (initialProject.id ?? initialProject.project_id) : null;
+      setSelectedHeatmapProjectId(initialProjectId);
+      setProjectHeatmaps({});
+      if (initialProject) {
+        await loadProjectHeatmap(portfolio_id, initialProject);
+      }
+
       // Transition to dashboard phase after all data is loaded
       setPhase('dashboard');
     } catch (err) {
@@ -308,6 +615,9 @@ function PortfolioPage({ onBack, showStars = true }) {
     setPortfolioMeta(null);
     setHeatmapData({ cells: [], max_value: 0 });
     setTimelineData([]);
+    setSelectedHeatmapProjectId(null);
+    setProjectHeatmaps({});
+    setIsLoadingProjectHeatmap(false);
     setProjectSearch('');
     setIncludedProjects([]);
     setFeaturedIds(new Set());
@@ -319,6 +629,39 @@ function PortfolioPage({ onBack, showStars = true }) {
 
   // Store display name for web portfolio header
   const displayName = legalName.trim() || username;
+
+  const selectedHeatmapProject = includedProjects.find(
+    (project) => (project.id ?? project.project_id) === selectedHeatmapProjectId
+  ) ?? null;
+  const selectedHeatmap = selectedHeatmapProject
+    ? projectHeatmaps[selectedHeatmapProject.id ?? selectedHeatmapProject.project_id]
+    : null;
+  const heatmapEntries = buildWeeklyEntries(
+    selectedHeatmap?.cells || [],
+    selectedHeatmap?.range_start,
+    selectedHeatmap?.range_end
+  );
+  const heatmapMax = Math.max(selectedHeatmap?.max_value || 0, 1);
+  const heatmapUnit = selectedHeatmap?.value_unit === 'commits' ? 'commit(s)' : 'contributed file(s)';
+  const heatmapStartLabel = selectedHeatmap?.range_start
+    ? formatWeekLabel(selectedHeatmap.range_start)
+    : null;
+  const heatmapEndLabel = selectedHeatmap?.range_end
+    ? formatWeekLabel(selectedHeatmap.range_end)
+    : null;
+  const totalHeatmapValue = heatmapEntries.reduce((sum, item) => sum + (item.value || 0), 0);
+  const activeWeeks = heatmapEntries.filter((item) => (item.value || 0) > 0).length;
+  const avgActiveWeek = activeWeeks > 0 ? Math.round((totalHeatmapValue / activeWeeks) * 10) / 10 : 0;
+  const consistencyPct = heatmapEntries.length > 0
+    ? Math.round((activeWeeks / heatmapEntries.length) * 100)
+    : 0;
+  const recentWeeksTotal = heatmapEntries.slice(-4).reduce((sum, item) => sum + (item.value || 0), 0);
+  const prevWeeksTotal = heatmapEntries.slice(-8, -4).reduce((sum, item) => sum + (item.value || 0), 0);
+  const trendText = recentWeeksTotal > prevWeeksTotal
+    ? 'Increasing'
+    : recentWeeksTotal < prevWeeksTotal
+      ? 'Cooling'
+      : 'Stable';
 
   // Summary line in portfolio header (e.g. "XX projects | Generated on X/X/XXXX") [TODO: update later to be a user-centric summary]
   const headerSummary = portfolioMeta
@@ -358,8 +701,107 @@ function PortfolioPage({ onBack, showStars = true }) {
           <div className="portfolio-row">
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
-              <div className="placeholder">
-                <p className="tile-placeholder-text">Contribution activity over time will appear here.</p>
+              <div className="heatmap-toolbar">
+                <label className="portfolio-form-label" style={{ margin: 0 }}>
+                  Project
+                  <select
+                    className="portfolio-select heatmap-project-select"
+                    value={selectedHeatmapProjectId ?? ''}
+                    onChange={async (e) => {
+                      const nextProjectId = Number(e.target.value);
+                      setSelectedHeatmapProjectId(nextProjectId);
+                      const project = includedProjects.find((p) => (p.id ?? p.project_id) === nextProjectId);
+                      if (project && !projectHeatmaps[nextProjectId]) {
+                        await loadProjectHeatmap(portfolioId, project);
+                      }
+                    }}
+                  >
+                    {includedProjects.map((project) => {
+                      const id = project.id ?? project.project_id;
+                      return (
+                        <option key={id} value={id}>
+                          {project.display_name ?? project.name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+
+              <div className="heatmap-panel">
+                {isLoadingProjectHeatmap && <p className="tile-placeholder-text">Loading contribution activity...</p>}
+
+                {!isLoadingProjectHeatmap && selectedHeatmap && heatmapEntries.length > 0 && (
+                  <>
+                    <div className="heatmap-summary-grid">
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Total</span>
+                        <span className="heatmap-stat-value">{totalHeatmapValue} {heatmapUnit}</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Active Weeks</span>
+                        <span className="heatmap-stat-value">{activeWeeks}/{heatmapEntries.length}</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Consistency</span>
+                        <span className="heatmap-stat-value">{consistencyPct}%</span>
+                      </div>
+                      <div className="heatmap-stat">
+                        <span className="heatmap-stat-label">Trend (4w)</span>
+                        <span className="heatmap-stat-value">{trendText}</span>
+                      </div>
+                    </div>
+
+                    <div className="project-heatmap-grid" aria-label="Project contribution heatmap">
+                      {heatmapEntries.map((cell) => (
+                        <span
+                          key={cell.period}
+                          className="heatmap-cell heatmap-cell--week"
+                          title={`Week of ${cell.period}: ${cell.value} ${heatmapUnit}`}
+                          style={{ backgroundColor: heatmapCellColor(cell.value, heatmapMax) }}
+                        />
+                      ))}
+                    </div>
+                    <div className="project-heatmap-weeks" aria-hidden="true">
+                      {heatmapEntries.map((cell, index) => (
+                        <span key={`label-${cell.period}`} className="heatmap-week-label">
+                          {index % 6 === 0 || index === heatmapEntries.length - 1 ? formatWeekLabel(cell.period) : ''}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="heatmap-legend" aria-hidden="true">
+                      <span className="heatmap-legend-text">Less</span>
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(1, heatmapMax) }} />
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(Math.ceil(heatmapMax * 0.5), heatmapMax) }} />
+                      <span className="heatmap-legend-swatch" style={{ backgroundColor: heatmapCellColor(heatmapMax, heatmapMax) }} />
+                      <span className="heatmap-legend-text">More</span>
+                    </div>
+                    <div className="heatmap-meta">
+                      <span>
+                        {selectedHeatmapProject?.display_name ?? selectedHeatmapProject?.name} 
+                      </span>
+                      <span>
+                        Duration: {heatmapStartLabel || 'N/A'} - {heatmapEndLabel || 'N/A'}
+                      </span>
+                      <span>
+                        Peak week: {selectedHeatmap.max_value || 0} {heatmapUnit}
+                      </span>
+                      <span>
+                        Avg active week: {avgActiveWeek} {heatmapUnit}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {!isLoadingProjectHeatmap && selectedHeatmap && heatmapEntries.length === 0 && (
+                  <p className="tile-placeholder-text">
+                    No contributor file activity found for this project yet.
+                  </p>
+                )}
+
+                {!isLoadingProjectHeatmap && !selectedHeatmap && (
+                  <p className="tile-placeholder-text">Select a project to view contribution activity.</p>
+                )}
               </div>
             </section>
             <section className="portfolio-tile">
