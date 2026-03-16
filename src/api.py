@@ -107,6 +107,7 @@ class ProjectEditRequest(BaseModel):
     custom_name: Optional[str] = None
     repo_url: Optional[str] = None
     thumbnail_path: Optional[str] = None
+    summary_text: Optional[str] = None
 
 
 
@@ -1314,34 +1315,71 @@ def delete_project(project_id: int):
 def update_project(project_id: int, payload: ProjectEditRequest):
     with get_connection() as conn:
         existing = conn.execute(
-            "SELECT id, custom_name, repo_url, thumbnail_path FROM projects WHERE id = ?",
+            """
+            SELECT id, name, custom_name, repo_url, created_at, thumbnail_path,
+                   summary_text, summary_model, summary_updated_at
+            FROM projects
+            WHERE id = ?
+            """,
             (project_id,),
         ).fetchone()
 
         if not existing:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        next_custom_name = payload.custom_name if payload.custom_name is not None else existing["custom_name"]
+        next_repo_url = payload.repo_url if payload.repo_url is not None else existing["repo_url"]
+        next_thumbnail_path = payload.thumbnail_path if payload.thumbnail_path is not None else existing["thumbnail_path"]
+
+        if payload.summary_text is not None:
+            next_summary_text = payload.summary_text.strip()
+            next_summary_updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+        else:
+            next_summary_text = existing["summary_text"]
+            next_summary_updated_at = existing["summary_updated_at"]
+
         conn.execute(
             """
             UPDATE projects
-            SET custom_name = ?, repo_url = ?, thumbnail_path = ?
+            SET custom_name = ?, repo_url = ?, thumbnail_path = ?, summary_text = ?, summary_updated_at = ?
             WHERE id = ?
             """,
             (
-                payload.custom_name if payload.custom_name is not None else existing["custom_name"],
-                payload.repo_url if payload.repo_url is not None else existing["repo_url"],
-                payload.thumbnail_path if payload.thumbnail_path is not None else existing["thumbnail_path"],
+                next_custom_name,
+                next_repo_url,
+                next_thumbnail_path,
+                next_summary_text,
+                next_summary_updated_at,
                 project_id,
             ),
         )
         conn.commit()
 
         updated = conn.execute(
-            "SELECT id, name, custom_name, repo_url, created_at, thumbnail_path FROM projects WHERE id = ?",
+            """
+            SELECT id, name, custom_name, repo_url, created_at, thumbnail_path,
+                   summary_text, summary_model, summary_updated_at
+            FROM projects
+            WHERE id = ?
+            """,
             (project_id,),
         ).fetchone()
 
-    return {"project": dict(updated)}
+    return {
+        "project": {
+            "id": updated["id"],
+            "name": updated["name"],
+            "custom_name": updated["custom_name"],
+            "repo_url": updated["repo_url"],
+            "created_at": updated["created_at"],
+            "thumbnail_path": updated["thumbnail_path"],
+        },
+        "llm_summary": {
+            "text": updated["summary_text"],
+            "model": updated["summary_model"],
+            "updated_at": updated["summary_updated_at"],
+        } if updated["summary_text"] else None,
+    }
 
 
 @app.get("/projects/{project_id}/thumbnail/image")

@@ -65,9 +65,12 @@ function ScannedProjectsPage({ onBack }) {
   const [projectsError, setProjectsError] = useState('');
   const [detailsError, setDetailsError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [editError, setEditError] = useState('');
   const [editCustomName, setEditCustomName] = useState('');
   const [editRepoUrl, setEditRepoUrl] = useState('');
   const [editThumbnailPath, setEditThumbnailPath] = useState('');
+  const [editSummaryText, setEditSummaryText] = useState('');
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -117,11 +120,13 @@ function ScannedProjectsPage({ onBack }) {
     loadProjectDetails();
   }, [selectedProjectId]);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedProject && isEditing) {
       setEditCustomName(selectedProject.project?.custom_name || '');
       setEditRepoUrl(selectedProject.project?.repo_url || '');
       setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+      setEditSummaryText(selectedProject.llm_summary?.text || '');
+      setEditError('');
     }
   }, [selectedProject, isEditing]);
 
@@ -134,31 +139,54 @@ function ScannedProjectsPage({ onBack }) {
     setProjects(Array.isArray(listResponse.data) ? listResponse.data : []);
   };
 
-  const handleEditProject = () => {
+    const handleEditProject = () => {
     if (!selectedProject) return;
     setEditCustomName(selectedProject.project?.custom_name || '');
     setEditRepoUrl(selectedProject.project?.repo_url || '');
     setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+    setEditSummaryText(selectedProject.llm_summary?.text || '');
+    setEditError('');
     setIsEditing(true);
   };
 
-  const handleSaveProject = async () => {
-    if (selectedProjectId == null) return;
 
-    try {
-      await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
-        custom_name: editCustomName,
-        repo_url: editRepoUrl,
-        thumbnail_path: editThumbnailPath,
-      });
-      window.alert('Project updated successfully');
-      setIsEditing(false);
-      await refreshProjectData();
-    } catch (error) {
-      console.error('Failed to update project:', error);
-      window.alert('Failed to update project.');
-    }
+    const handleCancelEdit = () => {
+    setEditCustomName(selectedProject?.project?.custom_name || '');
+    setEditRepoUrl(selectedProject?.project?.repo_url || '');
+    setEditThumbnailPath(selectedProject?.project?.thumbnail_path || '');
+    setEditSummaryText(selectedProject?.llm_summary?.text || '');
+    setEditError('');
+    setIsEditing(false);
   };
+
+  const handleSaveProject = async () => {
+  if (selectedProjectId == null || !selectedProject) return;
+
+  const trimmedCustomName = editCustomName.trim();
+  const trimmedRepoUrl = editRepoUrl.trim();
+  const trimmedThumbnailPath = editThumbnailPath.trim();
+  const trimmedSummaryText = editSummaryText.trim();
+
+  try {
+    setIsSavingProject(true);
+    setEditError('');
+
+    await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
+      custom_name: trimmedCustomName,
+      repo_url: trimmedRepoUrl,
+      thumbnail_path: trimmedThumbnailPath,
+      summary_text: trimmedSummaryText,
+    });
+
+    setIsEditing(false);
+    await refreshProjectData();
+  } catch (error) {
+    console.error('Failed to update project:', error);
+    setEditError('Failed to update project.');
+  } finally {
+    setIsSavingProject(false);
+  }
+};
 
   const handleDeleteProject = async () => {
     if (selectedProjectId == null) return;
@@ -458,38 +486,94 @@ function ScannedProjectsPage({ onBack }) {
                       </div>
                     </div>
 
-                    {isEditing ? (
+                                        {isEditing ? (
                       <div className="edit-project-panel">
                         <div className="detail-card-header">
                           <span className="panel-eyebrow">Edit</span>
                           <h4>Edit Project Info</h4>
                         </div>
+
                         <label className="edit-field" htmlFor="edit-custom-name">
                           <span>Display Name</span>
-                          <input id="edit-custom-name" type="text" value={editCustomName} onChange={(e) => setEditCustomName(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-custom-name"
+                            type="text"
+                            value={editCustomName}
+                            onChange={(e) => setEditCustomName(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
                         <label className="edit-field" htmlFor="edit-repo-url">
                           <span>Repo URL</span>
-                          <input id="edit-repo-url" type="text" value={editRepoUrl} onChange={(e) => setEditRepoUrl(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-repo-url"
+                            type="text"
+                            value={editRepoUrl}
+                            onChange={(e) => setEditRepoUrl(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
                         <label className="edit-field" htmlFor="edit-thumbnail-path">
                           <span>Thumbnail Path</span>
-                          <input id="edit-thumbnail-path" type="text" value={editThumbnailPath} onChange={(e) => setEditThumbnailPath(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-thumbnail-path"
+                            type="text"
+                            value={editThumbnailPath}
+                            onChange={(e) => setEditThumbnailPath(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
+                        <label className="edit-field" htmlFor="edit-summary-text">
+                          <span>LLM Summary</span>
+                          <textarea
+                            id="edit-summary-text"
+                            value={editSummaryText}
+                            onChange={(e) => setEditSummaryText(e.target.value)}
+                            className="detail-input detail-textarea"
+                            rows={8}
+                            placeholder="Add or edit the project summary"
+                          />
+                        </label>
+
+                        {editError ? <p className="error-text">{editError}</p> : null}
+
                         <div className="project-hero-actions">
-                          <button type="button" className="hero-action-button save-action-button" onClick={handleSaveProject}>Save Changes</button>
-                          <button type="button" className="hero-action-button" onClick={() => setIsEditing(false)}>Cancel</button>
+                          <button
+                            type="button"
+                            className="hero-action-button save-action-button"
+                            onClick={handleSaveProject}
+                            disabled={isSavingProject}
+                          >
+                            {isSavingProject ? 'Saving...' : 'Save Changes'}
+                          </button>
+                          <button
+                            type="button"
+                            className="hero-action-button"
+                            onClick={handleCancelEdit}
+                            disabled={isSavingProject}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : null}
 
-                    {selectedProject.llm_summary?.text ? (
-                      <div className="llm-summary-card">
-                        <span className="panel-eyebrow">LLM Summary</span>
-                        <p>{selectedProject.llm_summary.text}</p>
-                        <span className="summary-updated">Updated {formatDate(selectedProject.llm_summary.updated_at)}</span>
-                      </div>
-                    ) : null}
+                                        <div className="llm-summary-card">
+                      <span className="panel-eyebrow">LLM Summary</span>
+                      {selectedProject.llm_summary?.text ? (
+                        <>
+                          <p>{selectedProject.llm_summary.text}</p>
+                          <span className="summary-updated">
+                            Updated {formatDate(selectedProject.llm_summary.updated_at)}
+                          </span>
+                        </>
+                      ) : (
+                        <p className="empty-copy">No LLM summary saved for this project yet.</p>
+                      )}
+                    </div>
                   </article>
 
                   <article className="detail-card">
