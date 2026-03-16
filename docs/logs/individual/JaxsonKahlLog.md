@@ -592,6 +592,8 @@ This week I focused on improving the resume generation workflow by strengthening
 
 # T2 Week 10 Personal Logs (Mar 9th - 15th)
 
+<img width="957" height="556" alt="Screenshot 2026-03-15 at 3 23 02 PM" src="https://github.com/user-attachments/assets/6481e0e9-1f1a-4f89-93bc-179135e20a04" />
+
 ### Overview
 
 This week I worked on improving both the project scanning workflow and the user interface used to explore scanned projects. The work focused on fixing multi-project scanning behavior, expanding the backend API to support better scanning workflows, and significantly improving the frontend project summary page. These updates improved the reliability of the scanning pipeline and introduced a more interactive dashboard for viewing project information.
@@ -631,3 +633,5 @@ This week I worked on improving both the project scanning workflow and the user 
 - No major blockers occurred during this development period.
 - Some additional testing was required to ensure multi-project scanning behaved correctly across both CLI and Electron workflows (PR #443).
 - Minor UI adjustments were needed while refining the dashboard layout to ensure contributor information remained clear and readable (PR #456).
+  
+<img width="844" height="629" alt="Screenshot 2026-03-15 at 5 54 59 PM" src="https://github.com/user-attachments/assets/f69f6aec-3322-46fd-ac18-df2f3d34af5f" />
