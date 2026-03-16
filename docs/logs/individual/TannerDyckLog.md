@@ -1,6 +1,7 @@
 # Tanner Dyck's Personal Log
 
 ### Term 2 (Milestone #2)
+- [Week #10 - March 9th-15th](#week-10---march-9th---15th)
 - [Week #9 - March 2nd-8th](#week-9---march-2nd---8th)
 - [Weeks #6, #7, and #8 - February 9th-March 1st](#weeks-6-7-and-8---february-9th---march-1st)
 - [Weeks #4 and #5 - January 26th-February 2nd](#weeks-4-and-5---january-26th---february-2nd)
@@ -893,3 +894,77 @@ As mentioned above, this week was pretty chill. Everyone declared their tasks fo
 
 ## Kanban Board at End of T2 Week 9
 <img width="1875" height="892" alt="t2week9-kanban" src="https://github.com/user-attachments/assets/1216ba12-a228-4b7a-9300-c1a4101b5e74" />
+
+---
+
+# Week #10 - March 9th - 15th
+
+<img width="677" height="522" alt="t2week10-tasks" src="https://github.com/user-attachments/assets/bfa4b740-4e99-4043-bb94-c13296fca70c" />
+
+## Connection to T2 Week 9
+In T2 Week 9 I established the initial web portfolio generation infrastructure (setup form, contributor selection, project inclusion, and a visual skeleton for the actual portfolio) Heading into Week 10 I had three goals: flesh out the web portfolio's data aggregation, get involved in CSS polishing, and look into accessibility features if time allowed. This week I was only able to make substantial progress on the web portfolio front by: fetching and storing a greater variety of project metrics, and fleshing out collapsed/expanded card views.
+
+## Coding Tasks
+
+### Frontend portfolio generation: Data aggregation & UI reworks [PR #437](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/437)
+- `handleGenerate()` now calls `POST /portfolio/generate (save_to_db:true)`. Then, in parallel, fetches portfolio metadata, project rankings, activity heatmap, and skills timeline using their associated API endpoints
+- Updated the portfolio header to include the display name, and a subtitle containing how many projects were included, and the date it was generated on
+- Added an animated loading spinner while gathering portfolio information after generating, and updated error message formatting within web portfolio dashboard/preview
+- The "Back to Setup" button now resets the web portfolio state to ensure fresh re-generation
+- Reworked the "Include Projects" checklist tile to dynamically update based on the currently selected username by pulling a username-associated project list using the `GET /rank-projects?mode=contributor&contributor_name={username}` endpoint. This fixes a bug where usernames not connected to at least 3 scanned projects could bypass our "minimum 3 projects needed" validation logic
+
+### Frontend portfolio generation: Project cards (initialization, animations, & favouriting) [PR #440](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/440)
+- Populated the existing project-card-containers with actual project cards. Cards display the project title and a "favourite" star-shaped button in the top-right corner
+- Two containers hold project cards: "Featured" (3 cards max, larger scale, 1 row) and "All" (all included projects, 4 per row)
+- Project cards have a subtle enlarge and drop shadow animation on hover
+- The search bar above the "All Projects" section is fully functional (updates live as characters are entered)
+- Added project favouriting (starred projects display in the "Featured Projects" container). If 3 projects are already favourited, a fourth cannot be added and the user receives a toast. The top 3 scoring projects from `rank projects` are auto-starred at generation
+- Updated all UI messaging to go through toasts, split into error/info/success categories with different colours. Toasts last 4 seconds then auto-dismiss; calling the same toast resets the timer, calling a different one replaces the current one
+
+### Frontend portfolio generation: Project cards (collapsed vs. expanded cards) [PR #457](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/457)
+- Restructured project cards into header, thumbnail, and footer sections:
+    - Header: contains project title and "favourite" button
+    - Thumbnail: displays 16:9 thumbnail images via the `/projects/{id}/thumbnail/image` API endpoint
+    - Footer: contains the LLM summary (when applicable)
+- Added a `ProjectModal` component that renders as a centered overlay with full project details (title, thumbnail, LLM summary, languages/frameworks, skills, contributor role)
+- Refactored `projectSummaries` into `projectDetails` to better describe the variety of content displayed within it (now stores the entire `GET/projects/{id}` response)
+- Added an "Open Repository" button at the bottom of the expanded project card that takes the user to the project's associated GitHub page
+- Stored `custom_name` from `GET/projects` into a `display_name` variable at generation, so project cards display custom names as a priority with a fallback to default repo names
+
+## Testing & Debugging Tasks
+
+### [PR #437](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/437)
+- Added mocks for all newly introduced endpoint calls (/rank-projects, /portfolio/generate, /web/portfolio/.../showcase, /heatmap, /timeline)
+- Updated 4 failing tests to account for the new parallel calls in `PortfolioPage.jsx` (see above)
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the week in our Discord server
+- Completed individual log and peer review for T2 Week 10
+- Collaborated with Jaxson to create our second peer testing outline 
+- Reviewed and approved:
+    - Code PRs:
+        - [#438 - Redesign App.jsx](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/438) (Travis)
+        - [#439 - Add project delete endpoint and LLM summary display with backend and frontend tests](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/439) (Pri)
+        - [#443 - Fixed Scanner Bugs Related to Multi-Project Directories](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/443) (Jaxson)
+        - [#447 - redesign index.css 3/3: portfolio, scanned projects, and responsiveness](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/447) (Travis)
+        - [#451 - Delete database functionality](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/451) (Tyler)
+        - [#452 - (PR 1/3) Project Summary Page Update: Thumbnail Management](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/452) (Jaxson)
+        - [#453 - Fix failing ResumePage tests](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/453) (Travis)
+        - [#455 - (PR 2/3) Project Summary Page Update: Revamp scanned projects page into interactive dashboard](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/455) (Jaxson)
+        - [#456 - (PR 3/3) Project Summary Page Update: Refine scanned projects contributor and overview layout](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/456) (Jaxson)
+
+## Issues & Blockers
+No substantial issues or blockers were encountered this week. The only notable concern is the encroaching due date. I believe it caught all of us off guard, as we were originally following the dates outlined on the Canvas' project specifications (miletone deliverables) page, where it says milestone 3 ends on April 5th. After talking to the professor in class, we realized we only had one week left before our project should be considered "feature complete". So we definitely increased our workload this week in response. We got a lot of solid work done, and I would consider our project mostly finished, however, there are still a few core features missing, and we only have two days left to implement them, so the pressure is definitely on.
+
+## Reflection Points
+The entire team worked well together this sprint, and the Discord was slightly more active than usual. Most team members also seemed to push their work earlier in the week when compared to normal, so that was appreciated as well! We are almost at the end of the project, so I'm happy to see everyone is still giving it their all, and we continue to discuss, plan, prioritize, and execute work in an organized and well-communicated manner. No complaints on my end
+
+## Goals for Next Week (T2 Week 11)
+Next week is our second peer testing event, so I currently plan to:
+- Add some more polish to the web portfolio feature across Monday/Tuesday
+- Conduct our peer testing sessions on Wednesday and gather feedback
+- Tie up remaining loose ends and fix reported bugs Thursday through Sunday
+- Build my slides for our upcoming milestone 3 presentation whenever I can find the time
+
+## Kanban Board at End of T2 Week 10
+<img width="1861" height="894" alt="t2week10-kanban" src="https://github.com/user-attachments/assets/5a186410-c301-4cab-944b-c90adfffe195" />
