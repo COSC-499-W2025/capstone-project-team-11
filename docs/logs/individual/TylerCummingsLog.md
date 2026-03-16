@@ -564,5 +564,103 @@ These changes improve database visibility, user experience, and help maintain th
 
 <img width="1907" height="944" alt="image" src="https://github.com/user-attachments/assets/b45ce6a5-9f35-4aa2-9774-47723399c043" />
 
+# Tyler's T2 Week 10 Personal Log (Mar. 9 - Mar. 15)
+[Back to Term 2 Navigation](#)
+
+Focus of this week was completing the database management page of our application. I did three things; **adding clear database functionality**, **update and fix design/format of database maintenance page**, and **adding test coverage for database maintenance page**. I completed several major tasks this week:
+
+1. Added a **Removed delete project button and changed colour of clear database** button to the main menu.
+2. Created the **created and designed a modal** to make the clear database button work and make the confirm clear pop up to match form and design.
+3. Extended the backend API by adding **database/clear** endpoint to clear all data in db
+4. Created **DatabaseMaintenance.test.jsx** to cover all functionality of database maintenance.
+
+These changes improve database visibility, user experience, and help maintain the integrity of project data. Additionally, they increase test coverage and frontend for database operations.
+
+<img width="985" height="577" alt="image" src="https://github.com/user-attachments/assets/10f30b27-d7af-4d8d-a99a-2c72feff4390" />
+
+---
+
+## Coding Tasks
+
+- Updated the **Database Maintenance page UI**:
+  - Removed the **Delete Project** button to simplify the interface and avoid confusion with database-wide operations.
+  - Changed the **Clear Database** button color to better indicate that it performs a destructive action.
+
+- Implemented **Clear Database functionality in the frontend**:
+  - Added `onClick` logic so the **Clear Database** button calls the backend API endpoint.
+  - Implemented `confirmClearDatabase` and `cancelClearDatabase` handlers to manage user confirmation.
+  - Ensured the UI refreshes by re-running the database inspection after the database is cleared.
+
+- Created a **custom confirmation modal** for clearing the database:
+  - Replaced the default browser alert/confirm popup with a styled modal component.
+  - Designed the modal to match the existing UI styling and layout of the application.
+  - Added modal actions for **confirming** or **canceling** the database clear operation.
+
+- Extended the **backend API**:
+  - Implemented a new endpoint: `DELETE /database/clear`.
+  - This endpoint clears all stored data from the database and returns a success response.
+
+- Added **frontend automated tests**:
+  - Created `DatabaseMaintenance.test.jsx`.
+  - Tests verify:
+    - Page rendering
+    - Database inspection loading
+    - Refresh database functionality
+    - Table expansion behavior
+    - Modal confirmation for clearing the database
+    - API call to `/database/clear`.
+
+---
+
+## Testing / Debugging Tasks
+
+- Manual testing:
+  - Navigated to the **Database Maintenance page** and verified tables load correctly from the `/database/inspect` endpoint.
+  - Clicked **Refresh Database** to confirm that the page reloads database tables.
+  - Expanded database tables to verify that row data renders correctly when a table is opened.
+  - Clicked **Clear Database** to confirm the custom confirmation modal appears instead of a browser alert.
+  - Tested both modal options:
+    - **Cancel** closes the modal without clearing the database.
+    - **Yes, Clear Database** triggers the API call and refreshes the page data.
+
+- Automated testing:
+  - Created `DatabaseMaintenance.test.jsx` using **Vitest** and **React Testing Library**.
+  - Mocked Axios requests to simulate API responses for:
+    - `/database/inspect`
+    - `/database/clear`
+  - Tests validate:
+    - Page rendering and table loading
+    - Refresh button triggers a new API request
+    - Table expand/collapse functionality
+    - Modal appears when clicking **Clear Database**
+    - Confirming the modal sends a `DELETE` request to `/database/clear`.
+
+- Ran frontend tests locally using:
+npm run test
+
+---
+
+## Reviewing / Collaboration Tasks
+
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #450], [PR #449], [PR #443] , [PR #441]
+- Also reviewed team log and most individual logs logs
+- Attended weekly meetings on monday
+
+---
+
+## Blockers / Issues
+
+- None major; minor adjustments needed for creating modal that matches form/design
+
+---
+
+## T2 Week 10 Plans
+
+- Clean up everything else needed to make sure capstone is complete
+- Discuss with teammates next steps and deal with any missing milestones/features
+- Help Tanner with the portfolio dashboard
+
+<img width="1906" height="937" alt="image" src="https://github.com/user-attachments/assets/9eff7897-515f-4a87-bf7f-713eb45f3c79" />
+
 
 
