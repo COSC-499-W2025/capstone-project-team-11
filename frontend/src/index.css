@@ -2208,6 +2208,11 @@ button:disabled {
   gap: 0.6rem;
 }
 
+.detail-textarea {
+  min-height: 180px;
+  resize: vertical;
+  font: inherit;
+}
 /* --- Project Modal Sections --- */
 
 /* Shared card shell */

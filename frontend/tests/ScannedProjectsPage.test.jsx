@@ -123,7 +123,10 @@ describe("ScannedProjectsPage", () => {
           scans: [],
           files_summary: { total_files: 0, extensions: {} },
           evidence: [],
-          llm_summary: null,
+                    llm_summary: {
+            text: "Original summary",
+            updated_at: "2026-02-03T10:00:00Z",
+          },
         },
       })
       .mockResolvedValueOnce({
@@ -143,7 +146,10 @@ describe("ScannedProjectsPage", () => {
           scans: [],
           files_summary: { total_files: 0, extensions: {} },
           evidence: [],
-          llm_summary: null,
+          llm_summary: {
+  text: "Updated summary text",
+  updated_at: "2026-02-04T10:00:00Z",
+},
         },
       })
       .mockResolvedValueOnce({
@@ -169,21 +175,28 @@ describe("ScannedProjectsPage", () => {
       target: { value: "/new/thumb.png" },
     });
 
+    fireEvent.change(screen.getByLabelText(/LLM Summary/i), {
+  target: { value: "Updated summary text" },
+});
+
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
     await waitFor(() => {
-      expect(axios.patch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/projects\/1$/),
-        {
-          custom_name: "Updated Display Name",
-          repo_url: "https://new-url.com",
-          thumbnail_path: "/new/thumb.png",
-        }
-      );
-    });
+  expect(axios.patch).toHaveBeenCalledWith(
+    expect.stringMatching(/\/projects\/1$/),
+    {
+      custom_name: "Updated Display Name",
+      repo_url: "https://new-url.com",
+      thumbnail_path: "/new/thumb.png",
+      summary_text: "Updated summary text",
+    }
+  );
+});
 
-    expect(window.alert).toHaveBeenCalledWith("Project updated successfully");
-  });
+await waitFor(() => {
+  expect(screen.getByText(/Updated summary text/i)).toBeInTheDocument();
+});
+});
 
   test("uses file picker to change thumbnail and renders preview", async () => {
     axios.get
@@ -291,7 +304,7 @@ describe("ScannedProjectsPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
 
-    expect(window.confirm).toHaveBeenCalledWith(
+        expect(window.confirm).toHaveBeenCalledWith(
       'Are you sure you want to delete "Pretty Project Name"?'
     );
   });
