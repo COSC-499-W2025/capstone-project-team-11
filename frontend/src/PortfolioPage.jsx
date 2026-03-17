@@ -412,6 +412,7 @@ function PortfolioPage({ onBack, showStars = true }) {
   const [heatmapData, setHeatmapData] = useState({ cells: [], max_value: 0 });
   const [timelineData, setTimelineData] = useState([]);
   const [selectedHeatmapProjectId, setSelectedHeatmapProjectId] = useState(null);
+  const [heatmapViewScope, setHeatmapViewScope] = useState('project');
   const [projectHeatmaps, setProjectHeatmaps] = useState({});
   const [isLoadingProjectHeatmap, setIsLoadingProjectHeatmap] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -487,9 +488,12 @@ function PortfolioPage({ onBack, showStars = true }) {
     );
   };
 
-  const loadProjectHeatmap = async (portfolioIdValue, project) => {
+  const loadProjectHeatmap = async (portfolioIdValue, project, viewScope = 'project') => {
     const projectId = project?.id ?? project?.project_id;
     if (!portfolioIdValue || !projectId) return;
+
+    const cacheKey = `${projectId}:${viewScope}`;
+    if (projectHeatmaps[cacheKey]) return;
 
     setIsLoadingProjectHeatmap(true);
     try {
@@ -499,9 +503,10 @@ function PortfolioPage({ onBack, showStars = true }) {
           granularity: 'week',
           metric: 'contrib_files',
           mode: 'private',
+          view_scope: viewScope,
         },
       });
-      setProjectHeatmaps((prev) => ({ ...prev, [projectId]: response.data }));
+      setProjectHeatmaps((prev) => ({ ...prev, [cacheKey]: response.data }));
     } catch (err) {
       showToast(err?.response?.data?.detail || err.message || 'Failed to load project heatmap.', 'error');
     } finally {
@@ -575,9 +580,10 @@ function PortfolioPage({ onBack, showStars = true }) {
       const initialProject = eligible[0] ?? null;
       const initialProjectId = initialProject ? (initialProject.id ?? initialProject.project_id) : null;
       setSelectedHeatmapProjectId(initialProjectId);
+      setHeatmapViewScope('project');
       setProjectHeatmaps({});
       if (initialProject) {
-        await loadProjectHeatmap(portfolio_id, initialProject);
+        await loadProjectHeatmap(portfolio_id, initialProject, 'project');
       }
 
       // Transition to dashboard phase after all data is loaded
@@ -616,6 +622,7 @@ function PortfolioPage({ onBack, showStars = true }) {
     setHeatmapData({ cells: [], max_value: 0 });
     setTimelineData([]);
     setSelectedHeatmapProjectId(null);
+    setHeatmapViewScope('project');
     setProjectHeatmaps({});
     setIsLoadingProjectHeatmap(false);
     setProjectSearch('');
@@ -633,8 +640,11 @@ function PortfolioPage({ onBack, showStars = true }) {
   const selectedHeatmapProject = includedProjects.find(
     (project) => (project.id ?? project.project_id) === selectedHeatmapProjectId
   ) ?? null;
+  const selectedHeatmapKey = selectedHeatmapProject
+    ? `${selectedHeatmapProject.id ?? selectedHeatmapProject.project_id}:${heatmapViewScope}`
+    : null;
   const selectedHeatmap = selectedHeatmapProject
-    ? projectHeatmaps[selectedHeatmapProject.id ?? selectedHeatmapProject.project_id]
+    ? projectHeatmaps[selectedHeatmapKey]
     : null;
   const heatmapEntries = buildWeeklyEntries(
     selectedHeatmap?.cells || [],
@@ -702,6 +712,32 @@ function PortfolioPage({ onBack, showStars = true }) {
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
               <div className="heatmap-toolbar">
+                <div className="heatmap-view-toggle" role="group" aria-label="Heatmap view mode">
+                  <button
+                    type="button"
+                    className={`heatmap-view-btn${heatmapViewScope === 'project' ? ' active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('project');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'project');
+                      }
+                    }}
+                  >
+                    Project View
+                  </button>
+                  <button
+                    type="button"
+                    className={`heatmap-view-btn${heatmapViewScope === 'user' ? ' active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('user');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'user');
+                      }
+                    }}
+                  >
+                    Per User View
+                  </button>
+                </div>
                 <label className="portfolio-form-label" style={{ margin: 0 }}>
                   Project
                   <select
@@ -711,8 +747,8 @@ function PortfolioPage({ onBack, showStars = true }) {
                       const nextProjectId = Number(e.target.value);
                       setSelectedHeatmapProjectId(nextProjectId);
                       const project = includedProjects.find((p) => (p.id ?? p.project_id) === nextProjectId);
-                      if (project && !projectHeatmaps[nextProjectId]) {
-                        await loadProjectHeatmap(portfolioId, project);
+                      if (project) {
+                        await loadProjectHeatmap(portfolioId, project, heatmapViewScope);
                       }
                     }}
                   >
@@ -752,22 +788,26 @@ function PortfolioPage({ onBack, showStars = true }) {
                       </div>
                     </div>
 
-                    <div className="project-heatmap-grid" aria-label="Project contribution heatmap">
-                      {heatmapEntries.map((cell) => (
-                        <span
-                          key={cell.period}
-                          className="heatmap-cell heatmap-cell--week"
-                          title={`Week of ${cell.period}: ${cell.value} ${heatmapUnit}`}
-                          style={{ backgroundColor: heatmapCellColor(cell.value, heatmapMax) }}
-                        />
-                      ))}
-                    </div>
-                    <div className="project-heatmap-weeks" aria-hidden="true">
-                      {heatmapEntries.map((cell, index) => (
-                        <span key={`label-${cell.period}`} className="heatmap-week-label">
-                          {index % 6 === 0 || index === heatmapEntries.length - 1 ? formatWeekLabel(cell.period) : ''}
-                        </span>
-                      ))}
+                    <div className="heatmap-scroll-wrap" aria-label="Project contribution heatmap">
+                      <div className="heatmap-scroll-content">
+                        <div className="project-heatmap-grid">
+                          {heatmapEntries.map((cell) => (
+                            <span
+                              key={cell.period}
+                              className="heatmap-cell heatmap-cell--week"
+                              title={`Week of ${cell.period}: ${cell.value} ${heatmapUnit}`}
+                              style={{ backgroundColor: heatmapCellColor(cell.value, heatmapMax) }}
+                            />
+                          ))}
+                        </div>
+                        <div className="project-heatmap-weeks" aria-hidden="true">
+                          {heatmapEntries.map((cell, index) => (
+                            <span key={`label-${cell.period}`} className="heatmap-week-label">
+                              {index % 6 === 0 || index === heatmapEntries.length - 1 ? formatWeekLabel(cell.period) : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                     <div className="heatmap-legend" aria-hidden="true">
                       <span className="heatmap-legend-text">Less</span>
@@ -795,7 +835,9 @@ function PortfolioPage({ onBack, showStars = true }) {
 
                 {!isLoadingProjectHeatmap && selectedHeatmap && heatmapEntries.length === 0 && (
                   <p className="tile-placeholder-text">
-                    No contributor file activity found for this project yet.
+                    {heatmapViewScope === 'user'
+                      ? `No activity found for ${username} in this project yet.`
+                      : 'No project activity found for this project yet.'}
                   </p>
                 )}
 
