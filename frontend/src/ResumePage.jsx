@@ -16,6 +16,7 @@ function ResumePage({ onBack }) {
   const [llmSummary, setLlmSummary] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [showConsentPanel, setShowConsentPanel] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const selectedUsername = username.trim() || "local";
 
@@ -109,6 +110,27 @@ function ResumePage({ onBack }) {
       setError(err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteResume = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this resume? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/resume/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete resume.");
+      if (resumeId === id) {
+        setResumeContent("");
+        setResumeId(null);
+        setEditContent("");
+        setIsEditing(false);
+      }
+      fetchHistory(username);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -242,6 +264,7 @@ function ResumePage({ onBack }) {
                     }
                   }}
                   style={{
+                    position: "relative",
                     cursor: "pointer",
                     borderColor: isSelected ? "rgba(74, 222, 128, 0.45)" : undefined,
                     background: isSelected ? "rgba(74, 222, 128, 0.06)" : undefined,
@@ -265,6 +288,33 @@ function ResumePage({ onBack }) {
                     </span>
                   </div>
                   <div className="recent-meta">{formatGeneratedAt(item.generated_at)}</div>
+                  <button
+                    onClick={(e) => handleDeleteResume(item.id, e)}
+                    disabled={deletingId === item.id}
+                    style={{
+                      position: "absolute",
+                      bottom: "0.4rem",
+                      right: "0.4rem",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-muted)",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                      padding: "2px 5px",
+                      borderRadius: "4px",
+                      boxShadow: "none",
+                      margin: 0,
+                      lineHeight: 1,
+                    }}
+                    title="Delete resume"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14H6L5 6"/>
+                      <path d="M10 11v6M14 11v6"/>
+                      <path d="M9 6V4h6v2"/>
+                    </svg>
+                  </button>
                   {item.llm_used && (
                     <div
                       style={{

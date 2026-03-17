@@ -947,6 +947,26 @@ def edit_resume(resume_id: int, payload: ResumeEditRequest):
     return _resume_payload(updated)
 
 
+@app.delete("/resume/{resume_id}")
+def delete_resume(resume_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, resume_path FROM resumes WHERE id = ?",
+            (resume_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        conn.execute("DELETE FROM resumes WHERE id = ?", (resume_id,))
+        conn.commit()
+    resume_path = row["resume_path"]
+    if resume_path and os.path.isfile(resume_path):
+        try:
+            os.remove(resume_path)
+        except Exception:
+            pass
+    return {"deleted": True}
+
+
 @app.get("/portfolio/{portfolio_id}")
 def get_portfolio(portfolio_id: int):
     with get_connection() as conn:

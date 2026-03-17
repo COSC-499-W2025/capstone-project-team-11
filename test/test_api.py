@@ -888,6 +888,31 @@ class TestAPI(unittest.TestCase):
         self.assertIsNone(contributor_row)
         self.assertIsNone(language_row)   
 
+    def test_delete_resume_endpoint(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+        resume_path = os.path.join(resume_dir, "resume_alice.md")
+        with open(resume_path, "w") as f:
+            f.write("# Resume — alice\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/resume/{resume_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["deleted"])
+        self.assertFalse(os.path.isfile(resume_path))
+
+        resp_again = self.client.delete(f"/resume/{resume_id}")
+        self.assertEqual(resp_again.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
