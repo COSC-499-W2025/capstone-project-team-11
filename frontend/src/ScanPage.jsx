@@ -33,6 +33,7 @@ function ScanPage({ onBack }) {
   const [totalProjects, setTotalProjects] = useState(0);
   const [projectResults, setProjectResults] = useState([]);
   const [failedProjects, setFailedProjects] = useState([]);
+  const [llmConsentGranted, setLlmConsentGranted] = useState(false);
   const [existingContributors, setExistingContributors] = useState([]);
   const [assignmentQueue, setAssignmentQueue] = useState([]);
   const [assignmentIndex, setAssignmentIndex] = useState(0);
@@ -68,6 +69,10 @@ function ScanPage({ onBack }) {
 
   useEffect(() => {
     fetchRecentProjects();
+    fetch(`${API_BASE_URL}/config`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((cfg) => setLlmConsentGranted(Boolean(cfg.llm_summary_consent)))
+      .catch(() => setLlmConsentGranted(false));
   }, []);
 
   const resetScanState = () => {
@@ -333,13 +338,30 @@ function ScanPage({ onBack }) {
           </div>
 
           <div className="scan-controls">
-            <label className="toggle-row">
+            <label
+              className="toggle-row"
+              onClick={(event) => {
+                if (!llmConsentGranted) {
+                  event.preventDefault();
+                }
+              }}
+              style={{ cursor: llmConsentGranted ? 'pointer' : 'help' }}
+            >
               <input
                 type="checkbox"
-                checked={llmSummary}
+                checked={llmConsentGranted ? llmSummary : false}
+                disabled={!llmConsentGranted}
                 onChange={(event) => setLlmSummary(event.target.checked)}
+                style={{ cursor: llmConsentGranted ? 'pointer' : 'not-allowed' }}
               />
-              <span>Generate LLM project summary</span>
+              <span>
+                Generate LLM project summary
+                {!llmConsentGranted && (
+                  <span style={{ marginLeft: '0.4em', color: 'rgba(251, 255, 0, 0.7)', fontSize: '0.85em' }}>
+                    <br></br> Enable LLM resume consent in Privacy Settings to use this.
+                  </span>
+                )}
+              </span>
             </label>
 
             <div className="scan-actions">

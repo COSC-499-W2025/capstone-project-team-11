@@ -15,7 +15,6 @@ function ResumePage({ onBack }) {
   const [llmConsentGranted, setLlmConsentGranted] = useState(false);
   const [llmSummary, setLlmSummary] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
-  const [showConsentPanel, setShowConsentPanel] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const selectedUsername = username.trim() || "local";
@@ -196,23 +195,6 @@ function ResumePage({ onBack }) {
     }, 250);
   };
 
-  const requestLlmConsent = async () => {
-    try {
-      const response = await fetch("http://127.0.0.1:8000/privacy-consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data_consent: true, llm_resume_consent: true }),
-      });
-      if (!response.ok) throw new Error("Failed to save consent.");
-      setLlmConsentGranted(true);
-      setShowConsentPanel(false);
-      setLlmSummary(true);
-      setError("");
-    } catch (err) {
-      setError(err.message || "Failed to update consent.");
-    }
-  };
-
   const formatGeneratedAt = (value) => {
     if (!value) return "Unknown date";
     const date = new Date(value);
@@ -371,29 +353,18 @@ function ResumePage({ onBack }) {
                 type="checkbox"
                 checked={llmConsentGranted ? llmSummary : false}
                 disabled={!llmConsentGranted}
-                onChange={(event) => {
-                  if (!llmConsentGranted) {
-                    setShowConsentPanel(true);
-                    return;
-                  }
-                  setLlmSummary(event.target.checked);
-                }}
+                onChange={(event) => setLlmSummary(event.target.checked)}
                 style={{ cursor: llmConsentGranted ? "pointer" : "not-allowed" }}
               />
-              <span>Include local Ollama LLM summary (runs on-device, no external data transfer).</span>
+              <span>
+                Include local Ollama LLM summary (runs on-device, no external data transfer).
+                {!llmConsentGranted && (
+                  <span style={{ marginLeft: "0.4em", color: "rgba(251, 255, 0, 0.7)", fontSize: "0.85em" }}>
+                   <br></br> Enable LLM resume consent in Privacy Settings to use this.
+                  </span>
+                )}
+              </span>
             </label>
-
-            {showConsentPanel && !llmConsentGranted && (
-              <div className="portfolio-notice">
-                <p style={{ margin: 0 }}>
-                  LLM resume summaries use a local Ollama model and do not send your data to external services.
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <button onClick={requestLlmConsent}>Grant consent</button>
-                  <button className="secondary" onClick={() => setShowConsentPanel(false)}>Not now</button>
-                </div>
-              </div>
-            )}
 
             <div className="flex flex-wrap gap-3">
               <button onClick={handleGenerateResume} disabled={isLoading}
