@@ -5,6 +5,7 @@ import sys
 from io import StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import subprocess
 
 # Ensure local imports work when running via uvicorn from repo root.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -35,7 +36,7 @@ from generate_resume import (
 )
 from project_info_output import gather_project_info, output_project_info
 from rank_projects import rank_projects, rank_projects_by_importance, list_custom_rankings, get_custom_ranking, save_custom_ranking, delete_custom_ranking
-from contrib_metrics import classify_file
+from contrib_metrics import canonical_username, classify_file
 from detect_roles import analyze_project_roles
 from scan import (
     run_with_saved_settings,
@@ -287,6 +288,78 @@ def _list_existing_contributors() -> List[str]:
             "SELECT DISTINCT name FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> '' ORDER BY name COLLATE NOCASE"
         ).fetchall()
     return [row["name"] for row in rows]
+
+
+def _collect_commit_cells_from_git_log(
+    project_path: Optional[str],
+    granularity: str,
+    target_username: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Collect commit activity cells directly from git log for a repository path."""
+    if not project_path or not os.path.isdir(project_path):
+        return []
+
+    target_canonical = canonical_username(target_username or "") if target_username else None
+    cmd = [
+        "git",
+        "log",
+        "--no-merges",
+        "--pretty=format:%an|%ae|%ad",
+        "--date=iso",
+    ]
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=project_path,
+        )
+    except Exception:
+        return []
+
+    if proc.returncode != 0:
+        return []
+
+    buckets: Dict[str, int] = {}
+    for line in proc.stdout.splitlines():
+        if not line or "|" not in line:
+            continue
+
+        parts = line.split("|", 2)
+        if len(parts) < 3:
+            continue
+
+        author_name = parts[0].strip()
+        author_email = parts[1].strip()
+        date_str = parts[2].strip()
+
+        if target_canonical and canonical_username(author_name, author_email) != target_canonical:
+            continue
+
+        try:
+            dt = datetime.fromisoformat(date_str)
+        except Exception:
+            try:
+                dt = datetime.strptime(date_str[:19], "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                continue
+
+        if granularity == "day":
+            period = dt.date().isoformat()
+        elif granularity == "month":
+            period = f"{dt.year:04d}-{dt.month:02d}"
+        else:
+            year, week, _ = dt.isocalendar()
+            period = datetime.fromisocalendar(year, week, 1).date().isoformat()
+
+        buckets[period] = int(buckets.get(period, 0)) + 1
+
+    return [
+        {"period": period, "value": int(buckets[period])}
+        for period in sorted(buckets.keys())
+    ]
 
 
 def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str, Any]:
@@ -1196,6 +1269,7 @@ def get_web_project_heatmap(
     granularity: str = Query("week", pattern="^(day|week|month)$"),
     metric: str = Query("contrib_files", pattern="^(scans|files|contrib_files)$"),
     mode: str = Query("private", pattern="^(public|private)$"),
+    view_scope: str = Query("project", pattern="^(project|user)$"),
 ):
     row = _load_portfolio_row_or_404(portfolio_id)
     cfg = _web_cfg_from_row(row)
@@ -1204,7 +1278,7 @@ def get_web_project_heatmap(
     allowed_projects = set(_resolve_project_names_for_web(row["username"], cfg, mode))
     with get_connection() as conn:
         project_row = conn.execute(
-            "SELECT id, name, git_metrics_json, created_at FROM projects WHERE id = ?",
+            "SELECT id, name, git_metrics_json, created_at, project_path FROM projects WHERE id = ?",
             (project_id,),
         ).fetchone()
 
@@ -1267,33 +1341,81 @@ def get_web_project_heatmap(
         if range_start and range_end and range_end < range_start:
             range_end = range_start
 
-        # For weekly contribution heatmaps, prefer repository activity from git metrics.
+        # For project-wide weekly contribution heatmaps, prefer repository activity from git metrics.
         # This captures the full project history even when there is only one DB scan.
-        if metric == "contrib_files" and granularity == "week" and isinstance(git_metrics, dict):
-            commits_per_week = git_metrics.get("commits_per_week") or {}
-            week_cells: List[Dict[str, Any]] = []
-            if isinstance(commits_per_week, dict):
-                for key, value in commits_per_week.items():
-                    try:
-                        year_str, week_str = key.split("-W", 1)
-                        year = int(year_str)
-                        week = int(week_str)
-                        monday = datetime.fromisocalendar(year, week, 1).date().isoformat()
-                        week_cells.append({"period": monday, "value": int(value or 0)})
-                    except Exception:
-                        continue
-            week_cells.sort(key=lambda item: item["period"])
+        if metric == "contrib_files" and granularity == "week":
+            if view_scope == "project":
+                week_cells: List[Dict[str, Any]] = []
+                if isinstance(git_metrics, dict):
+                    commits_per_week = git_metrics.get("commits_per_week") or {}
+                    if isinstance(commits_per_week, dict):
+                        for key, value in commits_per_week.items():
+                            try:
+                                year_str, week_str = key.split("-W", 1)
+                                year = int(year_str)
+                                week = int(week_str)
+                                monday = datetime.fromisocalendar(year, week, 1).date().isoformat()
+                                week_cells.append({"period": monday, "value": int(value or 0)})
+                            except Exception:
+                                continue
+
+                if not week_cells:
+                    week_cells = _collect_commit_cells_from_git_log(project_row["project_path"], "week")
+
+                week_cells.sort(key=lambda item: item["period"])
+                return {
+                    "portfolio_id": portfolio_id,
+                    "project_id": project_row["id"],
+                    "project_name": project_name,
+                    "granularity": granularity,
+                    "metric": metric,
+                    "view_scope": view_scope,
+                    "range_start": range_start,
+                    "range_end": range_end,
+                    "value_unit": "commits",
+                    "cells": week_cells,
+                    "max_value": max((cell["value"] for cell in week_cells), default=0),
+                }
+
+            # Per-user weekly heatmap should also be commit-based.
+            # Prefer precomputed per-author weekly stats when available; otherwise derive from git log.
+            user_week_cells: List[Dict[str, Any]] = []
+            if isinstance(git_metrics, dict):
+                commits_per_week_per_author = git_metrics.get("commits_per_week_per_author") or {}
+                if isinstance(commits_per_week_per_author, dict):
+                    user_key = canonical_username(row["username"])
+                    author_weekly = commits_per_week_per_author.get(user_key) or {}
+                    if isinstance(author_weekly, dict):
+                        for key, value in author_weekly.items():
+                            try:
+                                year_str, week_str = key.split("-W", 1)
+                                year = int(year_str)
+                                week = int(week_str)
+                                monday = datetime.fromisocalendar(year, week, 1).date().isoformat()
+                                user_week_cells.append({"period": monday, "value": int(value or 0)})
+                            except Exception:
+                                continue
+
+            if not user_week_cells:
+                user_week_cells = _collect_commit_cells_from_git_log(
+                    project_row["project_path"],
+                    "week",
+                    target_username=row["username"],
+                )
+
+            user_week_cells.sort(key=lambda item: item["period"])
             return {
                 "portfolio_id": portfolio_id,
                 "project_id": project_row["id"],
                 "project_name": project_name,
                 "granularity": granularity,
                 "metric": metric,
+                "view_scope": view_scope,
                 "range_start": range_start,
                 "range_end": range_end,
                 "value_unit": "commits",
-                "cells": week_cells,
-                "max_value": max((cell["value"] for cell in week_cells), default=0),
+                "cells": user_week_cells,
+                "max_value": max((cell["value"] for cell in user_week_cells), default=0),
             }
 
         if metric == "scans":
@@ -1322,23 +1444,38 @@ def get_web_project_heatmap(
                 (project_name,),
             ).fetchall()
         else:
-            # Contribution metric for the selected portfolio owner:
-            # count files linked to that contributor over time.
-            rows = conn.execute(
-                f"""
-                  SELECT {period_expr} AS period,
-                       COUNT(fc.file_id) AS value
-                FROM scans s
-                JOIN files f ON f.scan_id = s.id
-                JOIN file_contributors fc ON fc.file_id = f.id
-                JOIN contributors c ON c.id = fc.contributor_id
-                WHERE s.project = ?
-                  AND LOWER(c.name) = LOWER(?)
-                GROUP BY period
-                ORDER BY period ASC
-                """,
-                (project_name, row["username"]),
-            ).fetchall()
+            if view_scope == "user":
+                # Fallback metric: files linked to the portfolio owner over time.
+                rows = conn.execute(
+                    f"""
+                    SELECT {period_expr} AS period,
+                           COUNT(fc.file_id) AS value
+                    FROM scans s
+                    JOIN files f ON f.scan_id = s.id
+                    JOIN file_contributors fc ON fc.file_id = f.id
+                    JOIN contributors c ON c.id = fc.contributor_id
+                    WHERE s.project = ?
+                      AND LOWER(c.name) = LOWER(?)
+                    GROUP BY period
+                    ORDER BY period ASC
+                    """,
+                    (project_name, row["username"]),
+                ).fetchall()
+            else:
+                # Fallback metric: all contributor-file links over time.
+                rows = conn.execute(
+                    f"""
+                    SELECT {period_expr} AS period,
+                           COUNT(fc.file_id) AS value
+                    FROM scans s
+                    JOIN files f ON f.scan_id = s.id
+                    JOIN file_contributors fc ON fc.file_id = f.id
+                    WHERE s.project = ?
+                    GROUP BY period
+                    ORDER BY period ASC
+                    """,
+                    (project_name,),
+                ).fetchall()
 
     cells = [{"period": item["period"], "value": int(item["value"] or 0)} for item in rows]
     return {
@@ -1347,6 +1484,7 @@ def get_web_project_heatmap(
         "project_name": project_name,
         "granularity": granularity,
         "metric": metric,
+        "view_scope": view_scope,
         "range_start": range_start,
         "range_end": range_end,
         "value_unit": "contrib_files",

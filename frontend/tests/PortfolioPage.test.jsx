@@ -19,7 +19,36 @@ const mockProjects = (count) =>
 const mockAxios = (projectCount) => {
   const projects = mockProjects(projectCount);
   const ranked = projects.map((p) => ({ project: p.name }));
-  vi.spyOn(axios, 'get').mockImplementation((url) => {
+  const getSpy = vi.spyOn(axios, 'get').mockImplementation((url, config = {}) => {
+    if (url.includes('/web/portfolio/') && url.includes('/heatmap/project')) {
+      const scope = config?.params?.view_scope || 'project';
+      if (scope === 'user') {
+        return Promise.resolve({
+          data: {
+            cells: [
+              { period: '2026-01-05', value: 1 },
+              { period: '2026-01-12', value: 2 },
+            ],
+            max_value: 2,
+            range_start: '2026-01-05',
+            range_end: '2026-01-12',
+            value_unit: 'commits',
+          },
+        });
+      }
+      return Promise.resolve({
+        data: {
+          cells: [
+            { period: '2026-01-05', value: 3 },
+            { period: '2026-01-12', value: 5 },
+          ],
+          max_value: 5,
+          range_start: '2026-01-05',
+          range_end: '2026-01-12',
+          value_unit: 'commits',
+        },
+      });
+    }
     if (url.includes('/contributors')) return Promise.resolve({ data: ['alice', 'bob'] });
     if (url.includes('/rank-projects')) return Promise.resolve({ data: ranked });
     if (url.includes('/web/portfolio/') && url.includes('/showcase'))
@@ -35,6 +64,18 @@ const mockAxios = (projectCount) => {
           generated_at: new Date().toISOString(),
         },
       });
+    if (/\/projects\/\d+/.test(url)) {
+      return Promise.resolve({
+        data: {
+          project: { name: 'project-detail' },
+          contributors: ['alice', 'bob'],
+          contributor_roles: { contributors: [] },
+          files_summary: { total_files: 0, extensions: {} },
+          git_metrics: {},
+          llm_summary: { text: 'summary' },
+        },
+      });
+    }
     return Promise.resolve({ data: projects });
   });
   vi.spyOn(axios, 'post').mockImplementation((url) => {
@@ -42,6 +83,8 @@ const mockAxios = (projectCount) => {
       return Promise.resolve({ data: { portfolio_id: 42 } });
     return Promise.resolve({ data: {} });
   });
+
+  return { getSpy };
 };
 
 describe('PortfolioPage', () => {
@@ -128,5 +171,58 @@ describe('PortfolioPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Back to Setup/i }));
     expect(await screen.findByText(/Portfolio Setup/i)).toBeInTheDocument();
+  });
+
+  it('loads project heatmap with project scope by default', async () => {
+    const { getSpy } = mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+    await screen.findByRole('button', { name: /Generate Web Portfolio/i });
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
+    fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
+    await screen.findByText(/Activity Heatmap/i);
+
+    const projectHeatmapCall = getSpy.mock.calls.find(([url]) =>
+      String(url).includes('/web/portfolio/42/heatmap/project')
+    );
+    expect(projectHeatmapCall).toBeTruthy();
+    expect(projectHeatmapCall?.[1]?.params?.view_scope).toBe('project');
+  });
+
+  it('switches to per user heatmap and requests user scope', async () => {
+    const { getSpy } = mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+    await screen.findByRole('button', { name: /Generate Web Portfolio/i });
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
+    fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
+    await screen.findByText(/Activity Heatmap/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Per User View/i }));
+    expect(await screen.findAllByText(/commit\(s\)/i)).not.toHaveLength(0);
+
+    const userHeatmapCall = getSpy.mock.calls.find(([url, config]) =>
+      String(url).includes('/web/portfolio/42/heatmap/project')
+      && config?.params?.view_scope === 'user'
+    );
+    expect(userHeatmapCall).toBeTruthy();
+  });
+
+  it('renders one shared horizontal scroll container for heatmap and date labels', async () => {
+    mockAxios(3);
+    const { container } = render(<PortfolioPage onBack={() => {}} />);
+    await screen.findByRole('button', { name: /Generate Web Portfolio/i });
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findAllByRole('checkbox');
+    fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
+    await screen.findByText(/Activity Heatmap/i);
+
+    const sharedScroll = container.querySelector('.heatmap-scroll-wrap');
+    expect(sharedScroll).toBeTruthy();
+    expect(sharedScroll?.querySelector('.project-heatmap-grid')).toBeTruthy();
+    expect(sharedScroll?.querySelector('.project-heatmap-weeks')).toBeTruthy();
   });
 });

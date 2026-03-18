@@ -1,8 +1,21 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import axios from 'axios';
 import App from '../src/App.jsx';
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((url) => {
+      const isConfig = typeof url === 'string' && url.endsWith('/config');
+      return Promise.resolve({
+        ok: true,
+        json: async () => (isConfig ? { data_consent: true } : []),
+      });
+    })
+  );
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -11,18 +24,21 @@ afterEach(() => {
 
 describe('App Component', () => {
 
-  it('renders connection test screen', () => {
+  it('renders main menu after consent is granted', async () => {
     render(<App />);
 
-    expect(screen.getByText(/Capstone MDA App/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Test Backend Connection/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
-  it('shows loading state when testing backend connection', () => {
+  it('shows loading state when testing backend connection', async () => {
     vi.spyOn(axios, 'get').mockReturnValue(new Promise(() => {}));
 
+    window.location.hash = '#/main-menu';
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Test Backend Connection/i }));
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
+
+    fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
     expect(screen.getByRole('button', { name: /Checking…/i })).toBeInTheDocument();
   });
@@ -30,66 +46,51 @@ describe('App Component', () => {
   it('updates status when backend connection succeeds', async () => {
     vi.spyOn(axios, 'get').mockResolvedValue({ data: [] });
 
+    window.location.hash = '#/main-menu';
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Test Backend Connection/i }));
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
-    expect(await screen.findByText(/Connected to backend!/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
+
+    expect(await screen.findByText(/✓/)).toBeInTheDocument();
   });
 
   it('updates status when backend connection fails', async () => {
     vi.spyOn(axios, 'get').mockRejectedValue(new Error('Network Error'));
 
+    window.location.hash = '#/main-menu';
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /Test Backend Connection/i }));
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
-    expect(await screen.findByText(/Failed: Network Error/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
+
+    expect(await screen.findByText(/✗/)).toBeInTheDocument();
   });
 
-  it('navigates to main menu', async () => {
+  it('renders main menu directly when hash is set', async () => {
+    window.location.hash = '#/main-menu';
+
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Go to Main Menu/i }));
-    fireEvent(window, new HashChangeEvent('hashchange'));
-
-    expect(window.location.hash).toBe('#/main-menu');
     expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
-  });
-
-  it('renders main menu directly when hash is set', () => {
-    window.location.hash = '#/main-menu';
-
-    render(<App />);
-
-    expect(screen.getByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
-    expect(screen.getByText(/Project analysis/i)).toBeInTheDocument();
-  });
-
-  it('shows toast for unimplemented feature', async () => {
-    window.location.hash = '#/main-menu';
-    render(<App />);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /Summarize Contributor Projects/i })
-    );
-
-    expect(
-      await screen.findByText(/Summarize Contributor Projects — coming soon/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
   it('navigates to Scan Project page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-  
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
+
     fireEvent.click(screen.getByRole('button', { name: /Scan Project/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
-  
+
     await screen.findByText(/Scan Project/i);
   });
 
   it('navigates to Resume page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -104,6 +105,7 @@ describe('App Component', () => {
   it('navigates to Rank Projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -116,6 +118,7 @@ describe('App Component', () => {
   it('navigates to scanned projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
     fireEvent.click(
       screen.getByRole('button', { name: /View\/Manage Scanned Projects/i })
@@ -131,6 +134,7 @@ describe('App Component', () => {
   it('navigates to database maintenance page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
+    await screen.findByRole('heading', { name: /Capstone MDA/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Manage Database/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -141,4 +145,3 @@ describe('App Component', () => {
   });
 
 });
-
