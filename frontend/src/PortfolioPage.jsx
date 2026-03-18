@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
 
@@ -252,7 +253,7 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
           <div className="modal-section">
             <span className="panel-eyebrow">{displayName}'s Role</span>
             <p className="modal-section-body modal-section-body--primary">
-              {userRole.primary_role}{userRole.role_description ? ` — ${userRole.role_description}` : ''}
+              {userRole.primary_role}{userRole.role_description ? ` - ${userRole.role_description}` : ''}
             </p>
             <p className="modal-section-body">Confidence: {formatRoleConfidence(userRole.confidence)}</p>
             {Array.isArray(userRole.secondary_roles) && userRole.secondary_roles.length > 0 && (
@@ -281,7 +282,7 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
                 <div key={i} className="modal-evidence-item">
                   <p className="modal-section-body modal-section-body--primary">
                     <span className="modal-evidence-type">{ev.type}</span>
-                    {ev.description ? ` — ${ev.description}` : ''}
+                    {ev.description ? ` - ${ev.description}` : ''}
                   </p>
                   {ev.value && <p className="modal-section-body">{ev.value}</p>}
                   {ev.url && (
@@ -305,6 +306,291 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
           <button type="button" className="hero-action-button" onClick={onClose}>Close</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Skills Timeline Tile ---
+
+const MAX_TIMELINE_SKILLS = 10;
+
+function buildSkillsTimelineData(includedProjects, projectDetails) {
+  // Collect data tuples (skill, projectId, projectName, date)
+  const entries = [];
+  for (const p of includedProjects) {
+    const id = p.id ?? p.project_id;
+    const detail = projectDetails[id];
+    if (!detail) continue;
+    const startRaw = detail.git_metrics?.project_start ?? detail.project?.created_at ?? null;
+    const dateStr = startRaw ? String(startRaw).slice(0, 10) : null;
+    const date = parseIsoDate(dateStr);
+    if (!date) continue;
+    const skills = Array.isArray(detail.skills) ? detail.skills : [];
+    const name = p.display_name ?? p.name ?? '(unnamed)';
+    for (const skill of skills) {
+      if (skill) entries.push({ skill, projectId: id, projectName: name, date });
+    }
+  }
+
+  if (entries.length === 0) return { rows: [], minDate: null, maxDate: null };
+
+  // Rank skills by number of distinct projects they appear in
+  const skillProjectCounts = new Map();
+  for (const e of entries) {
+    if (!skillProjectCounts.has(e.skill)) skillProjectCounts.set(e.skill, new Set());
+    skillProjectCounts.get(e.skill).add(e.projectId);
+  }
+  const topSkills = [...skillProjectCounts.entries()]
+    .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
+    .slice(0, MAX_TIMELINE_SKILLS)
+    .map(([skill]) => skill);
+
+  const topSkillSet = new Set(topSkills);
+  const filtered = entries.filter((e) => topSkillSet.has(e.skill));
+
+  const allDates = filtered.map((e) => e.date);
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = new Date(Math.max(...allDates));
+
+  // Build rows: one per skill (sorted by earliest appearance)
+  const rows = topSkills.map((skill) => {
+    const dots = filtered
+      .filter((e) => e.skill === skill)
+      .sort((a, b) => a.date - b.date)
+      .map((e) => ({ projectId: e.projectId, projectName: e.projectName, date: e.date }));
+    return { skill, dots };
+  });
+  rows.sort((a, b) => a.dots[0].date - b.dots[0].date);
+
+  return { rows, minDate, maxDate };
+}
+
+function dateToX(date, minDate, maxDate, width) {
+  const span = maxDate - minDate || 1;
+  return ((date - minDate) / span) * width;
+}
+
+// Portal tooltip (renders above all other elements)
+function SkillsTooltip({ tooltip }) {
+  if (!tooltip) return null;
+  const TOOLTIP_W = 220;
+  const TOOLTIP_H = 30;
+  const GAP = 12;
+  // Clamps, so that the tooltip stays within the viewport
+  const left = Math.min(tooltip.clientX + GAP, window.innerWidth - TOOLTIP_W - 8);
+  const top = tooltip.clientY - TOOLTIP_H - GAP;
+  return ReactDOM.createPortal(
+    <div
+      className="skills-tooltip-portal"
+      style={{ left, top, width: TOOLTIP_W }}
+      role="tooltip"
+    >
+      {tooltip.text}
+    </div>,
+    document.body
+  );
+}
+
+function SkillsTimeline({ includedProjects, projectDetails }) {
+  const [tooltip, setTooltip] = useState(null); // { clientX, clientY, text }
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // Measure container width and update on resize
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    setContainerWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+
+  const { rows, minDate } = buildSkillsTimelineData(includedProjects, projectDetails);
+  // Right edge is always today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxDate = today;
+
+  if (rows.length === 0) {
+    return <p className="tile-placeholder-text">No skill or date data available yet. Scan projects to populate this chart.</p>;
+  }
+
+  // Layout constants
+  const DOT_R = 5;
+  const ROW_H = 28;
+  const AXIS_H = 20; 
+  const CHART_W = Math.max(containerWidth - 2, 60); 
+  const svgH = rows.length * ROW_H + AXIS_H;
+
+  // Date axis ticks (always 5 ticks from minDate to today)
+  const span = maxDate - minDate;
+  const tickCount = 4;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => {
+    const d = new Date(minDate.getTime() + (span * i) / tickCount);
+    const x = dateToX(d, minDate, maxDate, CHART_W);
+    const label = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    return { x, label };
+  });
+
+  const ROW_COLORS = [
+    'rgba(74,222,128,0.85)',
+    'rgba(52,211,153,0.85)',
+    'rgba(34,197,94,0.85)',
+    'rgba(16,185,129,0.85)',
+    'rgba(5,150,105,0.85)',
+    'rgba(74,222,128,0.65)',
+    'rgba(52,211,153,0.65)',
+    'rgba(34,197,94,0.65)',
+    'rgba(16,185,129,0.65)',
+    'rgba(5,150,105,0.65)',
+  ];
+
+  return (
+    <div className="skills-timeline-wrap">
+      {/* Two-column layout: HTML "skill label" column & SVG "chart" column */}
+      <div className="skills-timeline-body">
+        {/* Skill label column */}
+        <div className="skills-timeline-labels" style={{ height: rows.length * ROW_H }}>
+          {rows.map((row, ri) => (
+            <div
+              key={row.skill}
+              className="skills-timeline-label"
+              style={{
+                height: ROW_H,
+                background: ri % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent',
+              }}
+            >
+              {row.skill}
+            </div>
+          ))}
+        </div>
+
+        {/* SVG chart column */}
+        <div className="skills-timeline-chart" ref={containerRef}>
+          {containerWidth > 0 && (
+            <svg
+              width={CHART_W}
+              height={svgH}
+              style={{ display: 'block', overflow: 'visible' }}
+              onMouseLeave={() => setTooltip(null)}
+            >
+              {/* Vertical grid lines */}
+              {ticks.map((t) => (
+                <line
+                  key={t.label}
+                  x1={t.x} y1={0}
+                  x2={t.x} y2={rows.length * ROW_H}
+                  stroke="rgba(255,255,255,0.07)"
+                  strokeWidth="1"
+                />
+              ))}
+
+              {/* "Today" marker line at right edge */}
+              <line
+                x1={CHART_W} y1={0}
+                x2={CHART_W} y2={rows.length * ROW_H}
+                stroke="rgba(74,222,128,0.25)"
+                strokeWidth="1"
+              />
+
+              {/* Rows */}
+              {rows.map((row, ri) => {
+                const cy = ri * ROW_H + ROW_H / 2;
+                const color = ROW_COLORS[ri % ROW_COLORS.length];
+                return (
+                  <g key={row.skill}>
+                    {/* Row background stripe */}
+                    <rect
+                      x={0} y={ri * ROW_H}
+                      width={CHART_W} height={ROW_H}
+                      fill={ri % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'}
+                    />
+                    {/* Horizontal track line */}
+                    <line
+                      x1={0} y1={cy}
+                      x2={CHART_W} y2={cy}
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                    />
+                    {/* Dots per project */}
+                    {row.dots.map((dot) => {
+                      const cx = dateToX(dot.date, minDate, maxDate, CHART_W);
+                      return (
+                        <circle
+                          key={`${dot.projectId}-${dot.date.getTime()}`}
+                          cx={cx} cy={cy}
+                          r={DOT_R}
+                          fill={color}
+                          stroke="rgba(0,0,0,0.3)"
+                          strokeWidth="1"
+                          style={{ cursor: 'pointer' }}
+                          onMouseEnter={(e) => {
+                            setTooltip({
+                              clientX: e.clientX,
+                              clientY: e.clientY,
+                              text: `${dot.projectName} | ${dot.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
+                            });
+                          }}
+                          onMouseMove={(e) => {
+                            setTooltip((prev) => prev ? { ...prev, clientX: e.clientX, clientY: e.clientY } : prev);
+                          }}
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      );
+                    })}
+                  </g>
+                );
+              })}
+
+              {/* Date axis labels */}
+              {ticks.map((t) => (
+                <text
+                  key={`tick-${t.label}`}
+                  x={t.x} y={rows.length * ROW_H + 14}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="rgba(255,255,255,0.35)"
+                  fontFamily="inherit"
+                >
+                  {t.label}
+                </text>
+              ))}
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Summary stats */}
+      <div className="heatmap-summary-grid" style={{ marginTop: '0.65rem' }}>
+        <div className="heatmap-stat">
+          <span className="heatmap-stat-label">Number of Skills Detected</span>
+          <span className="heatmap-stat-value">{rows.length}</span>
+        </div>
+        <div className="heatmap-stat">
+          <span className="heatmap-stat-label">Projects with Skills</span>
+          <span className="heatmap-stat-value">{includedProjects.length}</span>
+        </div>
+        <div className="heatmap-stat">
+          <span className="heatmap-stat-label">Span of Skill Timeline</span>
+          <span className="heatmap-stat-value">
+            {minDate && maxDate
+              ? `${Math.round((maxDate - minDate) / (1000 * 60 * 60 * 24 * 30))}mo`
+              : '-'}
+          </span>
+        </div>
+        <div className="heatmap-stat">
+          <span className="heatmap-stat-label">Earliest Skill Detection</span>
+          <span className="heatmap-stat-value">
+            {minDate ? minDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '-'}
+          </span>
+        </div>
+      </div>
+
+      <SkillsTooltip tooltip={tooltip} />
     </div>
   );
 }
@@ -707,8 +993,7 @@ function PortfolioPage({ onBack, showStars = true }) {
             <p className="portfolio-header-summary">{headerSummary}</p>
           </section>
 
-          {/* Two-column tiles: heatmap + timeline */}
-          <div className="portfolio-row">
+          {/* Visualization Tiles: Activity Heatmap & Skills Timeline*/}
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
               <div className="heatmap-toolbar">
@@ -848,11 +1133,8 @@ function PortfolioPage({ onBack, showStars = true }) {
             </section>
             <section className="portfolio-tile">
               <h3 className="tile-heading">Skills Timeline</h3>
-              <div className="placeholder">
-                <p className="tile-placeholder-text">Skill progression chart will appear here.</p>
-              </div>
+              <SkillsTimeline includedProjects={includedProjects} projectDetails={projectDetails} />
             </section>
-          </div>
 
           {/* Featured projects tile */}
           <section className="portfolio-tile">
@@ -1013,7 +1295,7 @@ function PortfolioPage({ onBack, showStars = true }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               >
-                <option value="">— select a contributor —</option>
+                <option value="">- select a contributor -</option>
                 {contributorOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
