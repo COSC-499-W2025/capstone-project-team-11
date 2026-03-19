@@ -732,23 +732,15 @@ def delete_project_by_id(project_id):
             WHERE id = ?
         """, (project_id,))
 
-        # Remove orphaned contributors no longer linked to any files
-        cur.execute("""
-            DELETE FROM contributors
-            WHERE id NOT IN (
-                SELECT DISTINCT contributor_id
-                FROM file_contributors
-            )
-        """)
 
         # Remove orphaned languages no longer linked to any files
         cur.execute("""
-            DELETE FROM languages
-            WHERE id NOT IN (
-                SELECT DISTINCT language_id
-                FROM file_languages
-            )
-        """)       
+    DELETE FROM languages
+    WHERE NOT EXISTS (
+        SELECT 1 FROM file_languages fl
+        WHERE fl.language_id = languages.id
+    )
+""")     
     
         conn.commit()
         return True 
