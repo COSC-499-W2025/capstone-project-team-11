@@ -39,7 +39,7 @@ class TestDbSchemaInit(unittest.TestCase):
             "idx_file_path", "idx_file_name", "idx_files_scan_id", "idx_projects_name",
             "idx_contributors_name", "idx_languages_name", "idx_skills_name",
             "idx_resumes_username", "idx_resumes_generated_at",
-            "idx_portfolios_username", "idx_portfolios_generated_at",
+            "idx_portfolios_username", "idx_portfolios_created_at",
             "idx_project_evidence_project_id"
         ]
         for idx in expected_indexes:

@@ -817,17 +817,20 @@ function PortfolioPage({ onBack, showStars = true }) {
 
     // Generate the portfolio and aggregate required data
     try {
-      const genRes = await axios.post(`${API_BASE_URL}/portfolio/generate`, {
+      // Save the portfolio record to the DB, get back the new portfolio_id
+      const saveRes = await axios.post(`${API_BASE_URL}/portfolios`, {
         username,
-        save_to_db: true,
-        confidence_level: 'high',
+        portfolio_name: legalName.trim() || `${username}'s Portfolio`,
+        display_name: legalName.trim() || null,
+        included_project_ids: eligible.map((p) => p.id ?? p.project_id),
+        featured_project_ids: [],
       });
-      const { portfolio_id } = genRes.data;
+      const portfolio_id = saveRes.data.id;
       setPortfolioId(portfolio_id);
 
       // Retrieve all relevant data for the web portfolio (fetched in parallel)
       const [metaRes, showcaseRes, heatmapRes, timelineRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/portfolio/${portfolio_id}`),
+        axios.get(`${API_BASE_URL}/portfolios/${portfolio_id}`),
         axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/showcase?limit=3`),
         axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/heatmap?granularity=day`),
         axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/timeline?granularity=month`),
@@ -961,7 +964,7 @@ function PortfolioPage({ onBack, showStars = true }) {
 
   // Summary line in portfolio header (e.g. "XX projects | Generated on X/X/XXXX") [TODO: update later to be a user-centric summary]
   const headerSummary = portfolioMeta
-    ? `${portfolioMeta.metadata.project_count} projects | Generated on ${new Date(portfolioMeta.generated_at).toLocaleDateString()}`
+    ? `${(portfolioMeta.included_project_ids ?? []).length} projects | Generated on ${new Date(portfolioMeta.created_at).toLocaleDateString()}`
     : '';
 
   // Web portfolio dashboard phase
