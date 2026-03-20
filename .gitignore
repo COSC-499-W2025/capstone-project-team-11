@@ -54,3 +54,5 @@ typings/
 .vite/
 /frontend/out/
 .DS_Store
+file_data.db
+*.db
