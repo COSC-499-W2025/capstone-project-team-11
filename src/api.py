@@ -13,7 +13,6 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from project_evidence import add_evidence, delete_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
 import queue
@@ -24,11 +23,8 @@ import zipfile
 
 from config import load_config, save_config, config_path as default_config_path
 from cli_username_selection import get_candidate_usernames
-from db import get_connection, save_portfolio, save_resume, delete_project_by_id
-from generate_portfolio import (
-    aggregate_projects_for_portfolio,
-    build_portfolio,
-)
+from db import get_connection, save_portfolio, list_portfolios, rename_portfolio, save_resume, delete_project_by_id
+from generate_portfolio import aggregate_projects_for_portfolio
 from generate_resume import (
     collect_projects,
     aggregate_for_user,
@@ -111,12 +107,6 @@ class ProjectEditRequest(BaseModel):
     thumbnail_path: Optional[str] = None
     summary_text: Optional[str] = None
 
-class ProjectEvidenceCreateRequest(BaseModel):
-    type: str
-    value: str
-    source: Optional[str] = None
-    url: Optional[str] = None
-
 
 
 class ResumeGenerateRequest(BaseModel):
@@ -136,21 +126,24 @@ class ResumeEditRequest(BaseModel):
 class PortfolioGenerateRequest(BaseModel):
     username: str
     output_root: str = "output"
-    portfolio_dir: str = "portfolios"
     confidence_level: str = Field("high", pattern="^(high|medium|low)$")
-    save_to_db: bool = False
 
 
-class PortfolioEditRequest(BaseModel):
-    content: str
-    metadata: Optional[Dict[str, Any]] = None
+class PortfolioSaveRequest(BaseModel):
+    username: str
+    portfolio_name: str
+    display_name: Optional[str] = None
+    included_project_ids: List[int] = []
+    featured_project_ids: List[int] = []
+
+
+class PortfolioRenameRequest(BaseModel):
+    portfolio_name: str
 
 
 class WebPortfolioCustomizeRequest(BaseModel):
-    is_public: Optional[bool] = None
     selected_project_ids: Optional[List[int]] = None
-    showcase_project_ids: Optional[List[int]] = None
-    hidden_skills: Optional[List[str]] = None
+    featured_project_ids: Optional[List[int]] = None
 
 
 def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
@@ -180,27 +173,12 @@ def _resume_payload(row: Any) -> Dict[str, Any]:
     }
 
 
-def _portfolio_payload(row: Any) -> Dict[str, Any]:
-    # Hydrate response with file contents stored on disk.
-    portfolio_path = row["portfolio_path"]
-    if not os.path.isfile(portfolio_path):
-        raise HTTPException(status_code=404, detail="Portfolio file not found")
-    with open(portfolio_path, "r", encoding="utf-8") as fh:
-        content = fh.read()
-    return {
-        "id": row["id"],
-        "username": row["username"],
-        "portfolio_path": portfolio_path,
-        "metadata": _parse_metadata(row["metadata_json"]),
-        "generated_at": row["generated_at"],
-        "content": content,
-    }
-
-
 def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
+            """SELECT id, username, portfolio_name, display_name,
+                      included_project_ids, featured_project_ids, created_at
+               FROM portfolios WHERE id = ?""",
             (portfolio_id,),
         ).fetchone()
     if not row:
@@ -208,45 +186,31 @@ def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
     return row
 
 
-def _web_cfg_from_row(row: Any) -> Dict[str, Any]:
-    metadata = _parse_metadata(row["metadata_json"])
-    cfg = metadata.get("web_dashboard")
-    return cfg if isinstance(cfg, dict) else {}
+def _portfolio_row_to_dict(row: Any) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "portfolio_name": row["portfolio_name"],
+        "display_name": row["display_name"],
+        "included_project_ids": json.loads(row["included_project_ids"] or "[]"),
+        "featured_project_ids": json.loads(row["featured_project_ids"] or "[]"),
+        "created_at": row["created_at"],
+    }
 
 
-def _ensure_mode_allowed(cfg: Dict[str, Any], mode: str) -> None:
-    if mode == "public" and not cfg.get("is_public", True):
-        raise HTTPException(status_code=403, detail="Portfolio is currently in private mode")
-
-
-def _resolve_project_names_for_web(
-    username: str,
-    cfg: Dict[str, Any],
-    mode: str,
-) -> List[str]:
-    all_projects, root_repo_jsons = collect_projects(None)
-    portfolio_projects = aggregate_projects_for_portfolio(username, all_projects, root_repo_jsons)
-    default_names = [p.get("project_name") for p in portfolio_projects if p.get("project_name")]
-
-    selected_ids = cfg.get("selected_project_ids") or []
-    if not isinstance(selected_ids, list) or not selected_ids:
-        return default_names
-
+def _resolve_project_names_for_web(row: Any) -> List[str]:
+    """Resolve ordered project names from a portfolio row's included_project_ids."""
+    included_ids = json.loads(row["included_project_ids"] or "[]")
+    if not included_ids:
+        return []
     with get_connection() as conn:
-        placeholders = ",".join("?" for _ in selected_ids)
+        placeholders = ",".join("?" for _ in included_ids)
         rows = conn.execute(
             f"SELECT id, name FROM projects WHERE id IN ({placeholders})",
-            selected_ids,
+            included_ids,
         ).fetchall()
-    id_to_name = {row["id"]: row["name"] for row in rows}
-    selected_names = [id_to_name[item_id] for item_id in selected_ids if item_id in id_to_name]
-
-    # In public mode, show only explicit selected/published projects.
-    if mode == "public":
-        return selected_names
-
-    # In private mode, use drafts; fallback to generated set when invalid.
-    return selected_names or default_names
+    id_to_name = {r["id"]: r["name"] for r in rows}
+    return [id_to_name[pid] for pid in included_ids if pid in id_to_name]
 
 
 def _load_latest_project_summary(project_name: str) -> Optional[Dict[str, Any]]:
@@ -759,7 +723,7 @@ def get_project(project_id: int):
 
         evidence_rows = conn.execute(
             """
-            SELECT id, type, description, value, source, url, added_by_user, created_at
+            SELECT type, description, value, source, url, added_by_user, created_at
             FROM project_evidence
             WHERE project_id = ?
             ORDER BY created_at DESC
@@ -802,53 +766,6 @@ def get_project(project_id: int):
         "git_metrics": git_metrics,
         "rank_score": rank_score,
     }
-
-@app.post("/projects/{project_id}/evidence", status_code=201)
-def create_project_evidence(project_id: int, payload: ProjectEvidenceCreateRequest):
-    with get_connection() as conn:
-        project = conn.execute(
-            "SELECT id FROM projects WHERE id = ?",
-            (project_id,),
-        ).fetchone()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    try:
-        evidence_id = add_evidence(
-            project_id,
-            {
-                "type": payload.type,
-                "value": payload.value,
-                "source": payload.source or "",
-                "url": payload.url or "",
-                "added_by_user": True,
-            },
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    return {
-        "message": "Evidence added successfully",
-        "evidence_id": evidence_id,
-    }
-
-@app.delete("/projects/{project_id}/evidence/{evidence_id}")
-def remove_project_evidence(project_id: int, evidence_id: int):
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT id FROM project_evidence WHERE id = ? AND project_id = ?",
-            (evidence_id, project_id),
-        ).fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    deleted = delete_evidence(evidence_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Evidence not found")
-
-    return {"message": "Evidence deleted successfully"}
 
 
 @app.get("/skills")
@@ -1000,91 +917,6 @@ def list_resumes(username: Optional[str] = Query(default=None)):
     return items
 
 
-@app.get("/outputs")
-def get_outputs_count():
-    """Count generated outputs (resumes and portfolios) with recent activity."""
-    with get_connection() as conn:
-        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
-        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
-        
-        # Get most recent output
-        latest_resume = conn.execute(
-            "SELECT generated_at FROM resumes ORDER BY generated_at DESC LIMIT 1"
-        ).fetchone()
-        latest_portfolio = conn.execute(
-            "SELECT generated_at FROM portfolios ORDER BY generated_at DESC LIMIT 1"
-        ).fetchone()
-        
-        latest_generated = None
-        if latest_resume and latest_portfolio:
-            latest_generated = max(latest_resume["generated_at"], latest_portfolio["generated_at"])
-        elif latest_resume:
-            latest_generated = latest_resume["generated_at"]
-        elif latest_portfolio:
-            latest_generated = latest_portfolio["generated_at"]
-    
-    return {
-        "resumes": resumes_count,
-        "portfolios": portfolios_count,
-        "total": resumes_count + portfolios_count,
-        "latest_generated": latest_generated,
-    }
-
-
-@app.get("/stats/dashboard")
-def get_dashboard_stats():
-    """Comprehensive dashboard stats with insights."""
-    with get_connection() as conn:
-        # Projects info
-        projects_count = conn.execute("SELECT COUNT(*) as count FROM projects").fetchone()["count"]
-        latest_scan = conn.execute(
-            "SELECT scanned_at, project FROM scans ORDER BY scanned_at DESC LIMIT 1"
-        ).fetchone()
-        
-        # Contributors info
-        contributors_count = conn.execute(
-            "SELECT COUNT(DISTINCT name) as count FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> ''"
-        ).fetchone()["count"]
-        top_contributor = conn.execute(
-            """
-            SELECT c.name, COUNT(fc.file_id) as file_count
-            FROM contributors c
-            LEFT JOIN file_contributors fc ON c.id = fc.contributor_id
-            WHERE c.name IS NOT NULL AND TRIM(c.name) <> ''
-            GROUP BY c.id
-            ORDER BY file_count DESC
-            LIMIT 1
-            """
-        ).fetchone()
-        
-        # Outputs info
-        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
-        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
-        latest_output = conn.execute(
-            "SELECT generated_at FROM (SELECT generated_at FROM resumes UNION ALL SELECT generated_at FROM portfolios) ORDER BY generated_at DESC LIMIT 1"
-        ).fetchone()
-    
-    return {
-        "projects": {
-            "count": projects_count,
-            "latest_scan": latest_scan["scanned_at"] if latest_scan else None,
-            "latest_project": latest_scan["project"] if latest_scan else None,
-        },
-        "contributors": {
-            "count": contributors_count,
-            "top_contributor": top_contributor["name"] if top_contributor else None,
-            "top_contributor_files": top_contributor["file_count"] if top_contributor else 0,
-        },
-        "outputs": {
-            "total": resumes_count + portfolios_count,
-            "resumes": resumes_count,
-            "portfolios": portfolios_count,
-            "latest_generated": latest_output["generated_at"] if latest_output else None,
-        },
-    }
-
-
-
 @app.post("/resume/generate", status_code=201)
 def generate_resume(payload: ResumeGenerateRequest):
     # Reuse the resume generator logic used by the CLI.
@@ -1180,23 +1012,51 @@ def delete_resume(resume_id: int):
     return {"deleted": True}
 
 
-@app.get("/portfolio/{portfolio_id}")
+@app.get("/portfolios")
+def get_portfolios(username: str = Query(..., min_length=1)):
+    return list_portfolios(username)
+
+
+@app.get("/portfolios/{portfolio_id}")
 def get_portfolio(portfolio_id: int):
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
-            (portfolio_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Portfolio not found")
-    return _portfolio_payload(row)
+    row = _load_portfolio_row_or_404(portfolio_id)
+    return _portfolio_row_to_dict(row)
+
+
+@app.post("/portfolios", status_code=201)
+def save_portfolio_endpoint(payload: PortfolioSaveRequest):
+    username = payload.username.strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="username is required")
+    portfolio_name = payload.portfolio_name.strip()
+    if not portfolio_name:
+        raise HTTPException(status_code=400, detail="portfolio_name is required")
+
+    portfolio_id = save_portfolio(
+        username=username,
+        portfolio_name=portfolio_name,
+        display_name=payload.display_name,
+        included_project_ids=payload.included_project_ids,
+        featured_project_ids=payload.featured_project_ids,
+    )
+    row = _load_portfolio_row_or_404(portfolio_id)
+    return _portfolio_row_to_dict(row)
+
+
+@app.patch("/portfolios/{portfolio_id}/name")
+def rename_portfolio_endpoint(portfolio_id: int, payload: PortfolioRenameRequest):
+    portfolio_name = payload.portfolio_name.strip()
+    if not portfolio_name:
+        raise HTTPException(status_code=400, detail="portfolio_name is required")
+    found = rename_portfolio(portfolio_id, portfolio_name)
+    if not found:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    row = _load_portfolio_row_or_404(portfolio_id)
+    return _portfolio_row_to_dict(row)
 
 
 @app.post("/portfolio/generate", status_code=201)
 def generate_portfolio(payload: PortfolioGenerateRequest):
-    # Reuse the portfolio generator logic used by the CLI.
-    # output_root retained for backward compatibility but ignored (DB is used)
-
     username = payload.username.strip()
     if not username:
         raise HTTPException(status_code=400, detail="username is required")
@@ -1206,82 +1066,21 @@ def generate_portfolio(payload: PortfolioGenerateRequest):
     if not portfolio_projects:
         raise HTTPException(status_code=400, detail="No projects found for user")
 
-    os.makedirs(payload.portfolio_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
-    ts_fname = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    portfolio = build_portfolio(username, portfolio_projects, ts_iso, payload.confidence_level)
-
-    md = portfolio.render_markdown()
-    out_path = os.path.join(payload.portfolio_dir, f"portfolio_{username}_{ts_fname}.md")
-    with open(out_path, "w", encoding="utf-8") as fh:
-        fh.write(md)
-
-    portfolio_id = None
-    if payload.save_to_db:
-        metadata = {
-            "username": username,
-            "project_count": len(portfolio_projects),
-            "sections": list(portfolio.sections.keys()),
-            "confidence_level": payload.confidence_level,
-            "projects": [
-                {
-                    "name": p.get("project_name"),
-                    "path": p.get("path"),
-                    "user_commits": p.get("user_commits", 0),
-                }
-                for p in portfolio_projects
-            ],
-        }
-        portfolio_id = save_portfolio(username, out_path, metadata, ts_iso)
-
     return {
-        "portfolio_id": portfolio_id,
-        "portfolio_path": out_path,
+        "username": username,
         "generated_at": ts_iso,
+        "project_count": len(portfolio_projects),
     }
-
-
-@app.post("/portfolio/{portfolio_id}/edit")
-def edit_portfolio(portfolio_id: int, payload: PortfolioEditRequest):
-    # Overwrite the file on disk and update stored metadata.
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
-            (portfolio_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Portfolio not found")
-
-        portfolio_path = row["portfolio_path"]
-        os.makedirs(os.path.dirname(portfolio_path), exist_ok=True)
-        with open(portfolio_path, "w", encoding="utf-8") as fh:
-            fh.write(payload.content)
-
-        if payload.metadata is not None:
-            conn.execute(
-                "UPDATE portfolios SET metadata_json = ? WHERE id = ?",
-                (json.dumps(payload.metadata), portfolio_id),
-            )
-            conn.commit()
-
-        updated = conn.execute(
-            "SELECT id, username, portfolio_path, metadata_json, generated_at FROM portfolios WHERE id = ?",
-            (portfolio_id,),
-        ).fetchone()
-
-    return _portfolio_payload(updated)
 
 
 @web_router.get("/{portfolio_id}/timeline")
 def get_web_timeline(
     portfolio_id: int,
     granularity: str = Query("month", pattern="^(week|month)$"),
-    mode: str = Query("public", pattern="^(public|private)$"),
 ):
     row = _load_portfolio_row_or_404(portfolio_id)
-    cfg = _web_cfg_from_row(row)
-    _ensure_mode_allowed(cfg, mode)
-    project_names = _resolve_project_names_for_web(row["username"], cfg, mode)
+    project_names = _resolve_project_names_for_web(row)
 
     if not project_names:
         return {
@@ -1311,12 +1110,9 @@ def get_web_timeline(
             project_names,
         ).fetchall()
 
-    hidden_skills = set(cfg.get("hidden_skills") or [])
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     for item in rows:
         skill_name = item["skill"]
-        if skill_name in hidden_skills:
-            continue
         occ = int(item["occurrences"] or 0)
         project_count = int(item["project_count"] or 0)
         grouped.setdefault(item["period"], []).append(
@@ -1341,12 +1137,9 @@ def get_web_heatmap(
     portfolio_id: int,
     granularity: str = Query("day", pattern="^(day|week|month)$"),
     metric: str = Query("files", pattern="^(scans|files)$"),
-    mode: str = Query("public", pattern="^(public|private)$"),
 ):
     row = _load_portfolio_row_or_404(portfolio_id)
-    cfg = _web_cfg_from_row(row)
-    _ensure_mode_allowed(cfg, mode)
-    project_names = _resolve_project_names_for_web(row["username"], cfg, mode)
+    project_names = _resolve_project_names_for_web(row)
 
     if not project_names:
         return {
@@ -1407,14 +1200,10 @@ def get_web_project_heatmap(
     project_id: int = Query(..., ge=1),
     granularity: str = Query("week", pattern="^(day|week|month)$"),
     metric: str = Query("contrib_files", pattern="^(scans|files|contrib_files)$"),
-    mode: str = Query("private", pattern="^(public|private)$"),
     view_scope: str = Query("project", pattern="^(project|user)$"),
 ):
     row = _load_portfolio_row_or_404(portfolio_id)
-    cfg = _web_cfg_from_row(row)
-    _ensure_mode_allowed(cfg, mode)
-
-    allowed_projects = set(_resolve_project_names_for_web(row["username"], cfg, mode))
+    allowed_projects = set(_resolve_project_names_for_web(row))
     with get_connection() as conn:
         project_row = conn.execute(
             "SELECT id, name, git_metrics_json, created_at, project_path FROM projects WHERE id = ?",
@@ -1636,24 +1425,21 @@ def get_web_project_heatmap(
 def get_web_showcase(
     portfolio_id: int,
     limit: int = Query(3, ge=1, le=3),
-    mode: str = Query("public", pattern="^(public|private)$"),
 ):
     row = _load_portfolio_row_or_404(portfolio_id)
-    cfg = _web_cfg_from_row(row)
-    _ensure_mode_allowed(cfg, mode)
     username = row["username"]
-    allowed_projects = set(_resolve_project_names_for_web(username, cfg, mode))
+    allowed_projects = set(_resolve_project_names_for_web(row))
 
     ranked = rank_projects_by_importance(mode="contributor", contributor_name=username, limit=None)
     ranked = [item for item in ranked if item.get("project") in allowed_projects]
 
-    showcase_project_ids = cfg.get("showcase_project_ids") or []
-    if isinstance(showcase_project_ids, list) and showcase_project_ids:
+    featured_project_ids = json.loads(row["featured_project_ids"] or "[]")
+    if featured_project_ids:
         with get_connection() as conn:
-            placeholders = ",".join("?" for _ in showcase_project_ids)
+            placeholders = ",".join("?" for _ in featured_project_ids)
             selected_rows = conn.execute(
                 f"SELECT id, name FROM projects WHERE id IN ({placeholders})",
-                showcase_project_ids,
+                featured_project_ids,
             ).fetchall()
         selected_names = [item["name"] for item in selected_rows]
         selected_set = set(selected_names)
@@ -1718,35 +1504,25 @@ def get_web_showcase(
 
 @web_router.patch("/{portfolio_id}/customize")
 def patch_web_customize(portfolio_id: int, payload: WebPortfolioCustomizeRequest):
+    row = _load_portfolio_row_or_404(portfolio_id)
+    updates = payload.model_dump(exclude_none=True)
+
+    # Map customize fields to the new schema columns
     with get_connection() as conn:
-        row = conn.execute(
-            "SELECT id, metadata_json FROM portfolios WHERE id = ?",
-            (portfolio_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Portfolio not found")
-
-        metadata = _parse_metadata(row["metadata_json"])
-        web_cfg = metadata.get("web_dashboard")
-        if not isinstance(web_cfg, dict):
-            web_cfg = {}
-
-        for key, value in payload.model_dump(exclude_none=True).items():
-            web_cfg[key] = value
-        web_cfg["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
-        metadata["web_dashboard"] = web_cfg
-
-        conn.execute(
-            "UPDATE portfolios SET metadata_json = ? WHERE id = ?",
-            (json.dumps(metadata), portfolio_id),
-        )
+        if "featured_project_ids" in updates:
+            conn.execute(
+                "UPDATE portfolios SET featured_project_ids = ? WHERE id = ?",
+                (json.dumps(updates["featured_project_ids"]), portfolio_id),
+            )
+        if "selected_project_ids" in updates:
+            conn.execute(
+                "UPDATE portfolios SET included_project_ids = ? WHERE id = ?",
+                (json.dumps(updates["selected_project_ids"]), portfolio_id),
+            )
         conn.commit()
 
-    return {
-        "portfolio_id": portfolio_id,
-        "web_config": web_cfg,
-        "updated_at": web_cfg["updated_at"],
-    }
+    updated_row = _load_portfolio_row_or_404(portfolio_id)
+    return _portfolio_row_to_dict(updated_row)
 
 from inspect_db import inspect_database_json
 
