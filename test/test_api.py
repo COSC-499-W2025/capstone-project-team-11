@@ -913,6 +913,54 @@ class TestAPI(unittest.TestCase):
         resp_again = self.client.delete(f"/resume/{resume_id}")
         self.assertEqual(resp_again.status_code, 404)
 
+    def test_outputs_endpoint(self):
+        """Test /outputs endpoint with resumes and portfolios."""
+        resume_path = os.path.join(self.resume_dir, "resume_alice.md")
+        os.makedirs(self.resume_dir, exist_ok=True)
+        with open(resume_path, "w") as f:
+            f.write("# Resume\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            conn.execute(
+                "INSERT INTO portfolios (username, portfolio_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", "/portfolio.md", "{}", "2026-01-02 15:00:00Z"),
+            )
+            conn.commit()
+
+        resp = self.client.get("/outputs")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["resumes"], 1)
+        self.assertEqual(data["portfolios"], 1)
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["latest_generated"], "2026-01-02 15:00:00Z")
+
+    def test_dashboard_stats_endpoint(self):
+        """Test /stats/dashboard returns projects, contributors, and outputs."""
+        self._write_project_info("alice")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO scans (project, scanned_at, notes) VALUES (?, ?, ?)",
+                ("demo_project", "2026-01-15 14:30:00Z", "scan"),
+            )
+            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("alice",))
+            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("bob",))
+            conn.commit()
+
+        resp = self.client.get("/stats/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        
+        self.assertEqual(data["projects"]["count"], 1)
+        self.assertEqual(data["projects"]["latest_project"], "demo_project")
+        self.assertEqual(data["contributors"]["count"], 2)
+        self.assertEqual(data["outputs"]["total"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
