@@ -239,27 +239,27 @@ function App() {
       .finally(() => setConsentChecked(true));
   }, []);
 
-  // Fetch dashboard stats (projects, contributors, outputs)
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/stats/dashboard`);
-        if (response.ok) {
-          const stats = await response.json();
-          setProjectsStats(stats.projects);
-          setContributorsStats(stats.contributors);
-          setOutputsStats(stats.outputs);
-        }
-      } catch (error) {
-        // Silently fail, stats will show as loading
-        console.error('Error fetching dashboard stats:', error);
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stats/dashboard`);
+      if (response.ok) {
+        const stats = await response.json();
+        setProjectsStats(stats.projects);
+        setContributorsStats(stats.contributors);
+        setOutputsStats(stats.outputs);
       }
-    };
+    } catch (error) {
+      // Silently fail, stats will show as loading
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
-    if (consentGranted) {
+  // Fetch dashboard stats whenever user lands on main menu.
+  useEffect(() => {
+    if (consentGranted && page === 'main-menu') {
       fetchStats();
     }
-  }, [consentGranted]);
+  }, [consentGranted, page]);
 
   useEffect(() => {
     const onHashChange = () => setPage(getPageFromHash());
@@ -324,7 +324,7 @@ function App() {
   const getProjectsNote = () => {
     if (!projectsStats) return 'Loading...';
     const { count, latest_project, latest_scan } = projectsStats;
-    if (count === 0) return 'Run your first scan to populate.';
+    if (count === 0) return 'No scanned projects yet.';
     if (!latest_project) return `${count} project${count !== 1 ? 's' : ''} indexed`;
     const timeAgo = getRelativeTime(latest_scan);
     return `Latest: ${latest_project} • ${timeAgo}`;
@@ -333,7 +333,7 @@ function App() {
   const getContributorsNote = () => {
     if (!contributorsStats) return 'Loading...';
     const { count, top_contributor, top_contributor_files } = contributorsStats;
-    if (count === 0) return 'Detected from commit history.';
+    if (count === 0) return 'No contributors detected yet.';
     if (!top_contributor) return `${count} unique contributor${count !== 1 ? 's' : ''}`;
     return `Top: ${top_contributor} (${top_contributor_files} files)`;
   };
@@ -341,7 +341,7 @@ function App() {
   const getOutputsNote = () => {
     if (!outputsStats) return 'Loading...';
     const { total, resumes, portfolios, latest_generated } = outputsStats;
-    if (total === 0) return 'Resumes, portfolios & summaries.';
+    if (total === 0) return 'No generated outputs yet.';
     const timeAgo = getRelativeTime(latest_generated);
     return `${resumes} resume${resumes !== 1 ? 's' : ''}, ${portfolios} portfolio${portfolios !== 1 ? 's' : ''} • ${timeAgo}`;
   };
