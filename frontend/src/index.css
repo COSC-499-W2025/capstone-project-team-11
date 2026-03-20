@@ -549,26 +549,95 @@ button:disabled {
  
 .scan-progress {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
+}
+
+.scan-detail-stack {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.55rem;
+  margin-bottom: 1.1rem;
+}
+
+.scan-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(74, 222, 128, 0.12), rgba(34, 211, 238, 0.08)),
+    var(--bg-surface-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.scan-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #d9ffe7;
+}
+
+.scan-status-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+  animation: scan-status-pulse 1.35s ease-out infinite;
+}
+
+.scan-status-phase {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
  
 .progress-track {
   position: relative;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--border);
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(74, 222, 128, 0.05);
 }
  
 .progress-fill {
+  position: relative;
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
   transition: width 0.4s ease;
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+  overflow: hidden;
 }
- 
+
+.progress-fill-shimmer {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  min-width: 2.5rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 45%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.2) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-140%);
+  animation: scan-progress-shimmer 1.35s linear infinite;
+}
+
 .progress-meta {
   display: flex;
   justify-content: space-between;
@@ -576,10 +645,113 @@ button:disabled {
   font-weight: 600;
   color: var(--text-secondary);
 }
+
+@keyframes scan-progress-shimmer {
+  from {
+    transform: translateX(-140%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+@keyframes scan-status-pulse {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(74, 222, 128, 0);
+  }
+  100% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+  }
+}
  
 .summary-list {
   display: grid;
   gap: 0.9rem;
+}
+
+.scan-complete-banner {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(74, 222, 128, 0.14), rgba(16, 185, 129, 0.05)),
+    var(--bg-surface-md);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 32px rgba(0, 0, 0, 0.18);
+}
+
+.scan-complete-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.scan-complete-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #062b14;
+  background: linear-gradient(135deg, #86efac, #4ade80);
+  box-shadow:
+    0 0 0 6px rgba(74, 222, 128, 0.08),
+    0 10px 24px rgba(74, 222, 128, 0.24);
+}
+
+.scan-complete-eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(185, 255, 209, 0.88);
+}
+
+.scan-complete-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.scan-complete-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.8rem;
+}
+
+.scan-complete-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: calc(var(--radius-md) - 4px);
+  background: rgba(5, 16, 14, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.scan-complete-stat strong {
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #dcfce7;
+}
+
+.scan-complete-stat span {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
  
 .summary-card {

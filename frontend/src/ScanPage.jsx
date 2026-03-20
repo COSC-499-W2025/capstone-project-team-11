@@ -18,6 +18,19 @@ function normalizeContributorInput(value) {
     .filter(Boolean);
 }
 
+function formatElapsedTime(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 function ScanPage({ onBack }) {
   const [scanPath, setScanPath] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -40,6 +53,8 @@ function ScanPage({ onBack }) {
   const [manualAssignments, setManualAssignments] = useState({});
   const [selectedExistingContributor, setSelectedExistingContributor] = useState('');
   const [newContributorNames, setNewContributorNames] = useState('');
+  const [scanStartedAt, setScanStartedAt] = useState(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const assignmentProject = assignmentQueue[assignmentIndex] || null;
   const phaseIndex = scanPhase ? Math.max(0, PHASE_ORDER.indexOf(scanPhase)) : 0;
@@ -50,6 +65,9 @@ function ScanPage({ onBack }) {
   const showSummary = !isScanning && Array.isArray(scanSummary) && scanSummary.length > 0;
   const assignmentSelectionCount =
     (selectedExistingContributor ? 1 : 0) + normalizeContributorInput(newContributorNames).length;
+  const elapsedLabel = formatElapsedTime(elapsedSeconds);
+  const completedProjectCount = Array.isArray(scanSummary) ? scanSummary.length : 0;
+  const failedProjectCount = failedProjects.length;
 
   const assignmentTitle = useMemo(() => {
     if (!assignmentProject) {
@@ -75,6 +93,20 @@ function ScanPage({ onBack }) {
       .catch(() => setLlmConsentGranted(false));
   }, []);
 
+  useEffect(() => {
+    if (!isScanning || !scanStartedAt) {
+      setElapsedSeconds(0);
+      return undefined;
+    }
+
+    setElapsedSeconds(Math.floor((Date.now() - scanStartedAt) / 1000));
+    const intervalId = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - scanStartedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isScanning, scanStartedAt]);
+
   const resetScanState = () => {
     setScanSummary(null);
     setScanPhase('');
@@ -89,6 +121,8 @@ function ScanPage({ onBack }) {
     setManualAssignments({});
     setSelectedExistingContributor('');
     setNewContributorNames('');
+    setScanStartedAt(null);
+    setElapsedSeconds(0);
   };
 
   const updatePhaseFromLine = (line) => {
@@ -126,6 +160,8 @@ function ScanPage({ onBack }) {
     setIsScanning(true);
     setScanNotice('');
     setScanPhase('Scanning Files');
+    setScanStartedAt(Date.now());
+    setElapsedSeconds(0);
 
     try {
       const response = await fetch(`${API_BASE_URL}/projects/scan-stream`, {
@@ -142,6 +178,7 @@ function ScanPage({ onBack }) {
         const msg = await response.text();
         setScanNotice(msg || response.statusText || 'Scan request failed.');
         setIsScanning(false);
+        setScanStartedAt(null);
         return;
       }
 
@@ -234,6 +271,7 @@ function ScanPage({ onBack }) {
       setScanNotice(`Error: ${err.message}`);
     } finally {
       setIsScanning(false);
+      setScanStartedAt(null);
     }
   };
 
@@ -381,8 +419,17 @@ function ScanPage({ onBack }) {
           <section className="scan-log-panel">
             <h2>Scan Progress</h2>
             <div className="scan-progress">
+              <div className="scan-status-banner">
+                <span className="scan-status-pill">
+                  <span className="scan-status-dot" aria-hidden="true" />
+                  Scan in progress: {elapsedLabel}
+                </span>
+                <span className="scan-status-phase">{scanPhase || 'Preparing scan'}</span>
+              </div>
               <div className="progress-track" aria-hidden="true">
-                <div className="progress-fill" style={{ width: `${progressValue}%` }} />
+                <div className="progress-fill" style={{ width: `${progressValue}%` }}>
+                  <div className="progress-fill-shimmer" />
+                </div>
               </div>
               <div className="progress-meta">
                 <span>{scanPhase || 'Waiting to start scan'}</span>
@@ -390,21 +437,25 @@ function ScanPage({ onBack }) {
               </div>
             </div>
 
-            {totalProjects > 0 && (
-              <div className="detail-row">
-                <strong>Projects Detected:</strong> {totalProjects}
-              </div>
-            )}
+            {(totalProjects > 0 || (currentProject && totalProjects > 0)) && (
+              <div className="scan-detail-stack">
+                {totalProjects > 0 && (
+                  <div className="detail-row">
+                    <strong>Projects Detected:</strong> {totalProjects}
+                  </div>
+                )}
 
-            {currentProject && totalProjects > 0 && (
-              <>
-                <div className="detail-row">
-                  <strong>Current Project:</strong> {currentProject}
-                </div>
-                <div className="detail-row">
-                  <strong>Project Position:</strong> Project {currentProjectIndex} of {totalProjects}
-                </div>
-              </>
+                {currentProject && totalProjects > 0 && (
+                  <>
+                    <div className="detail-row">
+                      <strong>Current Project:</strong> {currentProject}
+                    </div>
+                    <div className="detail-row">
+                      <strong>Project Position:</strong> Project {currentProjectIndex} of {totalProjects}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             {detectedProjects.length > 0 && (
@@ -438,11 +489,13 @@ function ScanPage({ onBack }) {
               Non-git project detected. Select existing contributors, enter new names, or do both before the scan
               continues.
             </p>
-            <div className="detail-row">
-              <strong>Project Position:</strong> Assignment {assignmentIndex + 1} of {assignmentQueue.length}
-            </div>
-            <div className="detail-row">
-              <strong>Project Path:</strong> {assignmentProject.project_path}
+            <div className="scan-detail-stack">
+              <div className="detail-row">
+                <strong>Project Position:</strong> Assignment {assignmentIndex + 1} of {assignmentQueue.length}
+              </div>
+              <div className="detail-row">
+                <strong>Project Path:</strong> {assignmentProject.project_path}
+              </div>
             </div>
 
             {existingContributors.length > 0 ? (
@@ -479,8 +532,10 @@ function ScanPage({ onBack }) {
               />
             </label>
 
-            <div className="detail-row" style={{ marginTop: '1rem' }}>
-              <strong>Selected Contributors:</strong> {assignmentSelectionCount}
+            <div className="scan-detail-stack" style={{ marginTop: '1rem' }}>
+              <div className="detail-row">
+                <strong>Selected Contributors:</strong> {assignmentSelectionCount}
+              </div>
             </div>
 
             <div className="scan-actions" style={{ marginTop: '1rem' }}>
@@ -497,6 +552,33 @@ function ScanPage({ onBack }) {
         {!isScanning && !assignmentProject && showSummary ? (
           <section className="scan-log-panel">
             <h2>Project Summary</h2>
+            <div className="scan-complete-banner">
+              <div className="scan-complete-head">
+                <span className="scan-complete-icon" aria-hidden="true">✓</span>
+                <div>
+                  <p className="scan-complete-eyebrow">Scan complete</p>
+                  <h3>
+                    {failedProjectCount > 0
+                      ? 'Results are ready with a few issues to review'
+                      : 'Your scan finished successfully'}
+                  </h3>
+                </div>
+              </div>
+              <div className="scan-complete-stats">
+                <div className="scan-complete-stat">
+                  <strong>{completedProjectCount}</strong>
+                  <span>{completedProjectCount === 1 ? 'Project scanned' : 'Projects scanned'}</span>
+                </div>
+                <div className="scan-complete-stat">
+                  <strong>{failedProjectCount}</strong>
+                  <span>{failedProjectCount === 1 ? 'Project failed' : 'Projects failed'}</span>
+                </div>
+                <div className="scan-complete-stat">
+                  <strong>{Array.isArray(scanSummary) ? scanSummary.length : 0}</strong>
+                  <span>{scanSummary?.length === 1 ? 'Summary ready' : 'Summaries ready'}</span>
+                </div>
+              </div>
+            </div>
             {failedProjects.length > 0 && (
               <p className="scan-notice">
                 {failedProjects.length} project{failedProjects.length === 1 ? '' : 's'} failed during the scan.
