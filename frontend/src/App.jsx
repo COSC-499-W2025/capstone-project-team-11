@@ -220,6 +220,9 @@ function App() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentGranted, setConsentGranted] = useState(false);
   const [initialConsent, setInitialConsent] = useState({});
+  const [projectsStats, setProjectsStats] = useState(null);
+  const [contributorsStats, setContributorsStats] = useState(null);
+  const [outputsStats, setOutputsStats] = useState(null);
 
   // Fetch consent status
   useEffect(() => {
@@ -235,6 +238,28 @@ function App() {
       })
       .finally(() => setConsentChecked(true));
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stats/dashboard`);
+      if (response.ok) {
+        const stats = await response.json();
+        setProjectsStats(stats.projects);
+        setContributorsStats(stats.contributors);
+        setOutputsStats(stats.outputs);
+      }
+    } catch (error) {
+      // Silently fail, stats will show as loading
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
+
+  // Fetch dashboard stats whenever user lands on main menu.
+  useEffect(() => {
+    if (consentGranted && page === 'main-menu') {
+      fetchStats();
+    }
+  }, [consentGranted, page]);
 
   useEffect(() => {
     const onHashChange = () => setPage(getPageFromHash());
@@ -278,6 +303,53 @@ function App() {
     } else {
       addToast(`${title} — coming soon`);
     }
+  };
+
+  const getRelativeTime = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getProjectsNote = () => {
+    if (!projectsStats) return 'Loading...';
+    const { count, latest_project, latest_scan } = projectsStats;
+    if (count === 0) return 'No scanned projects yet.';
+    if (!latest_project) return `${count} project${count !== 1 ? 's' : ''} indexed`;
+    const timeAgo = getRelativeTime(latest_scan);
+    return `Latest: ${latest_project} • ${timeAgo}`;
+  };
+
+  const getContributorsNote = () => {
+    if (!contributorsStats) return 'Loading...';
+    const { count, top_contributor, top_contributor_files } = contributorsStats;
+    if (count === 0) return 'No contributors detected yet.';
+    if (!top_contributor) return `${count} unique contributor${count !== 1 ? 's' : ''}`;
+    return `Top: ${top_contributor} (${top_contributor_files} files)`;
+  };
+
+  const getOutputsNote = () => {
+    if (!outputsStats) return 'Loading...';
+    const { total, resumes, portfolios, latest_generated } = outputsStats;
+    if (total === 0) return 'No generated outputs yet.';
+    const timeAgo = getRelativeTime(latest_generated);
+    return `${resumes} resume${resumes !== 1 ? 's' : ''}, ${portfolios} portfolio${portfolios !== 1 ? 's' : ''} • ${timeAgo}`;
+  };
+
+  const getOutputsValue = () => {
+    if (!outputsStats) return '--';
+    const { resumes, portfolios } = outputsStats;
+    return (resumes + portfolios).toString();
   };
 
   const testConnection = async () => {
@@ -545,9 +617,21 @@ function App() {
             >
               {/* Stats row */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.9rem' }}>
-                <StatCard label="Scanned Projects" value="--" note="Run your first scan to populate." />
-                <StatCard label="Contributors" value="--" note="Detected from commit history." />
-                <StatCard label="Generated Outputs" value="--" note="Resumes, portfolios & summaries." />
+                <StatCard 
+                  label="Scanned Projects" 
+                  value={projectsStats?.count ?? '--'} 
+                  note={getProjectsNote()}
+                />
+                <StatCard 
+                  label="Contributors" 
+                  value={contributorsStats?.count ?? '--'} 
+                  note={getContributorsNote()}
+                />
+                <StatCard 
+                  label="Generated Outputs" 
+                  value={getOutputsValue()}
+                  note={getOutputsNote()}
+                />
               </div>
 
               <InfoPanel title="Quick Start">

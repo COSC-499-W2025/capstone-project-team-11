@@ -946,6 +946,91 @@ def list_resumes(username: Optional[str] = Query(default=None)):
     return items
 
 
+@app.get("/outputs")
+def get_outputs_count():
+    """Count generated outputs (resumes and portfolios) with recent activity."""
+    with get_connection() as conn:
+        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
+        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
+        
+        # Get most recent output
+        latest_resume = conn.execute(
+            "SELECT generated_at FROM resumes ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        latest_portfolio = conn.execute(
+            "SELECT generated_at FROM portfolios ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        
+        latest_generated = None
+        if latest_resume and latest_portfolio:
+            latest_generated = max(latest_resume["generated_at"], latest_portfolio["generated_at"])
+        elif latest_resume:
+            latest_generated = latest_resume["generated_at"]
+        elif latest_portfolio:
+            latest_generated = latest_portfolio["generated_at"]
+    
+    return {
+        "resumes": resumes_count,
+        "portfolios": portfolios_count,
+        "total": resumes_count + portfolios_count,
+        "latest_generated": latest_generated,
+    }
+
+
+@app.get("/stats/dashboard")
+def get_dashboard_stats():
+    """Comprehensive dashboard stats with insights."""
+    with get_connection() as conn:
+        # Projects info
+        projects_count = conn.execute("SELECT COUNT(*) as count FROM projects").fetchone()["count"]
+        latest_scan = conn.execute(
+            "SELECT scanned_at, project FROM scans ORDER BY scanned_at DESC LIMIT 1"
+        ).fetchone()
+        
+        # Contributors info
+        contributors_count = conn.execute(
+            "SELECT COUNT(DISTINCT name) as count FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> ''"
+        ).fetchone()["count"]
+        top_contributor = conn.execute(
+            """
+            SELECT c.name, COUNT(fc.file_id) as file_count
+            FROM contributors c
+            LEFT JOIN file_contributors fc ON c.id = fc.contributor_id
+            WHERE c.name IS NOT NULL AND TRIM(c.name) <> ''
+            GROUP BY c.id
+            ORDER BY file_count DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        
+        # Outputs info
+        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
+        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
+        latest_output = conn.execute(
+            "SELECT generated_at FROM (SELECT generated_at FROM resumes UNION ALL SELECT generated_at FROM portfolios) ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+    
+    return {
+        "projects": {
+            "count": projects_count,
+            "latest_scan": latest_scan["scanned_at"] if latest_scan else None,
+            "latest_project": latest_scan["project"] if latest_scan else None,
+        },
+        "contributors": {
+            "count": contributors_count,
+            "top_contributor": top_contributor["name"] if top_contributor else None,
+            "top_contributor_files": top_contributor["file_count"] if top_contributor else 0,
+        },
+        "outputs": {
+            "total": resumes_count + portfolios_count,
+            "resumes": resumes_count,
+            "portfolios": portfolios_count,
+            "latest_generated": latest_output["generated_at"] if latest_output else None,
+        },
+    }
+
+
+
 @app.post("/resume/generate", status_code=201)
 def generate_resume(payload: ResumeGenerateRequest):
     # Reuse the resume generator logic used by the CLI.
