@@ -381,6 +381,25 @@ test("deletes evidence when delete button is clicked", async () => {
 
   axios.delete.mockResolvedValueOnce({ data: {} });
 
+  // refreshProjectData makes two GET calls after delete
+  axios.get
+    .mockResolvedValueOnce({
+      data: {
+        project: { id: 1, name: "demo_project", custom_name: null },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [],
+        llm_summary: null,
+      },
+    })
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    });
+
   render(<ScannedProjectsPage onBack={() => {}} />);
 
   fireEvent.click(await screen.findByRole("tab", { name: /activity/i }));

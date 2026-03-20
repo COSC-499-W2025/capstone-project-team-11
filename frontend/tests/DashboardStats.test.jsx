@@ -63,6 +63,7 @@ describe('Dashboard Stats', () => {
   });
 
   it('handles fetch errors without crashing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.stubGlobal('fetch', vi.fn().mockImplementation((url) => {
       if (url.includes('/config')) {
         return Promise.resolve({ ok: true, json: async () => ({ data_consent: true }) });
