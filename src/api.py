@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from project_evidence import add_evidence, delete_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
 import queue
@@ -109,6 +110,12 @@ class ProjectEditRequest(BaseModel):
     repo_url: Optional[str] = None
     thumbnail_path: Optional[str] = None
     summary_text: Optional[str] = None
+
+class ProjectEvidenceCreateRequest(BaseModel):
+    type: str
+    value: str
+    source: Optional[str] = None
+    url: Optional[str] = None
 
 
 
@@ -752,7 +759,7 @@ def get_project(project_id: int):
 
         evidence_rows = conn.execute(
             """
-            SELECT type, description, value, source, url, added_by_user, created_at
+            SELECT id, type, description, value, source, url, added_by_user, created_at
             FROM project_evidence
             WHERE project_id = ?
             ORDER BY created_at DESC
@@ -795,6 +802,53 @@ def get_project(project_id: int):
         "git_metrics": git_metrics,
         "rank_score": rank_score,
     }
+
+@app.post("/projects/{project_id}/evidence", status_code=201)
+def create_project_evidence(project_id: int, payload: ProjectEvidenceCreateRequest):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT id FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        evidence_id = add_evidence(
+            project_id,
+            {
+                "type": payload.type,
+                "value": payload.value,
+                "source": payload.source or "",
+                "url": payload.url or "",
+                "added_by_user": True,
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "message": "Evidence added successfully",
+        "evidence_id": evidence_id,
+    }
+
+@app.delete("/projects/{project_id}/evidence/{evidence_id}")
+def remove_project_evidence(project_id: int, evidence_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM project_evidence WHERE id = ? AND project_id = ?",
+            (evidence_id, project_id),
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    deleted = delete_evidence(evidence_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    return {"message": "Evidence deleted successfully"}
 
 
 @app.get("/skills")

@@ -966,4 +966,96 @@ if __name__ == "__main__":
     unittest.main()
 
 
+    def test_create_project_evidence_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.post(
+            f"/projects/{project_id}/evidence",
+            json={
+                "type": "metric",
+                "value": "10k+ downloads",
+                "source": "GitHub",
+                "url": "https://example.com/proof",
+            },
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertEqual(body["message"], "Evidence added successfully")
+        self.assertIn("evidence_id", body)
+
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(detail_resp.status_code, 200)
+        evidence = detail_resp.json()["evidence"]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["type"], "metric")
+        self.assertEqual(evidence[0]["value"], "10k+ downloads")
+        self.assertEqual(evidence[0]["source"], "GitHub")
+
+    def test_delete_project_evidence_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+
+            conn.execute(
+                """
+                INSERT INTO project_evidence (project_id, type, description, value, source, url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (project_id, "metric", "", "10k+ downloads", "GitHub", "https://example.com/proof"),
+            )
+            evidence_id = conn.execute(
+                "SELECT id FROM project_evidence WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/projects/{project_id}/evidence/{evidence_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["message"], "Evidence deleted successfully")
+
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(detail_resp.status_code, 200)
+        self.assertEqual(detail_resp.json()["evidence"], [])
+
+
+        def test_create_project_evidence_rejects_invalid_type(self):
+         with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.post(
+            f"/projects/{project_id}/evidence",
+            json={
+                "type": "fake_type",
+                "value": "Some impact",
+                "source": "GitHub",
+                "url": "",
+            },
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid type", resp.json()["detail"])
     

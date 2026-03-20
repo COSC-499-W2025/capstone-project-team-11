@@ -91,7 +91,7 @@ describe("ScannedProjectsPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
     expect(await screen.findByText(/Scan Activity/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Won hackathon/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/winner/i).length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText(/Search projects/i), {
       target: { value: "beta" },
@@ -272,40 +272,126 @@ await waitFor(() => {
   });
 
   test("delete confirmation uses project name", async () => {
-    window.confirm = vi.fn(() => false);
-    axios.get
-      .mockResolvedValueOnce({
-        data: [{ id: 1, name: "demo_project", custom_name: "Pretty Project Name" }],
-      })
-      .mockResolvedValueOnce({
-        data: {
-          project: {
-            id: 1,
-            name: "demo_project",
-            custom_name: "Pretty Project Name",
-            repo_url: null,
-            created_at: "2025-01-01",
-            thumbnail_path: null,
-          },
-          skills: [],
-          languages: [],
-          contributors: [],
-          contributor_roles: { contributors: [], summary: {} },
-          scans: [],
-          files_summary: { total_files: 0, extensions: {} },
-          evidence: [],
-          llm_summary: null,
+  window.confirm = vi.fn(() => false);
+
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: "Pretty Project Name" }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: "Pretty Project Name",
+          repo_url: null,
+          created_at: "2025-01-01",
+          thumbnail_path: null,
         },
-      });
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [],
+        llm_summary: null,
+      },
+    });
 
-    render(<ScannedProjectsPage onBack={() => {}} />);
+  render(<ScannedProjectsPage onBack={() => {}} />);
 
-    expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
+  expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
+  fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
 
-        expect(window.confirm).toHaveBeenCalledWith(
-      'Are you sure you want to delete "Pretty Project Name"?'
+  expect(window.confirm).toHaveBeenCalledWith(
+    'Are you sure you want to delete "Pretty Project Name"?'
+  );
+});
+
+test("renders evidence items with value, source, and url", async () => {
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [
+          {
+            id: 10,
+            type: "metric",
+            value: "10k+ downloads",
+            source: "GitHub",
+            url: "https://example.com",
+          },
+        ],
+        llm_summary: null,
+      },
+    });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /activity/i }));
+
+  expect(await screen.findByText(/10k\+ downloads/i)).toBeInTheDocument();
+  expect(screen.getByText(/Source: GitHub/i)).toBeInTheDocument();
+  expect(screen.getByText(/https:\/\/example.com/i)).toBeInTheDocument();
+});
+
+test("deletes evidence when delete button is clicked", async () => {
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [
+          {
+            id: 10,
+            type: "metric",
+            value: "10k+ downloads",
+          },
+        ],
+        llm_summary: null,
+      },
+    });
+
+  axios.delete.mockResolvedValueOnce({ data: {} });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /activity/i }));
+
+  const deleteButtons = await screen.findAllByRole("button", { name: /delete/i });
+  fireEvent.click(deleteButtons[1]);
+
+  await waitFor(() => {
+    expect(axios.delete).toHaveBeenCalledWith(
+      expect.stringMatching(/\/projects\/1\/evidence\/10/)
     );
   });
+});
 });

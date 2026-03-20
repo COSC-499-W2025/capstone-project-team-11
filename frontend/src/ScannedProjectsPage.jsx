@@ -40,7 +40,7 @@ function getProjectName(project, fallbackId) {
 
 function getEvidenceTitle(item, index) {
   if (typeof item === 'string') return item;
-  return item?.title ?? item?.description ?? item?.name ?? item?.value ?? `Evidence ${index + 1}`;
+  return item?.value ?? item?.description ?? item?.title ?? item?.name ?? `Evidence ${index + 1}`;
 }
 
 function getEvidenceMeta(item) {
@@ -50,7 +50,7 @@ function getEvidenceMeta(item) {
 
 function getEvidenceDescription(item) {
   if (!item || typeof item !== 'object') return '';
-  return item.description ?? item.value ?? item.source ?? item.url ?? '';
+  return item.value ?? item.description ?? item.source ?? item.url ?? '';
 }
 
 function ScannedProjectsPage({ onBack }) {
@@ -71,6 +71,12 @@ function ScannedProjectsPage({ onBack }) {
   const [editRepoUrl, setEditRepoUrl] = useState('');
   const [editThumbnailPath, setEditThumbnailPath] = useState('');
   const [editSummaryText, setEditSummaryText] = useState('');
+  const [isAddingEvidence, setIsAddingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState('');
+  const [newEvidenceType, setNewEvidenceType] = useState('metric');
+  const [newEvidenceValue, setNewEvidenceValue] = useState('');
+  const [newEvidenceSource, setNewEvidenceSource] = useState('');
+  const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -212,6 +218,57 @@ function ScannedProjectsPage({ onBack }) {
     } catch (error) {
       console.error('Failed to delete project:', error);
       window.alert('Failed to delete project.');
+    }
+  };
+
+    const handleAddEvidence = async (event) => {
+    event.preventDefault();
+    if (selectedProjectId == null) return;
+
+    const trimmedValue = newEvidenceValue.trim();
+    if (!trimmedValue) {
+      setEvidenceError('Outcome / impact is required.');
+      return;
+    }
+
+    try {
+      setIsAddingEvidence(true);
+      setEvidenceError('');
+
+      await axios.post(`${API_BASE_URL}/projects/${selectedProjectId}/evidence`, {
+        type: newEvidenceType,
+        value: trimmedValue,
+        source: newEvidenceSource.trim() || null,
+        url: newEvidenceUrl.trim() || null,
+      });
+
+      setNewEvidenceType('metric');
+      setNewEvidenceValue('');
+      setNewEvidenceSource('');
+      setNewEvidenceUrl('');
+
+      await refreshProjectData();
+    } catch (error) {
+      console.error('Failed to add evidence:', error);
+      setEvidenceError(error?.response?.data?.detail || 'Failed to add evidence.');
+    } finally {
+      setIsAddingEvidence(false);
+    }
+  };
+
+  const handleDeleteEvidence = async (evidenceId) => {
+    if (selectedProjectId == null || !evidenceId) return;
+
+    const confirmed = window.confirm('Are you sure you want to delete this evidence item?');
+    if (!confirmed) return;
+
+    try {
+      setEvidenceError('');
+      await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}/evidence/${evidenceId}`);
+      await refreshProjectData();
+    } catch (error) {
+      console.error('Failed to delete evidence:', error);
+      setEvidenceError(error?.response?.data?.detail || 'Failed to delete evidence.');
     }
   };
 
@@ -734,42 +791,129 @@ function ScannedProjectsPage({ onBack }) {
                     )}
                   </article>
 
-                  <article className="detail-card">
+              <article className="detail-card">
                     <div className="detail-card-header">
                       <span className="panel-eyebrow">Evidence</span>
                       <h4>Saved Items</h4>
                     </div>
+
+                    <form className="evidence-form" onSubmit={handleAddEvidence}>
+                      <label className="edit-field">
+                        <span>Type</span>
+                        <select
+                          value={newEvidenceType}
+                          onChange={(event) => setNewEvidenceType(event.target.value)}
+                          className="detail-input"
+                        >
+                          <option value="metric">metric</option>
+                          <option value="award">award</option>
+                          <option value="endorsement">endorsement</option>
+                          <option value="publication">publication</option>
+                          <option value="external_link">external_link</option>
+                        </select>
+                      </label>
+
+                      <label className="edit-field">
+                        <span>Outcome / Impact</span>
+                        <input
+                          type="text"
+                          value={newEvidenceValue}
+                          onChange={(event) => setNewEvidenceValue(event.target.value)}
+                          className="detail-input"
+                          placeholder="e.g. 10k+ downloads"
+                        />
+                      </label>
+
+                      <label className="edit-field">
+                        <span>Source</span>
+                        <input
+                          type="text"
+                          value={newEvidenceSource}
+                          onChange={(event) => setNewEvidenceSource(event.target.value)}
+                          className="detail-input"
+                          placeholder="e.g. GitHub, Google Play, Email"
+                        />
+                      </label>
+
+                      <label className="edit-field">
+                        <span>URL</span>
+                        <input
+                          type="text"
+                          value={newEvidenceUrl}
+                          onChange={(event) => setNewEvidenceUrl(event.target.value)}
+                          className="detail-input"
+                          placeholder="Optional link"
+                        />
+                      </label>
+
+                      {evidenceError ? <p className="error-text">{evidenceError}</p> : null}
+
+                      <div className="project-hero-actions">
+                        <button
+                          type="submit"
+                          className="hero-action-button save-action-button"
+                          disabled={isAddingEvidence}
+                        >
+                          {isAddingEvidence ? 'Adding...' : 'Add Evidence'}
+                        </button>
+                      </div>
+                    </form>
+
                     {evidence.length > 0 ? (
                       <div className="evidence-list">
-                        {evidence.slice(0, 6).map((item, index) => (
-                          <div key={`${getEvidenceTitle(item, index)}-${index}`} className="evidence-item">
-                            <div className="evidence-item-top">
-                              <strong>{getEvidenceTitle(item, index)}</strong>
-                              {getEvidenceMeta(item) ? <span className="detail-chip muted">{getEvidenceMeta(item)}</span> : null}
-                            </div>
-                            <p>{getEvidenceDescription(item) || 'No evidence details available.'}</p>
-                          </div>
-                        ))}
+                    {evidence.map((item, index) => (
+                      <div key={item.id ?? index} className="evidence-item">
+
+                        <div className="evidence-item-top">
+                          {getEvidenceMeta(item) ? (
+                            <span className="detail-chip muted">{getEvidenceMeta(item)}</span>
+                          ) : null}
+
+                          {item?.id ? (
+                            <button
+                              type="button"
+                              className="danger"
+                              onClick={() => handleDeleteEvidence(item.id)}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <p className="evidence-item-value">
+                          {item?.value || 'No evidence details available.'}
+                        </p>
+
+                        {item?.source && (
+                          <p className="evidence-item-meta">Source: {item.source}</p>
+                        )}
+
+                        {item?.url && (
+                          <p className="evidence-item-meta">{item.url}</p>
+                        )}
+
                       </div>
-                    ) : (
-                      <p className="empty-copy">No evidence items stored.</p>
-                    )}
-                  </article>
-                </div>
-              ) : null}
-            </div>
-          )}
+                    ))}                       
+                                          </div>
+                                        ) : (
+                                          <p className="empty-copy">No evidence items stored.</p>
+                                        )}
+                                      </article>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
 
-          {!isLoadingDetails && !detailsError && !selectedProject && projects.length > 0 ? (
-            <div className="empty-state-card">
-              <h3>Select a project to view details</h3>
-              <p>Choose a project from the explorer to open its dashboard.</p>
-            </div>
-          ) : null}
-        </section>
-      </div>
-    </div>
-  );
-}
+                              {!isLoadingDetails && !detailsError && !selectedProject && projects.length > 0 ? (
+                                <div className="empty-state-card">
+                                  <h3>Select a project to view details</h3>
+                                  <p>Choose a project from the explorer to open its dashboard.</p>
+                                </div>
+                              ) : null}
+                            </section>
+                          </div>
+                        </div>
+                      );
+                    }
 
-export default ScannedProjectsPage;
+    export default ScannedProjectsPage;
