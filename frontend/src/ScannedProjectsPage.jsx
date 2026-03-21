@@ -794,7 +794,7 @@ function ScannedProjectsPage({ onBack }) {
               <article className="detail-card">
                     <div className="detail-card-header">
                       <span className="panel-eyebrow">Evidence</span>
-                      <h4>Saved Items</h4>
+                      <h4>Project Evidence</h4>
                     </div>
 
                     <form className="evidence-form" onSubmit={handleAddEvidence}>
@@ -862,7 +862,7 @@ function ScannedProjectsPage({ onBack }) {
                     {evidence.length > 0 ? (
                       <div className="evidence-list">
                     {evidence.map((item, index) => (
-                      <div key={item.id ?? index} className="evidence-item">
+                      <div key={item.id ?? index} className="evidence-item" style={{ marginBottom: "10px" }}>
 
                         <div className="evidence-item-top">
                           {getEvidenceMeta(item) ? (
@@ -888,9 +888,16 @@ function ScannedProjectsPage({ onBack }) {
                           <p className="evidence-item-meta">Source: {item.source}</p>
                         )}
 
-                        {item?.url && (
-                          <p className="evidence-item-meta">{item.url}</p>
-                        )}
+                              {item?.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="evidence-item-meta"
+                      >
+                        {item.url}
+                      </a>
+                    )}
 
                       </div>
                     ))}                       
