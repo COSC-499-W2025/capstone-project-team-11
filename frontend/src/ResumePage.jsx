@@ -16,6 +16,10 @@ function ResumePage({ onBack }) {
   const [llmSummary, setLlmSummary] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
+  const [userProjects, setUserProjects] = useState([]);
+  const [excludedProjectIds, setExcludedProjectIds] = useState([]);
+  const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
 
   const selectedUsername = username.trim() || "local";
 
@@ -32,6 +36,15 @@ function ResumePage({ onBack }) {
       })
       .catch(() => {
         setLlmConsentGranted(false);
+      });
+
+    fetch("http://127.0.0.1:8000/projects")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((projects) => {
+        setAllProjects(Array.isArray(projects) ? projects : []);
+      })
+      .catch(() => {
+        setAllProjects([]);
       });
   }, []);
 
@@ -50,6 +63,39 @@ function ResumePage({ onBack }) {
     fetchHistory(username);
   }, [username]);
 
+  useEffect(() => {
+    if (!username.trim()) {
+      setUserProjects([]);
+      setExcludedProjectIds([]);
+      setIsLoadingUserProjects(false);
+      return;
+    }
+
+    setIsLoadingUserProjects(true);
+    setExcludedProjectIds([]);
+
+    fetch(`http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=${encodeURIComponent(username.trim())}`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((ranked) => {
+        const rankedNames = new Set((Array.isArray(ranked) ? ranked : []).map((item) => item.project));
+        setUserProjects(allProjects.filter((project) => rankedNames.has(project.name)));
+      })
+      .catch(() => {
+        setUserProjects([]);
+      })
+      .finally(() => {
+        setIsLoadingUserProjects(false);
+      });
+  }, [username, allProjects]);
+
+  const toggleExclude = (id) => {
+    setExcludedProjectIds((prev) => (
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    ));
+  };
+
   const loadResumeById = async (id) => {
     setError("");
     try {
@@ -67,11 +113,21 @@ function ResumePage({ onBack }) {
 
   const handleGenerateResume = async () => {
     setError(""); setResumeContent(""); setResumeId(null); setIsLoading(true);
+
+    const excludedProjectNames = excludedProjectIds
+      .map((id) => userProjects.find((p) => (p.id ?? p.project_id) === id)?.name)
+      .filter(Boolean);
+
     try {
       const gen = await fetch("http://127.0.0.1:8000/resume/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: selectedUsername, save_to_db: true, llm_summary: llmSummary }),
+        body: JSON.stringify({
+          username: selectedUsername,
+          save_to_db: true,
+          llm_summary: llmSummary,
+          excluded_project_names: excludedProjectNames,
+        }),
       });
       if (!gen.ok) {
         const { detail } = await gen.json().catch(() => ({}));
@@ -333,6 +389,53 @@ function ResumePage({ onBack }) {
                 {contributors.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </label>
+
+            {username.trim() && (
+              <fieldset
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "0.8rem",
+                  margin: 0,
+                }}
+              >
+                <legend style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, padding: "0 0.35rem" }}>
+                  Exclude Projects from Resume
+                </legend>
+
+                {isLoadingUserProjects && (
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                    Loading contributor projects...
+                  </p>
+                )}
+
+                {!isLoadingUserProjects && userProjects.length === 0 && (
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                    No ranked projects found for this contributor.
+                  </p>
+                )}
+
+                {!isLoadingUserProjects && userProjects.length > 0 && (
+                  <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
+                    {userProjects.map((project) => {
+                      const projectId = project.id ?? project.project_id;
+                      if (projectId == null) return null;
+                      const label = project.custom_name || project.display_name || project.name;
+                      return (
+                        <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={!excludedProjectIds.includes(projectId)}
+                            onChange={() => toggleExclude(projectId)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </fieldset>
+            )}
 
             <label
               className="toggle-row"

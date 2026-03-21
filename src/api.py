@@ -129,6 +129,7 @@ class ResumeGenerateRequest(BaseModel):
     allow_bots: bool = False
     save_to_db: bool = False
     llm_summary: bool = False
+    excluded_project_names: List[str] = Field(default_factory=list)
 
 
 class ResumeEditRequest(BaseModel):
@@ -1231,7 +1232,12 @@ def generate_resume(payload: ResumeGenerateRequest):
         raise HTTPException(status_code=403, detail="LLM resume summary consent not granted")
 
     projects, root_repo_jsons = collect_projects(payload.output_root)
-    agg = aggregate_for_user(username, projects, root_repo_jsons)
+    agg = aggregate_for_user(
+        username,
+        projects,
+        root_repo_jsons,
+        excluded_project_names=payload.excluded_project_names,
+    )
 
     os.makedirs(payload.resume_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")

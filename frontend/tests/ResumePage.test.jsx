@@ -7,6 +7,7 @@ const mockMountFetches = () =>
   vi.spyOn(global, 'fetch')
     .mockResolvedValueOnce({ ok: true, json: async () => [] })
     .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+    .mockResolvedValueOnce({ ok: true, json: async () => [] })
     .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
 afterEach(() => {
@@ -37,6 +38,7 @@ describe('ResumePage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
@@ -61,7 +63,10 @@ describe('ResumePage', () => {
     expect(screen.getByText(/Alice Resume/i)).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/resume/generate',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"excluded_project_names":[]'),
+      }),
     );
     expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/resume/42');
   });
@@ -70,6 +75,7 @@ describe('ResumePage', () => {
     vi.spyOn(global, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockRejectedValueOnce(new Error('Network failure'));
 
@@ -90,6 +96,7 @@ describe('ResumePage', () => {
     vi.spyOn(global, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({
         ok: true,
