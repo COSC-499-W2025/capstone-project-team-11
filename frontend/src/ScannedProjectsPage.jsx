@@ -529,7 +529,7 @@ function ScannedProjectsPage({ onBack }) {
               </div>
 
               <div className="project-panel-tabs" role="tablist" aria-label="Project detail panels">
-                {['overview', 'signals', 'contributors', 'activity'].map((panel) => (
+                {['overview', 'signals', 'contributors', 'activity','evidence'].map((panel) => (
                   <button
                     key={panel}
                     type="button"
@@ -819,7 +819,11 @@ function ScannedProjectsPage({ onBack }) {
                       <p className="empty-copy">No scans have been recorded for this project yet.</p>
                     )}
                   </article>
+                </div>
+              ) : null}
 
+              {activePanel === 'evidence' ? (
+                <div className="detail-grid">
               <article className="detail-card">
                     <div className="detail-card-header">
                       <span className="panel-eyebrow">Evidence</span>
@@ -996,8 +1000,8 @@ function ScannedProjectsPage({ onBack }) {
                                           <p className="empty-copy">No evidence items stored.</p>
                                         )}
                                       </article>
-                                    </div>
-                                  ) : null}
+                </div>
+              ) : null}
                                 </div>
                               )}
 
