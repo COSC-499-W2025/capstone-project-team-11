@@ -48,6 +48,14 @@ function getEvidenceMeta(item) {
   return item.type ?? item.kind ?? item.category ?? item.source ?? '';
 }
 
+function formatEvidenceTypeLabel(value) {
+  if (!value) return '';
+  return String(value)
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function getEvidenceDescription(item) {
   if (!item || typeof item !== 'object') return '';
   return item.value ?? item.description ?? item.source ?? item.url ?? '';
@@ -538,7 +546,7 @@ function ScannedProjectsPage({ onBack }) {
                     className={`project-panel-tab ${activePanel === panel ? 'is-active' : ''}`}
                     onClick={() => setActivePanel(panel)}
                   >
-                    {panel}
+                    {panel.charAt(0).toUpperCase() + panel.slice(1)}
                   </button>
                 ))}
               </div>
@@ -838,11 +846,11 @@ function ScannedProjectsPage({ onBack }) {
                           onChange={(event) => setNewEvidenceType(event.target.value)}
                           className="detail-input"
                         >
-                          <option value="metric">metric</option>
-                          <option value="award">award</option>
-                          <option value="endorsement">endorsement</option>
-                          <option value="publication">publication</option>
-                          <option value="external_link">external_link</option>
+                          <option value="metric">Metric</option>
+                          <option value="award">Award</option>
+                          <option value="endorsement">Endorsement</option>
+                          <option value="publication">Publication</option>
+                          <option value="external_link">External Link</option>
                         </select>
                       </label>
 
@@ -899,7 +907,7 @@ function ScannedProjectsPage({ onBack }) {
 
                         <div className="evidence-item-top">
                           {getEvidenceMeta(item) ? (
-                            <span className="detail-chip muted">{getEvidenceMeta(item)}</span>
+                            <span className="detail-chip muted">{formatEvidenceTypeLabel(getEvidenceMeta(item))}</span>
                           ) : null}
 
                           {item?.id ? (
@@ -989,7 +997,7 @@ function ScannedProjectsPage({ onBack }) {
                         rel="noopener noreferrer"
                         className="evidence-item-meta"
                       >
-                        {item.url}
+                        View Evidence →
                       </a>
                     )}
 
