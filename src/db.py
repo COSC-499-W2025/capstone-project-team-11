@@ -732,18 +732,24 @@ def delete_project_by_id(project_id):
             WHERE id = ?
         """, (project_id,))
 
-
-        # Remove orphaned languages no longer linked to any files
+        # Cleanup orphaned contributors no longer linked to any files.
         cur.execute("""
-    DELETE FROM languages
-    WHERE NOT EXISTS (
-        SELECT 1 FROM file_languages fl
-        WHERE fl.language_id = languages.id
-    )
-""")     
-    
+            DELETE FROM contributors
+            WHERE id NOT IN (
+                SELECT DISTINCT contributor_id FROM file_contributors
+            )
+        """)
+
+        # Cleanup orphaned languages no longer linked to any files.
+        cur.execute("""
+            DELETE FROM languages
+            WHERE id NOT IN (
+                SELECT DISTINCT language_id FROM file_languages
+            )
+        """)
+
         conn.commit()
-        return True 
+        return True
 
     except Exception as e:
         conn.rollback()

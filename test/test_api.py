@@ -29,9 +29,12 @@ class TestAPI(unittest.TestCase):
         os.environ["HOME"] = self.home_dir
 
         global db_mod, api_mod
+
         db_mod = importlib.reload(db_mod)
         db_mod.init_db()
+
         api_mod = importlib.reload(api_mod)
+
         self.client = TestClient(api_mod.app)
 
         self.output_root = os.path.join(self.tmpdir.name, "output")
@@ -660,8 +663,8 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(data["llm_summary"]["model"], "llama3")
         self.assertEqual(data["llm_summary"]["updated_at"], "2026-03-11T12:00:00")
 
-        def test_delete_project_endpoint(self):
-         with api_mod.get_connection() as conn:
+    def test_delete_project_endpoint(self):
+        with api_mod.get_connection() as conn:
             conn.execute(
                 "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
                 ("Delete Me", None),
@@ -962,8 +965,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(data["outputs"]["total"], 0)
 
 
-if __name__ == "__main__":
-    unittest.main()
+
 
 
     def test_create_project_evidence_endpoint(self):
@@ -1034,8 +1036,8 @@ if __name__ == "__main__":
         self.assertEqual(detail_resp.json()["evidence"], [])
 
 
-        def test_create_project_evidence_rejects_invalid_type(self):
-         with api_mod.get_connection() as conn:
+    def test_create_project_evidence_rejects_invalid_type(self):
+        with api_mod.get_connection() as conn:
             conn.execute(
                 "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
                 ("Evidence Project", None),
@@ -1059,3 +1061,45 @@ if __name__ == "__main__":
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Invalid type", resp.json()["detail"])
     
+    def test_update_project_evidence(self):
+        with api_mod.get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                    ("Test Project", None),
+                )
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    ("Test Project",),
+                ).fetchone()["id"]
+
+                conn.execute(
+                    """
+                    INSERT INTO project_evidence (project_id, type, description, value, source, url)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (project_id, "metric", "", "100 users", "GitHub", "https://example.com"),
+                )
+
+                evidence_id = conn.execute(
+                    "SELECT id FROM project_evidence WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()["id"]
+
+                conn.commit()
+
+        resp = self.client.patch(
+                f"/projects/{project_id}/evidence/{evidence_id}",
+                json={
+                    "value": "200 users",
+                    "source": "Updated Source",
+                },
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        updated = detail_resp.json()["evidence"][0]
+
+        self.assertEqual(updated["value"], "200 users")
+        self.assertEqual(updated["source"], "Updated Source")
+
