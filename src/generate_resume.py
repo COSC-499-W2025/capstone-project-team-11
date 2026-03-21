@@ -385,7 +385,7 @@ def render_markdown(agg, generated_ts=None, llm_summary: str = None):
         files = p.get('user_files') or []
 
         md.append(line)
-        
+        md.append('')
         # generate 2-4 bullets similar to earlier style
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []

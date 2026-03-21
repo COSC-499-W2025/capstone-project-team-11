@@ -2,6 +2,7 @@ import json
 import mimetypes
 import os
 import sys
+import re
 from io import StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from markdown import markdown as render_markdown_html
+from weasyprint import HTML
 from project_evidence import add_evidence, delete_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
@@ -195,6 +198,99 @@ def _portfolio_payload(row: Any) -> Dict[str, Any]:
         "generated_at": row["generated_at"],
         "content": content,
     }
+
+
+def _safe_pdf_filename(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", value or "resume")
+    return cleaned.strip("_.") or "resume"
+
+
+def _resume_pdf_html(markdown_text: str) -> str:
+    body_html = render_markdown_html(markdown_text or "", extensions=["extra", "sane_lists"])
+    return f"""<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
+  <style>
+    @page {{
+      size: letter;
+      margin: 0.75in;
+    }}
+
+    html, body {{
+      margin: 0;
+      padding: 0;
+      color: #0f172a;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }}
+
+    .resume {{
+      width: 100%;
+    }}
+
+    h1 {{
+      margin: 0 0 0.22in;
+      font-size: 25pt;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #111827;
+    }}
+
+    h2 {{
+      margin: 0.2in 0 0.09in;
+      padding-bottom: 0.05in;
+      border-bottom: 1px solid #cbd5e1;
+      font-size: 10.8pt;
+      line-height: 1.2;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #334155;
+      font-weight: 700;
+    }}
+
+    h3 {{
+      margin: 0.14in 0 0.05in;
+      font-size: 10.8pt;
+      font-weight: 700;
+      color: #1f2937;
+    }}
+
+    p {{
+      margin: 0 0 0.08in;
+    }}
+
+    ul {{
+      margin: 0.04in 0 0.1in 0.2in;
+      padding: 0;
+    }}
+
+    li {{
+      margin: 0 0 0.055in;
+      padding-left: 0.01in;
+    }}
+
+    strong {{
+      font-weight: 700;
+      color: #111827;
+    }}
+
+    p > strong:first-child:last-child {{
+      display: block;
+      margin-top: 0.03in;
+      margin-bottom: 0.03in;
+      font-size: 10.8pt;
+    }}
+  </style>
+</head>
+<body>
+  <main class=\"resume\">{body_html}</main>
+</body>
+</html>
+"""
 
 
 def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
@@ -961,6 +1057,35 @@ def get_resume(resume_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Resume not found")
     return _resume_payload(row)
+
+
+@app.get("/resume/{resume_id}/pdf")
+def get_resume_pdf(resume_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
+            (resume_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+
+    resume_path = row["resume_path"]
+    if not resume_path or not os.path.isfile(resume_path):
+        raise HTTPException(status_code=404, detail="Resume file not found")
+
+    with open(resume_path, "r", encoding="utf-8") as fh:
+        markdown_text = fh.read()
+
+    html_doc = _resume_pdf_html(markdown_text)
+    pdf_bytes = HTML(string=html_doc, base_url=os.path.dirname(os.path.abspath(resume_path))).write_pdf()
+
+    username = row["username"] or "local"
+    filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": "no-store",
+    }
+    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers=headers)
 
 
 @app.get("/resumes")

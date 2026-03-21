@@ -158,41 +158,36 @@ function ResumePage({ onBack }) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPdf = () => {
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    iframe.setAttribute("aria-hidden", "true");
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
+  const downloadPdf = async () => {
+    setError("");
+    if (!resumeId) {
+      setError("Select or generate a saved resume before downloading PDF.");
       return;
     }
 
-    const escaped = resumeContent
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf`);
+      if (!response.ok) {
+        const { detail } = await response.json().catch(() => ({}));
+        throw new Error(detail || "Failed to generate PDF.");
+      }
 
-    doc.open();
-    doc.write(
-      `<html><head><title>resume_${selectedUsername}.pdf</title></head><body style="margin:24px;color:#0f172a;font-family:'DM Sans',sans-serif;"><pre style="white-space:pre-wrap;font-family:'DM Mono',Consolas,monospace;font-size:12px;line-height:1.45;">${escaped}</pre></body></html>`
-    );
-    doc.close();
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
+      const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+      const filename = filenameMatch?.[1] || `resume_${selectedUsername}.pdf`;
 
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 1200);
-    }, 250);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Unexpected error occurred.");
+    }
   };
 
   const formatGeneratedAt = (value) => {
@@ -456,6 +451,7 @@ function ResumePage({ onBack }) {
                   </button>
                   <button
                     onClick={downloadPdf}
+                    disabled={!resumeId}
                     className="secondary px-3 py-1"
                     style={{
                       background: "rgba(74,222,128,0.08)",
