@@ -203,6 +203,22 @@ class RobustGenerateResumeTests(unittest.TestCase):
         # Check normalized project heading is present
         self.assertRegex(md, r'\*\*Assignment.*TCP.*UDP.*\*\*', msg=md)
 
+    def test_aggregate_for_user_excludes_projects_by_name(self):
+        projects, root = gr.collect_projects()
+        all_agg = gr.aggregate_for_user('alice', projects, root)
+        self.assertGreaterEqual(len(all_agg['projects']), 1)
+
+        excluded_name = all_agg['projects'][0]['project_name']
+        filtered_agg = gr.aggregate_for_user(
+            'alice',
+            projects,
+            root,
+            excluded_project_names=[excluded_name],
+        )
+
+        remaining_names = {p['project_name'] for p in filtered_agg['projects']}
+        self.assertNotIn(excluded_name, remaining_names)
+
     def test_render_includes_evidence_impact_when_present(self):
         db_path = os.path.join(self.tmpdir.name, 'file_data.db')
         prev_db = os.environ.get("FILE_DATA_DB_PATH")
