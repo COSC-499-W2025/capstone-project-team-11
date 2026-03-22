@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import sys
@@ -95,21 +96,31 @@ class TestPortfolioDB(unittest.TestCase):
     # Clean up the temporary database after tests
     def tearDown(self):
         os.close(self.db_fd)
-        os.unlink(self.db_path)
         if 'FILE_DATA_DB_PATH' in os.environ:
             del os.environ['FILE_DATA_DB_PATH']
+        gc.collect()  # Force-release SQLite file handles before unlinking (fixes failing tests on Windows)
+        os.unlink(self.db_path)
 
     # Tests that saving and deleting of a portfolio works correctly
     def test_save_and_delete_portfolio(self):
-        metadata = {'project_count': 3, 'confidence_level': 'high'}
-        portfolio_id = save_portfolio('testuser', '/path/to/portfolio.md', metadata, '2026-01-12 10:00:00Z')
+        portfolio_id = save_portfolio(
+            'testuser',
+            'My Portfolio',
+            display_name='Test User',
+            included_project_ids=[1, 2, 3],
+            featured_project_ids=[1],
+            created_at='2026-01-12 10:00:00Z',
+        )
 
         with get_connection() as conn:
             cur = conn.cursor()
             cur.execute("SELECT * FROM portfolios WHERE id = ?", (portfolio_id,))
             row = cur.fetchone()
             self.assertEqual(row['username'], 'testuser')
-            self.assertEqual(json.loads(row['metadata_json'])['project_count'], 3)
+            self.assertEqual(row['portfolio_name'], 'My Portfolio')
+            self.assertEqual(row['display_name'], 'Test User')
+            self.assertEqual(json.loads(row['included_project_ids']), [1, 2, 3])
+            self.assertEqual(json.loads(row['featured_project_ids']), [1])
 
         self.assertTrue(delete_portfolio(portfolio_id))
         self.assertFalse(delete_portfolio(99999))
@@ -117,7 +128,7 @@ class TestPortfolioDB(unittest.TestCase):
     # Tests that save_portfolio() validates required fields before saving
     def test_save_portfolio_validation(self):
         with self.assertRaises(ValueError):
-            save_portfolio('', '/path/to/portfolio.md')
+            save_portfolio('', 'My Portfolio')
         with self.assertRaises(ValueError):
             save_portfolio('testuser', '')
         with self.assertRaises(ValueError):

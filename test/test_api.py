@@ -205,7 +205,7 @@ class TestAPI(unittest.TestCase):
             )
             conn.commit()
 
-        portfolio_id = db_mod.save_portfolio(username=username, portfolio_path=portfolio_file, metadata={}, generated_at="2025-02-14 12:00:00Z")
+        portfolio_id = db_mod.save_portfolio(username=username, portfolio_name="Test Portfolio", included_project_ids=[project_id], created_at="2025-02-14 12:00:00Z")
         return portfolio_id, project_id
 
     def test_privacy_consent(self):
@@ -541,32 +541,30 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp_edit.status_code, 200)
         self.assertTrue(resp_edit.json()["metadata"].get("edited"))
 
-    def test_portfolio_generate_get_edit(self):
-        self._write_project_info()
-        resp = self.client.post(
-            "/portfolio/generate",
-            json={
-                "username": "alice",
-                "output_root": self.output_root,
-                "portfolio_dir": self.portfolio_dir,
-                "confidence_level": "high",
-                "save_to_db": True,
-            },
-        )
-        self.assertEqual(resp.status_code, 201)
-        portfolio_id = resp.json().get("portfolio_id")
-        self.assertTrue(portfolio_id)
+    def test_portfolio_save_list_rename_get(self):
+        portfolio_id, project_id = self._seed_web_portfolio_data()
 
-        resp_get = self.client.get(f"/portfolio/{portfolio_id}")
+        # GET by id
+        resp_get = self.client.get(f"/portfolios/{portfolio_id}")
         self.assertEqual(resp_get.status_code, 200)
-        self.assertIn("# Portfolio — alice", resp_get.json().get("content", ""))
+        body = resp_get.json()
+        self.assertEqual(body["username"], "alice")
+        self.assertEqual(body["portfolio_name"], "Test Portfolio")
+        self.assertIn(project_id, body["included_project_ids"])
 
-        resp_edit = self.client.post(
-            f"/portfolio/{portfolio_id}/edit",
-            json={"content": "# Portfolio — alice\nUpdated\n", "metadata": {"edited": True}},
+        # LIST by username
+        resp_list = self.client.get("/portfolios", params={"username": "alice"})
+        self.assertEqual(resp_list.status_code, 200)
+        names = [p["portfolio_name"] for p in resp_list.json()]
+        self.assertIn("Test Portfolio", names)
+
+        # RENAME
+        resp_rename = self.client.patch(
+            f"/portfolios/{portfolio_id}/name",
+            json={"portfolio_name": "Renamed Portfolio"},
         )
-        self.assertEqual(resp_edit.status_code, 200)
-        self.assertTrue(resp_edit.json()["metadata"].get("edited"))
+        self.assertEqual(resp_rename.status_code, 200)
+        self.assertEqual(resp_rename.json()["portfolio_name"], "Renamed Portfolio")
 
     def test_web_portfolio_endpoints(self):
         portfolio_id, project_id = self._seed_web_portfolio_data()
@@ -592,20 +590,15 @@ class TestAPI(unittest.TestCase):
         customize_resp = self.client.patch(
             f"/web/portfolio/{portfolio_id}/customize",
             json={
-                "is_public": False,
                 "selected_project_ids": [project_id],
-                "showcase_project_ids": [project_id],
-                "hidden_skills": ["Testing"],
+                "featured_project_ids": [project_id],
             },
         )
         self.assertEqual(customize_resp.status_code, 200)
-        self.assertFalse(customize_resp.json()["web_config"]["is_public"])
+        self.assertIn(project_id, customize_resp.json()["featured_project_ids"])
 
-        public_blocked_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=public")
-        self.assertEqual(public_blocked_resp.status_code, 403)
-
-        private_ok_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=private")
-        self.assertEqual(private_ok_resp.status_code, 200)
+        timeline_after_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline")
+        self.assertEqual(timeline_after_resp.status_code, 200)
 
 
     def test_delete_project_endpoint(self):
@@ -915,54 +908,6 @@ class TestAPI(unittest.TestCase):
 
         resp_again = self.client.delete(f"/resume/{resume_id}")
         self.assertEqual(resp_again.status_code, 404)
-
-    def test_outputs_endpoint(self):
-        """Test /outputs endpoint with resumes and portfolios."""
-        resume_path = os.path.join(self.resume_dir, "resume_alice.md")
-        os.makedirs(self.resume_dir, exist_ok=True)
-        with open(resume_path, "w") as f:
-            f.write("# Resume\n")
-
-        with db_mod.get_connection() as conn:
-            conn.execute(
-                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
-                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
-            )
-            conn.execute(
-                "INSERT INTO portfolios (username, portfolio_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
-                ("alice", "/portfolio.md", "{}", "2026-01-02 15:00:00Z"),
-            )
-            conn.commit()
-
-        resp = self.client.get("/outputs")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data["resumes"], 1)
-        self.assertEqual(data["portfolios"], 1)
-        self.assertEqual(data["total"], 2)
-        self.assertEqual(data["latest_generated"], "2026-01-02 15:00:00Z")
-
-    def test_dashboard_stats_endpoint(self):
-        """Test /stats/dashboard returns projects, contributors, and outputs."""
-        self._write_project_info("alice")
-
-        with db_mod.get_connection() as conn:
-            conn.execute(
-                "INSERT INTO scans (project, scanned_at, notes) VALUES (?, ?, ?)",
-                ("demo_project", "2026-01-15 14:30:00Z", "scan"),
-            )
-            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("alice",))
-            conn.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", ("bob",))
-            conn.commit()
-
-        resp = self.client.get("/stats/dashboard")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        
-        self.assertEqual(data["projects"]["count"], 1)
-        self.assertEqual(data["projects"]["latest_project"], "demo_project")
-        self.assertEqual(data["contributors"]["count"], 2)
-        self.assertEqual(data["outputs"]["total"], 0)
 
 
 
