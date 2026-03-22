@@ -57,6 +57,8 @@ const mockAxios = (projectCount) => {
       return Promise.resolve({ data: { cells: [], max_value: 0 } });
     if (url.includes('/web/portfolio/') && url.includes('/timeline'))
       return Promise.resolve({ data: { timeline: [] } });
+    if (url.includes('/portfolios/all'))
+      return Promise.resolve({ data: [] });
     if (url.includes('/portfolios/'))
       return Promise.resolve({
         data: {
@@ -84,6 +86,9 @@ const mockAxios = (projectCount) => {
       return Promise.resolve({ data: { id: 42, included_project_ids: [], created_at: new Date().toISOString() } });
     return Promise.resolve({ data: {} });
   });
+  vi.spyOn(axios, 'delete').mockResolvedValue({ data: {} });
+  vi.spyOn(axios, 'put').mockResolvedValue({ data: {} });
+  vi.spyOn(axios, 'patch').mockResolvedValue({ data: {} });
 
   return { getSpy };
 };
