@@ -226,4 +226,58 @@ describe('PortfolioPage', () => {
     expect(sharedScroll?.querySelector('.project-heatmap-grid')).toBeTruthy();
     expect(sharedScroll?.querySelector('.project-heatmap-weeks')).toBeTruthy();
   });
+
+  it('Select All checks all included-project checkboxes', async () => {
+    mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+
+    const projectOne = await screen.findByLabelText(/project-1/i);
+    const projectTwo = screen.getByLabelText(/project-2/i);
+    const projectThree = screen.getByLabelText(/project-3/i);
+
+    fireEvent.click(projectOne);
+    expect(projectOne).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Select All$/i }));
+
+    expect(projectOne).toBeChecked();
+    expect(projectTwo).toBeChecked();
+    expect(projectThree).toBeChecked();
+  });
+
+  it('Deselect All unchecks all included-project checkboxes', async () => {
+    mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+
+    const projectOne = await screen.findByLabelText(/project-1/i);
+    const projectTwo = screen.getByLabelText(/project-2/i);
+    const projectThree = screen.getByLabelText(/project-3/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Deselect All$/i }));
+
+    expect(projectOne).not.toBeChecked();
+    expect(projectTwo).not.toBeChecked();
+    expect(projectThree).not.toBeChecked();
+  });
+
+  it('individual included-project toggle still works after bulk selection controls exist', async () => {
+    mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+
+    const projectOne = await screen.findByLabelText(/project-1/i);
+    const projectTwo = screen.getByLabelText(/project-2/i);
+    const projectThree = screen.getByLabelText(/project-3/i);
+
+    fireEvent.click(projectTwo);
+
+    expect(projectOne).toBeChecked();
+    expect(projectTwo).not.toBeChecked();
+    expect(projectThree).toBeChecked();
+  });
 });

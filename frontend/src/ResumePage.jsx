@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { API_BASE_URL } from "./api";
 
 function ResumePage({ onBack }) {
   const [contributors, setContributors] = useState([]);
@@ -16,16 +17,20 @@ function ResumePage({ onBack }) {
   const [llmSummary, setLlmSummary] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
+  const [userProjects, setUserProjects] = useState([]);
+  const [excludedProjectIds, setExcludedProjectIds] = useState([]);
+  const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
 
   const selectedUsername = username.trim() || "local";
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/contributors")
+    fetch(`${API_BASE_URL}/contributors`)
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then(setContributors)
       .catch(() => console.error("Contributor fetch failed"));
 
-    fetch("http://127.0.0.1:8000/config")
+    fetch(`${API_BASE_URL}/config`)
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((cfg) => {
         setLlmConsentGranted(Boolean(cfg.llm_resume_consent));
@@ -33,13 +38,23 @@ function ResumePage({ onBack }) {
       .catch(() => {
         setLlmConsentGranted(false);
       });
+
+    fetch(`${API_BASE_URL}/projects`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((raw) => {
+        const projects = Array.isArray(raw) ? raw : [];
+        setAllProjects(projects.map((p) => ({ ...p, display_name: p.custom_name || p.name })));
+      })
+      .catch(() => {
+        setAllProjects([]);
+      });
   }, []);
 
   const fetchHistory = (user) => {
     const u = (user || "").trim();
     const url = u
-      ? `http://127.0.0.1:8000/resumes?username=${encodeURIComponent(u)}`
-      : "http://127.0.0.1:8000/resumes";
+      ? `${API_BASE_URL}/resumes?username=${encodeURIComponent(u)}`
+      : `${API_BASE_URL}/resumes`;
     fetch(url)
       .then((r) => r.ok ? r.json() : [])
       .then(setResumeHistory)
@@ -50,10 +65,52 @@ function ResumePage({ onBack }) {
     fetchHistory(username);
   }, [username]);
 
+  useEffect(() => {
+    if (!username) {
+      setUserProjects([]);
+      setExcludedProjectIds([]);
+      return;
+    }
+
+    setIsLoadingUserProjects(true);
+    setExcludedProjectIds([]);
+    fetch(`${API_BASE_URL}/rank-projects?mode=contributor&contributor_name=${encodeURIComponent(username)}`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((raw) => {
+        const ranked = Array.isArray(raw) ? raw : [];
+        const rankedNames = new Set(ranked.map((item) => item.project));
+        setUserProjects(allProjects.filter((project) => rankedNames.has(project.name)));
+      })
+      .catch(() => {
+        setUserProjects([]);
+      })
+      .finally(() => {
+        setIsLoadingUserProjects(false);
+      });
+  }, [username, allProjects]);
+
+  const handleSelectAllProjects = () => {
+    setExcludedProjectIds([]);
+  };
+
+  const handleDeselectAllProjects = () => {
+    setExcludedProjectIds(
+      userProjects.map((project) => project.id ?? project.project_id)
+    );
+  };
+
+  const toggleExclude = (id) => {
+    setExcludedProjectIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id]
+    );
+  };
+
   const loadResumeById = async (id) => {
     setError("");
     try {
-      const res = await fetch(`http://127.0.0.1:8000/resume/${id}`);
+      const res = await fetch(`${API_BASE_URL}/resume/${id}`);
       if (!res.ok) throw new Error("Failed to retrieve selected resume.");
       const payload = await res.json();
       setResumeId(payload.id);
@@ -68,10 +125,21 @@ function ResumePage({ onBack }) {
   const handleGenerateResume = async () => {
     setError(""); setResumeContent(""); setResumeId(null); setIsLoading(true);
     try {
-      const gen = await fetch("http://127.0.0.1:8000/resume/generate", {
+      const excludedNames = userProjects
+        .filter((project) =>
+          excludedProjectIds.includes(project.id ?? project.project_id)
+        )
+        .map((project) => project.name ?? project.display_name);
+
+      const gen = await fetch(`${API_BASE_URL}/resume/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: selectedUsername, save_to_db: true, llm_summary: llmSummary }),
+        body: JSON.stringify({
+          username: selectedUsername,
+          save_to_db: true,
+          llm_summary: llmSummary,
+          excluded_project_names: excludedNames,
+        }),
       });
       if (!gen.ok) {
         const { detail } = await gen.json().catch(() => ({}));
@@ -80,7 +148,7 @@ function ResumePage({ onBack }) {
       const { resume_id } = await gen.json();
       setResumeId(resume_id);
 
-      const res = await fetch(`http://127.0.0.1:8000/resume/${resume_id}`);
+      const res = await fetch(`${API_BASE_URL}/resume/${resume_id}`);
       if (!res.ok) throw new Error("Failed to retrieve generated resume.");
       const { content } = await res.json();
       setResumeContent(content);
@@ -97,7 +165,7 @@ function ResumePage({ onBack }) {
   const handleSaveEdit = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/edit`, {
+      const res = await fetch(`${API_BASE_URL}/resume/${resumeId}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: editContent }),
@@ -117,7 +185,7 @@ function ResumePage({ onBack }) {
     if (!window.confirm("Delete this resume? This cannot be undone.")) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/resume/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/resume/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete resume.");
       if (resumeId === id) {
         setResumeContent("");
@@ -338,6 +406,49 @@ function ResumePage({ onBack }) {
                 {contributors.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </label>
+
+            <fieldset className="portfolio-exclusion-fieldset">
+              <legend>Included Projects</legend>
+              {!username && (
+                <p className="portfolio-hint">Select a username above to see their projects.</p>
+              )}
+              {username && isLoadingUserProjects && (
+                <p className="portfolio-hint">Loading projects…</p>
+              )}
+              {username && !isLoadingUserProjects && userProjects.length === 0 && (
+                <p className="portfolio-hint">No projects found for this contributor.</p>
+              )}
+              {username && !isLoadingUserProjects && userProjects.length > 0 && (
+                <>
+                  <p className="portfolio-hint">
+                    Uncheck any projects you do NOT want included in your resume.
+                  </p>
+
+                  <div className="flex flex-wrap gap-3" style={{ marginBottom: '0.75rem' }}>
+                    <button type="button" className="secondary" onClick={handleSelectAllProjects}>
+                      Select All
+                    </button>
+                    <button type="button" className="secondary" onClick={handleDeselectAllProjects}>
+                      Deselect All
+                    </button>
+                  </div>
+
+                  {userProjects.map((project) => {
+                    const id = project.id ?? project.project_id;
+                    return (
+                      <label key={id} className="toggle-row">
+                        <input
+                          type="checkbox"
+                          checked={!excludedProjectIds.includes(id)}
+                          onChange={() => toggleExclude(id)}
+                        />
+                        <span>{project.display_name ?? project.name}</span>
+                      </label>
+                    );
+                  })}
+                </>
+              )}
+            </fieldset>
 
             <label
               className="toggle-row"
