@@ -57,11 +57,12 @@ const mockAxios = (projectCount) => {
       return Promise.resolve({ data: { cells: [], max_value: 0 } });
     if (url.includes('/web/portfolio/') && url.includes('/timeline'))
       return Promise.resolve({ data: { timeline: [] } });
-    if (url.includes('/portfolio/'))
+    if (url.includes('/portfolios/'))
       return Promise.resolve({
         data: {
-          metadata: { project_count: projectCount },
-          generated_at: new Date().toISOString(),
+          id: 42,
+          included_project_ids: Array.from({ length: projectCount }, (_, i) => i + 1),
+          created_at: new Date().toISOString(),
         },
       });
     if (/\/projects\/\d+/.test(url)) {
@@ -79,8 +80,8 @@ const mockAxios = (projectCount) => {
     return Promise.resolve({ data: projects });
   });
   vi.spyOn(axios, 'post').mockImplementation((url) => {
-    if (url.includes('/portfolio/generate'))
-      return Promise.resolve({ data: { portfolio_id: 42 } });
+    if (url.includes('/portfolios'))
+      return Promise.resolve({ data: { id: 42, included_project_ids: [], created_at: new Date().toISOString() } });
     return Promise.resolve({ data: {} });
   });
 
