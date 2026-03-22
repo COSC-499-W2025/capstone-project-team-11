@@ -631,6 +631,32 @@ def save_portfolio(
         conn.close()
 
 
+def list_all_portfolios() -> list:
+    """Return all saved (non-temp) portfolios across every contributor, newest first"""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, username, portfolio_name, display_name,
+                   included_project_ids, featured_project_ids, created_at
+            FROM portfolios
+            WHERE portfolio_name NOT LIKE '__temp__%'
+            ORDER BY created_at DESC
+            """,
+        ).fetchall()
+    result = []
+    for row in rows:
+        result.append({
+            "id": row["id"],
+            "username": row["username"],
+            "portfolio_name": row["portfolio_name"],
+            "display_name": row["display_name"],
+            "included_project_ids": json.loads(row["included_project_ids"] or "[]"),
+            "featured_project_ids": json.loads(row["featured_project_ids"] or "[]"),
+            "created_at": row["created_at"],
+        })
+    return result
+
+
 def list_portfolios(username: str) -> list:
     """Return all saved portfolios for a given username, newest first."""
     with get_connection() as conn:
@@ -671,6 +697,40 @@ def rename_portfolio(portfolio_id: int, portfolio_name: str) -> bool:
         return conn.execute(
             "SELECT changes()"
         ).fetchone()[0] > 0
+
+
+def update_portfolio(
+    portfolio_id: int,
+    portfolio_name: str,
+    display_name: str = None,
+    included_project_ids: list = None,
+    featured_project_ids: list = None,
+) -> bool:
+    """Overwrite all user-editable fields on an existing portfolio row.
+    Returns True if the row was found and updated, False otherwise.
+    """
+    if not portfolio_id or not portfolio_name:
+        raise ValueError("portfolio_id and portfolio_name are required")
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE portfolios
+               SET portfolio_name        = ?,
+                   display_name          = ?,
+                   included_project_ids  = ?,
+                   featured_project_ids  = ?
+             WHERE id = ?
+            """,
+            (
+                portfolio_name,
+                display_name,
+                json.dumps(included_project_ids or []),
+                json.dumps(featured_project_ids or []),
+                portfolio_id,
+            ),
+        )
+        conn.commit()
+        return conn.execute("SELECT changes()").fetchone()[0] > 0
 
 
 def delete_portfolio(portfolio_id: int):

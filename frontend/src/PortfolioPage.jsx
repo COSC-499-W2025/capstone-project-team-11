@@ -720,6 +720,28 @@ function PortfolioPage({ onBack, showStars = true }) {
   // Track which projects are starred/featured by storing their names in a set
   const [featuredIds, setFeaturedIds] = useState(new Set());
 
+  // Saved portfolios across all contributors, loaded once contributor list is fully populated
+  const [savedPortfolios, setSavedPortfolios] = useState([]);
+  const [isLoadingSavedPortfolios, setIsLoadingSavedPortfolios] = useState(false);
+
+  // On portfolio generation we create a "__temp__" DB row (required to support heatmap/timeline endpoints)
+  // We use these constants to track whether or not that temp row needs to be deleted (explicity not saved, or app closed before saving)
+  const [portfolioIsSaved, setPortfolioIsSaved] = useState(false);
+
+  // Save portfolio modal states
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveModalName, setSaveModalName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Rename state for saved portfolio list
+  const [renamingPortfolioId, setRenamingPortfolioId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Delete any "__temp__" rows left behind by a previous abrupt/unintentional close
+  useEffect(() => {
+    axios.delete(`${API_BASE_URL}/portfolios/cleanup-temp`).catch(() => {});
+  }, []);
+
   useEffect(() => {
     axios
       .get(`${API_BASE_URL}/projects`)
@@ -744,6 +766,16 @@ function PortfolioPage({ onBack, showStars = true }) {
     };
 
     loadContributors();
+  }, []);
+
+  // Fetch all saved portfolios in a single request (excludes __temp__ rows)
+  useEffect(() => {
+    setIsLoadingSavedPortfolios(true);
+    axios
+      .get(`${API_BASE_URL}/portfolios/all`)
+      .then((res) => setSavedPortfolios(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setSavedPortfolios([]))
+      .finally(() => setIsLoadingSavedPortfolios(false));
   }, []);
 
   // When selected username changes, fetch only the projects that contributor is linked to
@@ -817,16 +849,18 @@ function PortfolioPage({ onBack, showStars = true }) {
 
     // Generate the portfolio and aggregate required data
     try {
-      // Save the portfolio record to the DB, get back the new portfolio_id
+      // Create a temporary DB row to drive the heatmap/timeline (visualization) endpoints.
+      // Named with the "__temp__" flag so it can be deleted if the app closes mid-session.
       const saveRes = await axios.post(`${API_BASE_URL}/portfolios`, {
         username,
-        portfolio_name: legalName.trim() || `${username}'s Portfolio`,
-        display_name: legalName.trim() || null,
+        portfolio_name: `__temp__${username}`,
+        display_name: null,
         included_project_ids: eligible.map((p) => p.id ?? p.project_id),
         featured_project_ids: [],
       });
       const portfolio_id = saveRes.data.id;
       setPortfolioId(portfolio_id);
+      setPortfolioIsSaved(false); // Temp row, not yet explicitly saved by user
 
       // Retrieve all relevant data for the web portfolio (fetched in parallel)
       const [metaRes, showcaseRes, heatmapRes, timelineRes] = await Promise.all([
@@ -905,6 +939,11 @@ function PortfolioPage({ onBack, showStars = true }) {
 
   // Reset web portfolio state and go back to setup form
   const handleBackToSetup = () => {
+    // If the user never explicitly saved the portfolio, delete the temp DB row that was created on generation
+    if (portfolioId !== null && !portfolioIsSaved) {
+      axios.delete(`${API_BASE_URL}/portfolios/${portfolioId}`).catch(() => {});
+    }
+    setPortfolioIsSaved(false);
     setPhase('setup');
     setPortfolioId(null);
     setPortfolioMeta(null);
@@ -921,6 +960,134 @@ function PortfolioPage({ onBack, showStars = true }) {
     setExpandedProjectId(null);
     clearTimeout(toastTimer.current);
     setToast(null);
+  };
+
+  // Save the current dashboard state, updates the existing temp row in-place (no new DB row)
+  const handleSavePortfolio = async () => {
+    const name = saveModalName.trim();
+    if (!name) {
+      showToast('Please enter a name for your portfolio.', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const featuredProjectIds = includedProjects
+        .filter((p) => featuredIds.has(p.display_name ?? p.name))
+        .map((p) => p.id ?? p.project_id);
+      const res = await axios.put(`${API_BASE_URL}/portfolios/${portfolioId}`, {
+        portfolio_name: name,
+        display_name: legalName.trim() || null,
+        included_project_ids: includedProjects.map((p) => p.id ?? p.project_id),
+        featured_project_ids: featuredProjectIds,
+      });
+      // Update the saved list, replace if already present, otherwise add
+      setSavedPortfolios((prev) => {
+        const exists = prev.some((p) => p.id === portfolioId);
+        return exists
+          ? prev.map((p) => (p.id === portfolioId ? res.data : p))
+          : [res.data, ...prev];
+      });
+      setPortfolioIsSaved(true);
+      setSaveModalOpen(false);
+      setSaveModalName('');
+      showToast(`Portfolio "${name}" saved.`, 'success');
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to save portfolio.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Restore/rebuild a saved portfolio (re-fetch all visualisation data and enter dashboard phase)
+  const handleLoadPortfolio = async (saved) => {
+    setIsGenerating(true);
+    try {
+      const eligible = allProjects.filter((p) =>
+        (saved.included_project_ids || []).includes(p.id ?? p.project_id)
+      );
+      setUsername(saved.username);
+      setLegalName(saved.display_name || '');
+      setExcludedProjectIds([]);
+      setIncludedProjects(eligible);
+
+      const portfolio_id = saved.id;
+      setPortfolioId(portfolio_id);
+
+      const [metaRes, showcaseRes, heatmapRes, timelineRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/portfolios/${portfolio_id}`),
+        axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/showcase?limit=3`),
+        axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/heatmap?granularity=day`),
+        axios.get(`${API_BASE_URL}/web/portfolio/${portfolio_id}/timeline?granularity=month`),
+      ]);
+
+      setPortfolioMeta(metaRes.data);
+      setHeatmapData(heatmapRes.data);
+      setTimelineData(timelineRes.data.timeline || []);
+
+      const detailResults = await Promise.allSettled(
+        eligible.map((p) => axios.get(`${API_BASE_URL}/projects/${p.id ?? p.project_id}`))
+      );
+      const detailMap = {};
+      detailResults.forEach((result, i) => {
+        const id = eligible[i].id ?? eligible[i].project_id;
+        if (result.status === 'fulfilled') detailMap[id] = result.value.data ?? null;
+      });
+      setProjectDetails(detailMap);
+
+      const featuredNames = new Set(
+        eligible
+          .filter((p) => (saved.featured_project_ids || []).includes(p.id ?? p.project_id))
+          .map((p) => p.display_name ?? p.name)
+      );
+      if (featuredNames.size === 0) {
+        const top = (showcaseRes.data.projects || []).slice(0, MAX_FEATURED).map((p) => p.name ?? p.display_name);
+        top.forEach((n) => featuredNames.add(n));
+      }
+      setFeaturedIds(featuredNames);
+
+      const initialProject = eligible[0] ?? null;
+      const initialProjectId = initialProject ? (initialProject.id ?? initialProject.project_id) : null;
+      setSelectedHeatmapProjectId(initialProjectId);
+      setHeatmapViewScope('project');
+      setProjectHeatmaps({});
+      if (initialProject) await loadProjectHeatmap(portfolio_id, initialProject, 'project');
+
+      setPortfolioIsSaved(true); // loaded from an existing saved record - do not delete on back
+      setPhase('dashboard');
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to load portfolio.', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Delete a saved portfolio entry from the DB
+  const handleDeletePortfolio = async (portfolioIdToDelete, portfolioName) => {
+    if (!window.confirm(`Delete "${portfolioName}"? This cannot be undone.`)) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/portfolios/${portfolioIdToDelete}`);
+      setSavedPortfolios((prev) => prev.filter((p) => p.id !== portfolioIdToDelete));
+      showToast('Portfolio deleted.', 'success');
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to delete portfolio.', 'error');
+    }
+  };
+
+  // Rename a saved portfolio
+  const handleRenamePortfolio = async (portfolioIdToRename) => {
+    const name = renameValue.trim();
+    if (!name) { setRenamingPortfolioId(null); return; }
+    try {
+      const res = await axios.patch(`${API_BASE_URL}/portfolios/${portfolioIdToRename}/name`, {
+        portfolio_name: name,
+      });
+      setSavedPortfolios((prev) =>
+        prev.map((p) => (p.id === portfolioIdToRename ? { ...p, portfolio_name: res.data.portfolio_name } : p))
+      );
+      setRenamingPortfolioId(null);
+    } catch (err) {
+      showToast(err?.response?.data?.detail || err.message || 'Failed to rename portfolio.', 'error');
+    }
   };
 
   // Store display name for web portfolio header
@@ -980,7 +1147,49 @@ function PortfolioPage({ onBack, showStars = true }) {
           <button type="button" className="secondary" onClick={handleBackToSetup}>
             Back to Setup
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSaveModalName('');
+              setSaveModalOpen(true);
+            }}
+          >
+            Save Portfolio
+          </button>
         </div>
+
+        {/* Save Portfolio modal */}
+        {saveModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Save Portfolio">
+            <div className="modal-box" style={{ maxWidth: 420 }}>
+              <h3 style={{ marginTop: 0 }}>Save Portfolio</h3>
+              <label className="portfolio-form-label">
+                Portfolio Name
+                <input
+                  type="text"
+                  className="portfolio-input"
+                  value={saveModalName}
+                  onChange={(e) => setSaveModalName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSavePortfolio(); }}
+                  autoFocus
+                />
+              </label>
+              <div className="portfolio-form-actions" style={{ marginTop: '1rem' }}>
+                <button type="button" onClick={handleSavePortfolio} disabled={isSaving}>
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => { setSaveModalOpen(false); setSaveModalName(''); }}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Global toast notification */}
         {toast && (
@@ -1372,6 +1581,76 @@ function PortfolioPage({ onBack, showStars = true }) {
               </button>
             </div>
           </div>
+        )}
+      </section>
+
+      {/* Saved Portfolios tile */}
+      <section className="portfolio-setup-panel" style={{ marginTop: '1.5rem' }}>
+        <h2>Saved Portfolios</h2>
+        {isLoadingSavedPortfolios && <p className="portfolio-hint">Loading saved portfolios…</p>}
+        {!isLoadingSavedPortfolios && savedPortfolios.length === 0 && (
+          <p className="portfolio-hint">No saved portfolios yet. Generate a portfolio and click <strong>Save Portfolio</strong>.</p>
+        )}
+        {!isLoadingSavedPortfolios && savedPortfolios.length > 0 && (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {savedPortfolios.map((p) => (
+              <li
+                key={p.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.55rem 0.8rem',
+                  background: 'var(--surface, #1e2a1e)',
+                  borderRadius: '0.5rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {/* Name/rename inline editor */}
+                {renamingPortfolioId === p.id ? (
+                  <input
+                    type="text"
+                    className="portfolio-input"
+                    style={{ flex: 1, minWidth: 120 }}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenamePortfolio(p.id);
+                      if (e.key === 'Escape') setRenamingPortfolioId(null);
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: '0.95rem' }}>
+                    {p.portfolio_name}
+                    <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#7a9a7a', marginLeft: '0.5rem' }}>
+                      {p.username} · {new Date(p.created_at).toLocaleDateString()}
+                    </span>
+                  </span>
+                )}
+
+                {/* Action buttons */}
+                {renamingPortfolioId === p.id ? (
+                  <>
+                    <button type="button" onClick={() => handleRenamePortfolio(p.id)}>Save</button>
+                    <button type="button" className="secondary" onClick={() => setRenamingPortfolioId(null)}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" disabled={isGenerating} onClick={() => handleLoadPortfolio(p)}>
+                      {isGenerating ? 'Loading…' : 'View'}
+                    </button>
+                    <button type="button" className="secondary" onClick={() => { setRenamingPortfolioId(p.id); setRenameValue(p.portfolio_name); }}>
+                      Rename
+                    </button>
+                    <button type="button" className="danger" onClick={() => handleDeletePortfolio(p.id, p.portfolio_name)}>
+                      Delete
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
