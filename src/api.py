@@ -3,6 +3,7 @@ import mimetypes
 import os
 import sys
 import re
+import sqlite3
 from io import StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -164,6 +165,21 @@ def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
         return json.loads(metadata_json)
     except Exception:
         return {}
+
+
+def _table_exists(conn: Any, table_name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return bool(row)
+
+
+def _table_has_column(conn: Any, table_name: str, column_name: str) -> bool:
+    if not _table_exists(conn, table_name):
+        return False
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(row["name"] == column_name for row in rows)
 
 
 def _resume_payload(row: Any) -> Dict[str, Any]:
@@ -1188,13 +1204,35 @@ def get_dashboard_stats():
             LIMIT 1
             """
         ).fetchone()
-        
-        # Outputs info
-        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
-        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
-        latest_output = conn.execute(
-            "SELECT generated_at FROM (SELECT generated_at FROM resumes UNION ALL SELECT generated_at FROM portfolios) ORDER BY generated_at DESC LIMIT 1"
-        ).fetchone()
+
+        # Outputs info. Older local DBs may not yet have these tables/columns.
+        resumes_count = 0
+        portfolios_count = 0
+        latest_output = None
+
+        try:
+            if _table_exists(conn, "resumes"):
+                resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
+            if _table_exists(conn, "portfolios"):
+                portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
+
+            generated_timestamps: List[str] = []
+            if _table_has_column(conn, "resumes", "generated_at"):
+                generated_timestamps.extend(
+                    row["generated_at"]
+                    for row in conn.execute("SELECT generated_at FROM resumes WHERE generated_at IS NOT NULL").fetchall()
+                    if row["generated_at"]
+                )
+            if _table_has_column(conn, "portfolios", "generated_at"):
+                generated_timestamps.extend(
+                    row["generated_at"]
+                    for row in conn.execute("SELECT generated_at FROM portfolios WHERE generated_at IS NOT NULL").fetchall()
+                    if row["generated_at"]
+                )
+            if generated_timestamps:
+                latest_output = {"generated_at": max(generated_timestamps)}
+        except sqlite3.OperationalError:
+            latest_output = None
     
     return {
         "projects": {
