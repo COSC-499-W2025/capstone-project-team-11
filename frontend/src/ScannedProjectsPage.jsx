@@ -48,6 +48,14 @@ function getEvidenceMeta(item) {
   return item.type ?? item.kind ?? item.category ?? item.source ?? '';
 }
 
+function formatEvidenceTypeLabel(value) {
+  if (!value) return '';
+  return String(value)
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function getEvidenceDescription(item) {
   if (!item || typeof item !== 'object') return '';
   return item.value ?? item.description ?? item.source ?? item.url ?? '';
@@ -77,6 +85,10 @@ function ScannedProjectsPage({ onBack }) {
   const [newEvidenceValue, setNewEvidenceValue] = useState('');
   const [newEvidenceSource, setNewEvidenceSource] = useState('');
   const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
+  const [editingEvidenceId, setEditingEvidenceId] = useState(null);
+  const [editEvidenceValue, setEditEvidenceValue] = useState('');
+  const [editEvidenceSource, setEditEvidenceSource] = useState('');
+  const [editEvidenceUrl, setEditEvidenceUrl] = useState('');
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -255,6 +267,31 @@ function ScannedProjectsPage({ onBack }) {
       setIsAddingEvidence(false);
     }
   };
+
+  const handleUpdateEvidence = async (evidenceId) => {
+  if (!selectedProjectId || !evidenceId) return;
+
+  try {
+    setEvidenceError('');
+
+    await axios.patch(
+      `${API_BASE_URL}/projects/${selectedProjectId}/evidence/${evidenceId}`,
+      {
+        value: editEvidenceValue,
+        source: editEvidenceSource,
+        url: editEvidenceUrl,
+      }
+    );
+
+    setEditingEvidenceId(null);
+    await refreshProjectData();
+  } catch (error) {
+    console.error('Failed to update evidence:', error);
+    setEvidenceError(
+      error?.response?.data?.detail || 'Failed to update evidence.'
+    );
+  }
+};
 
   const handleDeleteEvidence = async (evidenceId) => {
     if (selectedProjectId == null || !evidenceId) return;
@@ -500,7 +537,7 @@ function ScannedProjectsPage({ onBack }) {
               </div>
 
               <div className="project-panel-tabs" role="tablist" aria-label="Project detail panels">
-                {['overview', 'signals', 'contributors', 'activity'].map((panel) => (
+                {['overview', 'signals', 'contributors', 'activity','evidence'].map((panel) => (
                   <button
                     key={panel}
                     type="button"
@@ -509,7 +546,7 @@ function ScannedProjectsPage({ onBack }) {
                     className={`project-panel-tab ${activePanel === panel ? 'is-active' : ''}`}
                     onClick={() => setActivePanel(panel)}
                   >
-                    {panel}
+                    {panel.charAt(0).toUpperCase() + panel.slice(1)}
                   </button>
                 ))}
               </div>
@@ -790,11 +827,15 @@ function ScannedProjectsPage({ onBack }) {
                       <p className="empty-copy">No scans have been recorded for this project yet.</p>
                     )}
                   </article>
+                </div>
+              ) : null}
 
+              {activePanel === 'evidence' ? (
+                <div className="detail-grid">
               <article className="detail-card">
                     <div className="detail-card-header">
                       <span className="panel-eyebrow">Evidence</span>
-                      <h4>Saved Items</h4>
+                      <h4>Project Evidence</h4>
                     </div>
 
                     <form className="evidence-form" onSubmit={handleAddEvidence}>
@@ -805,11 +846,11 @@ function ScannedProjectsPage({ onBack }) {
                           onChange={(event) => setNewEvidenceType(event.target.value)}
                           className="detail-input"
                         >
-                          <option value="metric">metric</option>
-                          <option value="award">award</option>
-                          <option value="endorsement">endorsement</option>
-                          <option value="publication">publication</option>
-                          <option value="external_link">external_link</option>
+                          <option value="metric">Metric</option>
+                          <option value="award">Award</option>
+                          <option value="endorsement">Endorsement</option>
+                          <option value="publication">Publication</option>
+                          <option value="external_link">External Link</option>
                         </select>
                       </label>
 
@@ -862,35 +903,103 @@ function ScannedProjectsPage({ onBack }) {
                     {evidence.length > 0 ? (
                       <div className="evidence-list">
                     {evidence.map((item, index) => (
-                      <div key={item.id ?? index} className="evidence-item">
+                      <div key={item.id ?? index} className="evidence-item" style={{ marginBottom: "10px" }}>
 
                         <div className="evidence-item-top">
                           {getEvidenceMeta(item) ? (
-                            <span className="detail-chip muted">{getEvidenceMeta(item)}</span>
+                            <span className="detail-chip muted">{formatEvidenceTypeLabel(getEvidenceMeta(item))}</span>
                           ) : null}
 
                           {item?.id ? (
-                            <button
-                              type="button"
-                              className="danger"
-                              onClick={() => handleDeleteEvidence(item.id)}
-                            >
-                              Delete
-                            </button>
-                          ) : null}
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  className="hero-action-button"
+                                  onClick={() => {
+                                    setEditingEvidenceId(item.id);
+                                    setEditEvidenceValue(item.value || '');
+                                    setEditEvidenceSource(item.source || '');
+                                    setEditEvidenceUrl(item.url || '');
+                                  }}
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  onClick={() => handleDeleteEvidence(item.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
                         </div>
 
-                        <p className="evidence-item-value">
-                          {item?.value || 'No evidence details available.'}
-                        </p>
+                        {editingEvidenceId === item.id ? (
+                              <div className="edit-evidence-form">
+
+                                <input
+                                  type="text"
+                                  value={editEvidenceValue}
+                                  onChange={(e) => setEditEvidenceValue(e.target.value)}
+                                  className="detail-input"
+                                  placeholder="Value"
+                                />
+
+                                <input
+                                  type="text"
+                                  value={editEvidenceSource}
+                                  onChange={(e) => setEditEvidenceSource(e.target.value)}
+                                  className="detail-input"
+                                  placeholder="Source"
+                                />
+
+                                <input
+                                  type="text"
+                                  value={editEvidenceUrl}
+                                  onChange={(e) => setEditEvidenceUrl(e.target.value)}
+                                  className="detail-input"
+                                  placeholder="URL"
+                                />
+
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                  <button
+                                    className="hero-action-button save-action-button"
+                                    onClick={() => handleUpdateEvidence(item.id)}
+                                  >
+                                    Save
+                                  </button>
+
+                                  <button
+                                    className="hero-action-button"
+                                    onClick={() => setEditingEvidenceId(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+
+                              </div>
+                            ) : (
+                              <p className="evidence-item-value">
+                                {item?.value || 'No evidence details available.'}
+                              </p>
+                            )}
 
                         {item?.source && (
                           <p className="evidence-item-meta">Source: {item.source}</p>
                         )}
 
-                        {item?.url && (
-                          <p className="evidence-item-meta">{item.url}</p>
-                        )}
+                              {item?.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="evidence-item-meta"
+                      >
+                        View Evidence →
+                      </a>
+                    )}
 
                       </div>
                     ))}                       
@@ -899,8 +1008,8 @@ function ScannedProjectsPage({ onBack }) {
                                           <p className="empty-copy">No evidence items stored.</p>
                                         )}
                                       </article>
-                                    </div>
-                                  ) : null}
+                </div>
+              ) : null}
                                 </div>
                               )}
 

@@ -803,7 +803,7 @@ def delete_project_by_id(project_id):
             )
         """)
 
-        # Remove orphaned languages no longer linked to any files
+        # Cleanup orphaned languages no longer linked to any files.
         cur.execute("""
             DELETE FROM languages
             WHERE id NOT IN (
@@ -813,7 +813,7 @@ def delete_project_by_id(project_id):
         """)       
     
         conn.commit()
-        return True 
+        return True
 
     except Exception as e:
         conn.rollback()

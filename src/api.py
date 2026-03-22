@@ -10,9 +10,10 @@ import subprocess
 # Ensure local imports work when running via uvicorn from repo root.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from project_evidence import add_evidence, delete_evidence, update_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
 import queue
@@ -766,6 +767,43 @@ def get_project(project_id: int):
         "git_metrics": git_metrics,
         "rank_score": rank_score,
     }
+
+
+@app.patch("/projects/{project_id}/evidence/{evidence_id}")
+def update_project_evidence(project_id: int, evidence_id: int, payload: dict = Body(...)):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM project_evidence WHERE id = ? AND project_id = ?",
+            (evidence_id, project_id),
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    updates = {}
+    if "type" in payload:
+        try:
+            updates["type"] = validate_evidence_type(payload.get("type", ""))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if "description" in payload:
+        updates["description"] = payload.get("description")
+    if "value" in payload:
+        updates["value"] = payload.get("value")
+    if "source" in payload:
+        updates["source"] = payload.get("source")
+    if "url" in payload:
+        updates["url"] = payload.get("url")
+    if "added_by_user" in payload:
+        updates["added_by_user"] = payload.get("added_by_user")
+
+    updated = update_evidence(evidence_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    return {"message": "Evidence updated successfully"}
+
+
 
 
 @app.get("/skills")
