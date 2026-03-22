@@ -15,7 +15,6 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from markdown import markdown as render_markdown_html
-from weasyprint import HTML
 from project_evidence import add_evidence, delete_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
@@ -1076,6 +1075,13 @@ def get_resume_pdf(resume_id: int):
 
     with open(resume_path, "r", encoding="utf-8") as fh:
         markdown_text = fh.read()
+
+    try:
+        from weasyprint import HTML
+    except OSError as e:
+        raise HTTPException(
+            status_code=503
+        )
 
     html_doc = _resume_pdf_html(markdown_text)
     pdf_bytes = HTML(string=html_doc, base_url=os.path.dirname(os.path.abspath(resume_path))).write_pdf()
