@@ -231,4 +231,18 @@ describe('PortfolioPage', () => {
     expect(sharedScroll?.querySelector('.project-heatmap-grid')).toBeTruthy();
     expect(sharedScroll?.querySelector('.project-heatmap-weeks')).toBeTruthy();
   });
+
+  it('select all and deselect all update the included project checkboxes', async () => {
+    mockAxios(3);
+    render(<PortfolioPage onBack={() => {}} />);
+
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+
+    const checkboxes = await screen.findAllByRole('checkbox');
+    fireEvent.click(screen.getByRole('button', { name: /^Deselect All$/i }));
+    checkboxes.forEach((checkbox) => expect(checkbox).not.toBeChecked());
+
+    fireEvent.click(screen.getByRole('button', { name: /^Select All$/i }));
+    checkboxes.forEach((checkbox) => expect(checkbox).toBeChecked());
+  });
 });

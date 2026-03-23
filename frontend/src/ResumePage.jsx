@@ -97,6 +97,18 @@ function ResumePage({ onBack }) {
     ));
   };
 
+  const handleSelectAllProjects = () => {
+    setExcludedProjectIds([]);
+  };
+
+  const handleDeselectAllProjects = () => {
+    setExcludedProjectIds(
+      userProjects
+        .map((project) => project.id ?? project.project_id)
+        .filter((projectId) => projectId != null)
+    );
+  };
+
   const loadResumeById = async (id) => {
     setError("");
     try {
@@ -428,23 +440,33 @@ function ResumePage({ onBack }) {
                 )}
 
                 {!isLoadingUserProjects && userProjects.length > 0 && (
-                  <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
-                    {userProjects.map((project) => {
-                      const projectId = project.id ?? project.project_id;
-                      if (projectId == null) return null;
-                      const label = project.custom_name || project.display_name || project.name;
-                      return (
-                        <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={!excludedProjectIds.includes(projectId)}
-                            onChange={() => toggleExclude(projectId)}
-                          />
-                          <span>{label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="flex flex-wrap gap-3" style={{ marginBottom: "0.75rem" }}>
+                      <button type="button" className="secondary" onClick={handleSelectAllProjects}>
+                        Select All
+                      </button>
+                      <button type="button" className="secondary" onClick={handleDeselectAllProjects}>
+                        Deselect All
+                      </button>
+                    </div>
+                    <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
+                      {userProjects.map((project) => {
+                        const projectId = project.id ?? project.project_id;
+                        if (projectId == null) return null;
+                        const label = project.custom_name || project.display_name || project.name;
+                        return (
+                          <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={!excludedProjectIds.includes(projectId)}
+                              onChange={() => toggleExclude(projectId)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </fieldset>
             )}
