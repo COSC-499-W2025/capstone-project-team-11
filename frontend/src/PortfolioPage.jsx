@@ -807,6 +807,18 @@ function PortfolioPage({ onBack, showStars = true }) {
     );
   };
 
+  const handleSelectAllProjects = () => {
+    setExcludedProjectIds([]);
+  };
+
+  const handleDeselectAllProjects = () => {
+    setExcludedProjectIds(
+      userProjects
+        .map((project) => project.id ?? project.project_id)
+        .filter((projectId) => projectId != null)
+    );
+  };
+
   const loadProjectHeatmap = async (portfolioIdValue, project, viewScope = 'project') => {
     const projectId = project?.id ?? project?.project_id;
     if (!portfolioIdValue || !projectId) return;
@@ -1552,6 +1564,14 @@ function PortfolioPage({ onBack, showStars = true }) {
                   <p className="portfolio-hint">
                     Uncheck any projects you do NOT want included in your portfolio.
                   </p>
+                  <div className="flex flex-wrap gap-3" style={{ marginBottom: '0.75rem' }}>
+                    <button type="button" className="secondary" onClick={handleSelectAllProjects}>
+                      Select All
+                    </button>
+                    <button type="button" className="secondary" onClick={handleDeselectAllProjects}>
+                      Deselect All
+                    </button>
+                  </div>
                   {userProjects.map((project) => {
                     const id = project.id ?? project.project_id;
                     return (
