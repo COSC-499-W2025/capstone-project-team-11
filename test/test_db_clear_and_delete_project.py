@@ -1,8 +1,9 @@
+import gc
+import json
 import os
 import sys
 import tempfile
 import unittest
-import json
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
@@ -24,8 +25,9 @@ class TestDatabaseClearAndDeleteProject(unittest.TestCase):
 
     def tearDown(self):
         os.close(self.db_fd)
-        os.unlink(self.db_path)
         os.environ.pop("FILE_DATA_DB_PATH", None)
+        gc.collect()  # Force-release SQLite file handles before unlinking (fixes failing tests on Windows)
+        os.unlink(self.db_path)
 
     # -----------------------------
     # CLEAR DATABASE TESTS

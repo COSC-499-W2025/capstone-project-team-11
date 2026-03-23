@@ -11,6 +11,10 @@ describe("DatabaseMaintenance", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    document.querySelectorAll(".modal-overlay").forEach((node) => node.remove());
+  });
+
   test("renders page and loads database tables", async () => {
 
     axios.get.mockResolvedValueOnce({
@@ -117,7 +121,11 @@ describe("DatabaseMaintenance", () => {
 
     render(<DatabaseMaintenance onBack={() => {}} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Clear Database/i }));
+    const clearButton = await screen.findByRole("button", {
+      name: /^Clear Database$/i
+    });
+
+    fireEvent.click(clearButton);
 
     const confirmButton = await screen.findByRole("button", {
       name: /Yes, Clear Database/i

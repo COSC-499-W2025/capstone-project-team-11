@@ -9,20 +9,23 @@ from db_maintenance import prune_old_project_scans
 from datetime import datetime
 from contrib_metrics import canonical_username
 
-# Allow overriding database path via environment for tests or custom locations
-DB_PATH = os.environ.get('FILE_DATA_DB_PATH') or os.path.abspath(
+_DEFAULT_DB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'file_data.db')
 )
+
+# Module-level alias retained for external callers that read db.DB_PATH directly
+DB_PATH = _DEFAULT_DB_PATH
 
 
 def get_connection():
     """Return a connection to the SQLite database."""
-    # Ensure parent folder exists (needed for tests / custom env paths)
-    db_dir = os.path.dirname(DB_PATH)
+    # Re-read env at call time so tests can override FILE_DATA_DB_PATH after import
+    db_path = os.environ.get('FILE_DATA_DB_PATH') or _DEFAULT_DB_PATH
+    db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     _ensure_schema(conn)
     return conn
@@ -78,6 +81,27 @@ def _ensure_projects_column(conn, column_name: str, column_type: str):
     cols = {row['name'] for row in cur.fetchall()}
     if column_name not in cols:
         cur.execute(f"ALTER TABLE projects ADD COLUMN {column_name} {column_type}")
+        conn.commit()
+
+
+def _table_exists(conn, table_name: str) -> bool:
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    )
+    return cur.fetchone() is not None
+
+
+def _ensure_table_column(conn, table_name: str, column_name: str, column_type: str):
+    """Add a missing column to an existing table without touching user data."""
+    if not _table_exists(conn, table_name):
+        return
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table_name})")
+    cols = {row['name'] for row in cur.fetchall()}
+    if column_name not in cols:
+        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
         conn.commit()
 def get_project_display_name(project_name: str):
     if not project_name:
@@ -566,40 +590,57 @@ def save_resume(username: str, resume_path: str, metadata: dict = None, generate
     finally:
         conn.close()
 
+# Portfolio functions
+def save_portfolio(
+    username: str,
+    portfolio_name: str,
+    display_name: str = None,
+    included_project_ids: list = None,
+    featured_project_ids: list = None,
+    created_at: str = None,
+):
+    """Persist a saved web portfolio into the DB:
 
-def save_portfolio(username: str, portfolio_path: str, metadata: dict = None, generated_at: str = None):
-    """Persist a generated portfolio into the DB.
+    - username: GitHub username the portfolio is for
+    - portfolio_name: user-chosen title for this portfolio
+    - display_name: optional display name override shown in the portfolio header
+    - included_project_ids: list of project IDs included in this portfolio
+    - featured_project_ids: list of project IDs starred/featured (up to 3)
+    - created_at: optional timestamp
 
-    - username: GitHub username the portfolio was generated for
-    - portfolio_path: filesystem path to the written portfolio markdown
-    - metadata: aggregated data used to render the portfolio (stored as JSON)
-    - generated_at: optional timestamp; defaults to current UTC if not provided
-
-    Returns portfolio_id on success.
+    Returns portfolio_id on success
     """
-    if not username or not portfolio_path:
-        raise ValueError("username and portfolio_path are required")
+    if not username or not portfolio_name:
+        raise ValueError("username and portfolio_name are required")
 
     conn = get_connection()
     conn.execute('PRAGMA foreign_keys = ON')
     cur = conn.cursor()
     try:
         cur.execute('BEGIN')
-        # Ensure contributor exists for this username
         cur.execute("INSERT OR IGNORE INTO contributors (name) VALUES (?)", (username,))
         cur.execute("SELECT id FROM contributors WHERE name = ?", (username,))
         contrib_row = cur.fetchone()
         contrib_id = contrib_row['id'] if contrib_row else None
 
-        metadata_json = json.dumps(metadata or {}, default=str)
-        ts = generated_at or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
+        ts = created_at or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')
 
         cur.execute(
             """
-            INSERT INTO portfolios (contributor_id, username, portfolio_path, metadata_json, generated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO portfolios
+                (contributor_id, username, portfolio_name, display_name,
+                 included_project_ids, featured_project_ids, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (contrib_id, username, portfolio_path, metadata_json, ts)
+            (
+                contrib_id,
+                username,
+                portfolio_name,
+                display_name,
+                json.dumps(included_project_ids or []),
+                json.dumps(featured_project_ids or []),
+                ts,
+            ),
         )
         portfolio_id = cur.lastrowid
         conn.commit()
@@ -609,6 +650,108 @@ def save_portfolio(username: str, portfolio_path: str, metadata: dict = None, ge
         raise
     finally:
         conn.close()
+
+
+def list_all_portfolios() -> list:
+    """Return all saved (non-temp) portfolios across every contributor, newest first"""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, username, portfolio_name, display_name,
+                   included_project_ids, featured_project_ids, created_at
+            FROM portfolios
+            WHERE portfolio_name NOT LIKE '__temp__%'
+            ORDER BY created_at DESC
+            """,
+        ).fetchall()
+    result = []
+    for row in rows:
+        result.append({
+            "id": row["id"],
+            "username": row["username"],
+            "portfolio_name": row["portfolio_name"],
+            "display_name": row["display_name"],
+            "included_project_ids": json.loads(row["included_project_ids"] or "[]"),
+            "featured_project_ids": json.loads(row["featured_project_ids"] or "[]"),
+            "created_at": row["created_at"],
+        })
+    return result
+
+
+def list_portfolios(username: str) -> list:
+    """Return all saved portfolios for a given username, newest first."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, username, portfolio_name, display_name,
+                   included_project_ids, featured_project_ids, created_at
+            FROM portfolios
+            WHERE username = ?
+            ORDER BY created_at DESC
+            """,
+            (username,),
+        ).fetchall()
+    result = []
+    for row in rows:
+        result.append({
+            "id": row["id"],
+            "username": row["username"],
+            "portfolio_name": row["portfolio_name"],
+            "display_name": row["display_name"],
+            "included_project_ids": json.loads(row["included_project_ids"] or "[]"),
+            "featured_project_ids": json.loads(row["featured_project_ids"] or "[]"),
+            "created_at": row["created_at"],
+        })
+    return result
+
+
+def rename_portfolio(portfolio_id: int, portfolio_name: str) -> bool:
+    """Rename a saved portfolio, returns True if found and updated"""
+    if not portfolio_id or not portfolio_name:
+        raise ValueError("portfolio_id and portfolio_name are required")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE portfolios SET portfolio_name = ? WHERE id = ?",
+            (portfolio_name, portfolio_id),
+        )
+        conn.commit()
+        return conn.execute(
+            "SELECT changes()"
+        ).fetchone()[0] > 0
+
+
+def update_portfolio(
+    portfolio_id: int,
+    portfolio_name: str,
+    display_name: str = None,
+    included_project_ids: list = None,
+    featured_project_ids: list = None,
+) -> bool:
+    """Overwrite all user-editable fields on an existing portfolio row.
+    Returns True if the row was found and updated, False otherwise.
+    """
+    if not portfolio_id or not portfolio_name:
+        raise ValueError("portfolio_id and portfolio_name are required")
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE portfolios
+               SET portfolio_name        = ?,
+                   display_name          = ?,
+                   included_project_ids  = ?,
+                   featured_project_ids  = ?
+             WHERE id = ?
+            """,
+            (
+                portfolio_name,
+                display_name,
+                json.dumps(included_project_ids or []),
+                json.dumps(featured_project_ids or []),
+                portfolio_id,
+            ),
+        )
+        conn.commit()
+        return conn.execute("SELECT changes()").fetchone()[0] > 0
 
 
 def delete_portfolio(portfolio_id: int):
@@ -741,7 +884,7 @@ def delete_project_by_id(project_id):
             )
         """)
 
-        # Remove orphaned languages no longer linked to any files
+        # Cleanup orphaned languages no longer linked to any files.
         cur.execute("""
             DELETE FROM languages
             WHERE id NOT IN (
@@ -751,7 +894,7 @@ def delete_project_by_id(project_id):
         """)       
     
         conn.commit()
-        return True 
+        return True
 
     except Exception as e:
         conn.rollback()
@@ -940,12 +1083,21 @@ def _ensure_schema(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             contributor_id INTEGER,
             username TEXT NOT NULL,
-            portfolio_path TEXT NOT NULL,
-            metadata_json TEXT,
-            generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            portfolio_name TEXT NOT NULL,
+            display_name TEXT,
+            included_project_ids TEXT NOT NULL DEFAULT '[]',
+            featured_project_ids TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (contributor_id) REFERENCES contributors(id)
         )
     """)
+
+    # Upgrade legacy generated-output tables in-place when users already have older DBs.
+    _ensure_table_column(conn, "resumes", "metadata_json", "TEXT")
+    _ensure_table_column(conn, "resumes", "generated_at", "TEXT DEFAULT CURRENT_TIMESTAMP")
+    _ensure_table_column(conn, "portfolios", "portfolio_path", "TEXT")
+    _ensure_table_column(conn, "portfolios", "metadata_json", "TEXT")
+    _ensure_table_column(conn, "portfolios", "generated_at", "TEXT DEFAULT CURRENT_TIMESTAMP")
 
     # --- Indexes ---
     cur.execute("CREATE INDEX IF NOT EXISTS idx_file_path ON files (file_path)")
@@ -958,7 +1110,7 @@ def _ensure_schema(conn):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_resumes_username ON resumes (username)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_resumes_generated_at ON resumes (generated_at)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_username ON portfolios (username)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_generated_at ON portfolios (generated_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_portfolios_created_at ON portfolios (created_at)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_project_evidence_project_id ON project_evidence (project_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_rankings_name ON custom_rankings (name)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_ranking_items_rank ON custom_ranking_items (ranking_id)")

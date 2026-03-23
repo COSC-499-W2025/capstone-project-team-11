@@ -7,6 +7,7 @@ import RankProjectsPage from './RankProjectsPage.jsx';
 import ScannedProjectsPage from './ScannedProjectsPage.jsx';
 import DatabaseMaintenance from './DatabaseMaintenance.jsx';
 import PortfolioPage from './PortfolioPage.jsx';
+import ConsentPage from './ConsentPage.jsx';
 import { API_BASE_URL } from './api';
 
 const MENU_ITEMS = [
@@ -41,12 +42,6 @@ const MENU_ITEMS = [
     accent: '#a78bfa',
   },
   {
-    title: 'Summarize Contributor Projects',
-    detail: "Generate short summaries for a selected contributor's strongest projects.",
-    icon: '◐',
-    accent: '#34d399',
-  },
-  {
     title: 'Manage Database',
     detail: 'Inspect stored data, remove projects, or clear database contents.',
     icon: '⬢',
@@ -64,7 +59,7 @@ const getPageFromHash = () => {
     '#/database': 'database',
     '#/portfolio': 'portfolio',
   };
-  return map[window.location.hash] || 'home';
+  return map[window.location.hash] || 'main-menu';
 };
 
 const containerVariants = {
@@ -80,11 +75,6 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
-const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
-  exit: { opacity: 0, y: -10, transition: { duration: 0.2 } },
-};
 
 function MenuCard({ item, isActive, onClick }) {
   return (
@@ -223,11 +213,53 @@ function InfoPanel({ title, children }) {
 }
 
 function App() {
-  const [status, setStatus] = useState('Not tested');
-  const [isLoading, setIsLoading] = useState(false);
+  const [connStatus, setConnStatus] = useState('idle'); // 'idle' | 'checking' | 'ok' | 'fail'
   const [page, setPage] = useState(getPageFromHash());
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentGranted, setConsentGranted] = useState(false);
+  const [initialConsent, setInitialConsent] = useState({});
+  const [projectsStats, setProjectsStats] = useState(null);
+  const [contributorsStats, setContributorsStats] = useState(null);
+  const [outputsStats, setOutputsStats] = useState(null);
+
+  // Fetch consent status
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/config`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((cfg) => {
+        setInitialConsent(cfg);
+        setConsentGranted(Boolean(cfg.data_consent));
+      })
+      .catch(() => {
+        // Backend unreachable, show consent screen anyway
+        setConsentGranted(false);
+      })
+      .finally(() => setConsentChecked(true));
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stats/dashboard`);
+      if (response.ok) {
+        const stats = await response.json();
+        setProjectsStats(stats.projects);
+        setContributorsStats(stats.contributors);
+        setOutputsStats(stats.outputs);
+      }
+    } catch (error) {
+      // Silently fail, stats will show as loading
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
+
+  // Fetch dashboard stats whenever user lands on main menu.
+  useEffect(() => {
+    if (consentGranted && page === 'main-menu') {
+      fetchStats();
+    }
+  }, [consentGranted, page]);
 
   useEffect(() => {
     const onHashChange = () => setPage(getPageFromHash());
@@ -273,18 +305,84 @@ function App() {
     }
   };
 
+  const getRelativeTime = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getProjectsNote = () => {
+    if (!projectsStats) return 'Loading...';
+    const { count, latest_project, latest_scan } = projectsStats;
+    if (count === 0) return 'No scanned projects yet.';
+    if (!latest_project) return `${count} project${count !== 1 ? 's' : ''} indexed`;
+    const timeAgo = getRelativeTime(latest_scan);
+    return `Latest: ${latest_project} • ${timeAgo}`;
+  };
+
+  const getContributorsNote = () => {
+    if (!contributorsStats) return 'Loading...';
+    const { count, top_contributor, top_contributor_files } = contributorsStats;
+    if (count === 0) return 'No contributors detected yet.';
+    if (!top_contributor) return `${count} unique contributor${count !== 1 ? 's' : ''}`;
+    return `Top: ${top_contributor} (${top_contributor_files} files)`;
+  };
+
+  const getOutputsNote = () => {
+    if (!outputsStats) return 'Loading...';
+    const { total, resumes, portfolios, latest_generated } = outputsStats;
+    if (total === 0) return 'No generated outputs yet.';
+    const timeAgo = getRelativeTime(latest_generated);
+    return `${resumes} resume${resumes !== 1 ? 's' : ''}, ${portfolios} portfolio${portfolios !== 1 ? 's' : ''} • ${timeAgo}`;
+  };
+
+  const getOutputsValue = () => {
+    if (!outputsStats) return '--';
+    const { resumes, portfolios } = outputsStats;
+    return (resumes + portfolios).toString();
+  };
+
   const testConnection = async () => {
-    setIsLoading(true);
-    setStatus('Not tested');
+    setConnStatus('checking');
     try {
       await axios.get(`${API_BASE_URL}/projects`);
-      setStatus('Connected to backend!');
-    } catch (err) {
-      setStatus(`Failed: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+      setConnStatus('ok');
+    } catch {
+      setConnStatus('fail');
     }
   };
+
+  // Block access to the entire app until we know consent status
+  if (!consentChecked) return null;
+
+  // Show consent screen if data consent has not been granted
+  if (!consentGranted) {
+    return (
+      <ConsentPage
+        initialConsent={initialConsent}
+        onConsented={(result) => {
+          const normalized = {
+            data_consent: result.dataConsent,
+            llm_summary_consent: result.llmSummaryConsent,
+            llm_resume_consent: result.llmResumeConsent,
+          };
+          setInitialConsent(normalized);
+          setConsentGranted(result.dataConsent);
+          if (result.dataConsent) navigateTo('main-menu');
+        }}
+      />
+    );
+  }
 
   // Sub-pages — pass through unchanged
   if (page === 'scan') return <ScanPage onBack={() => navigateTo('main-menu')} />;
@@ -381,21 +479,69 @@ function App() {
                 Project analysis & portfolio generation toolkit
               </p>
             </div>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem',
-                fontWeight: 700,
-                color: '#0f172a',
-              }}
-            >
-              M
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={testConnection}
+                disabled={connStatus === 'checking'}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: connStatus === 'fail'
+                    ? '1px solid rgba(248,113,113,0.4)'
+                    : '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: connStatus === 'fail' ? '#f87171' : 'rgba(241,245,249,0.5)',
+                  fontSize: '0.75rem',
+                  cursor: connStatus === 'checking' ? 'not-allowed' : 'pointer',
+                  boxShadow: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                {connStatus === 'checking' ? 'Checking…' : 'Check Connection'}
+                {connStatus === 'ok' && (
+                  <span style={{ color: '#4ade80', fontSize: '0.85rem', lineHeight: 1 }}>✓</span>
+                )}
+                {connStatus === 'fail' && (
+                  <span style={{ color: '#f87171', fontSize: '0.85rem', lineHeight: 1 }}>✗</span>
+                )}
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setConsentGranted(false)}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'rgba(241,245,249,0.5)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  boxShadow: 'none',
+                }}
+              >
+                Privacy Settings
+              </motion.button>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                }}
+              >
+                M
+              </div>
             </div>
           </motion.header>
 
@@ -460,28 +606,6 @@ function App() {
                 ))}
               </motion.div>
 
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigateTo('home')}
-                style={{
-                  width: '100%',
-                  margin: 0,
-                  padding: '0.6rem',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                  color: 'rgba(241,245,249,0.45)',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  boxShadow: 'none',
-                }}
-              >
-                ← Connection Test
-              </motion.button>
             </motion.aside>
 
             {/* Content area */}
@@ -493,9 +617,21 @@ function App() {
             >
               {/* Stats row */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.9rem' }}>
-                <StatCard label="Scanned Projects" value="--" note="Run your first scan to populate." />
-                <StatCard label="Contributors" value="--" note="Detected from commit history." />
-                <StatCard label="Generated Outputs" value="--" note="Resumes, portfolios & summaries." />
+                <StatCard 
+                  label="Scanned Projects" 
+                  value={projectsStats?.count ?? '--'} 
+                  note={getProjectsNote()}
+                />
+                <StatCard 
+                  label="Contributors" 
+                  value={contributorsStats?.count ?? '--'} 
+                  note={getContributorsNote()}
+                />
+                <StatCard 
+                  label="Generated Outputs" 
+                  value={getOutputsValue()}
+                  note={getOutputsNote()}
+                />
               </div>
 
               <InfoPanel title="Quick Start">
@@ -535,139 +671,7 @@ function App() {
     );
   }
 
-  // ── Home / Connection Test ───────────────────────────────────────────────
-  return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: "'DM Sans', 'Inter', sans-serif",
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.45 }}
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.09)',
-          borderRadius: '18px',
-          padding: '2.5rem 2.8rem',
-          textAlign: 'center',
-          maxWidth: '420px',
-          width: '100%',
-        }}
-      >
-        <div
-          style={{
-            width: '52px',
-            height: '52px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.4rem',
-            fontWeight: 700,
-            color: '#0f172a',
-            margin: '0 auto 1.25rem',
-          }}
-        >
-          M
-        </div>
-
-        <h1
-          style={{
-            margin: '0 0 0.4rem',
-            fontSize: '1.4rem',
-            fontWeight: 700,
-            color: '#f1f5f9',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          Capstone MDA App
-        </h1>
-        <p
-          style={{
-            margin: '0 0 1.8rem',
-            fontSize: '0.88rem',
-            color: 'rgba(241,245,249,0.45)',
-          }}
-        >
-          Verify your backend connection before continuing.
-        </p>
-
-        <motion.button
-          whileHover={{ scale: 1.03, y: -1 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={testConnection}
-          disabled={isLoading}
-          style={{
-            width: '100%',
-            margin: '0 0 0.75rem',
-            padding: '0.75rem',
-            background: isLoading
-              ? 'rgba(74,222,128,0.3)'
-              : 'linear-gradient(135deg, #4ade80, #22d3ee)',
-            border: 'none',
-            borderRadius: '10px',
-            color: '#0f172a',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 20px rgba(74,222,128,0.25)',
-          }}
-        >
-          {isLoading ? 'Checking…' : 'Test Backend Connection'}
-        </motion.button>
-
-        <AnimatePresence>
-          {status !== 'Not tested' && (
-            <motion.p
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              style={{
-                margin: '0 0 1rem',
-                fontSize: '0.82rem',
-                color: status.startsWith('Connected') ? '#4ade80' : '#f87171',
-                fontWeight: 600,
-              }}
-            >
-              {status}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => navigateTo('main-menu')}
-          style={{
-            width: '100%',
-            margin: 0,
-            padding: '0.7rem',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '10px',
-            color: 'rgba(241,245,249,0.7)',
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            boxShadow: 'none',
-          }}
-        >
-          Go to Main Menu →
-        </motion.button>
-      </motion.div>
-    </motion.div>
-  );
+  return null;
 }
 
 export default App;

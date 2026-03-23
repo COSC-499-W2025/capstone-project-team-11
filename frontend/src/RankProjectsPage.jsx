@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
+import { showModal } from './modal'; 
 
 function RankProjectsPage({ onBack }) {
   const [projects, setProjects] = useState([]);
@@ -125,11 +126,37 @@ function RankProjectsPage({ onBack }) {
   };
 
   const handleDeleteRanking = async (name) => {
+    const confirmed = await showModal({
+      type: "danger",
+      title: "Delete Ranking",
+      message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return;
+
     try {
       await axios.delete(`${API_BASE_URL}/custom-rankings/${encodeURIComponent(name)}`);
-      if (expandedRanking === name) { setExpandedRanking(null); setExpandedProjects([]); }
+      if (expandedRanking === name) {
+        setExpandedRanking(null);
+        setExpandedProjects([]);
+      }
+
+      await showModal({
+        type: "success",
+        title: "Deleted",
+        message: `"${name}" was successfully deleted.`,
+      });
+
       fetchSavedRankings();
-    } catch { /* ignore */ }
+    } catch (err) {
+      await showModal({
+        type: "danger",
+        title: "Error",
+        message: err?.response?.data?.detail || err.message,
+      });
+    }
   };
 
   const handleToggleExpand = async (name) => {

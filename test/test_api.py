@@ -29,9 +29,12 @@ class TestAPI(unittest.TestCase):
         os.environ["HOME"] = self.home_dir
 
         global db_mod, api_mod
+
         db_mod = importlib.reload(db_mod)
         db_mod.init_db()
+
         api_mod = importlib.reload(api_mod)
+
         self.client = TestClient(api_mod.app)
 
         self.output_root = os.path.join(self.tmpdir.name, "output")
@@ -202,7 +205,7 @@ class TestAPI(unittest.TestCase):
             )
             conn.commit()
 
-        portfolio_id = db_mod.save_portfolio(username=username, portfolio_path=portfolio_file, metadata={}, generated_at="2025-02-14 12:00:00Z")
+        portfolio_id = db_mod.save_portfolio(username=username, portfolio_name="Test Portfolio", included_project_ids=[project_id], created_at="2025-02-14 12:00:00Z")
         return portfolio_id, project_id
 
     def test_privacy_consent(self):
@@ -538,6 +541,48 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp_edit.status_code, 200)
         self.assertTrue(resp_edit.json()["metadata"].get("edited"))
 
+    def test_resume_pdf_download(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+        resume_path = os.path.join(resume_dir, "resume_alice.md")
+        with open(resume_path, "w", encoding="utf-8") as f:
+            f.write("# Alice Example\n\n## Summary\nBuilt robust APIs.\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        with patch.object(api_mod, "HTML") as html_mock:
+            html_mock.return_value.write_pdf.return_value = b"%PDF-1.4 test"
+            resp = self.client.get(f"/resume/{resume_id}/pdf")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.headers.get("content-type"), "application/pdf")
+        self.assertIn("attachment; filename=", resp.headers.get("content-disposition", ""))
+        self.assertEqual(resp.content, b"%PDF-1.4 test")
+
+    def test_resume_pdf_missing_file_returns_404(self):
+        missing_path = os.path.join(self.tmpdir.name, "resumes", "missing_resume.md")
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", missing_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.get(f"/resume/{resume_id}/pdf")
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.json().get("detail"), "Resume file not found")
+
     def test_portfolio_generate_get_edit(self):
         self._write_project_info()
         resp = self.client.post(
@@ -553,17 +598,30 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 201)
         portfolio_id = resp.json().get("portfolio_id")
         self.assertTrue(portfolio_id)
+    def test_portfolio_save_list_rename_get(self):
+        portfolio_id, project_id = self._seed_web_portfolio_data()
 
-        resp_get = self.client.get(f"/portfolio/{portfolio_id}")
+        # GET by id
+        resp_get = self.client.get(f"/portfolios/{portfolio_id}")
         self.assertEqual(resp_get.status_code, 200)
-        self.assertIn("# Portfolio — alice", resp_get.json().get("content", ""))
+        body = resp_get.json()
+        self.assertEqual(body["username"], "alice")
+        self.assertEqual(body["portfolio_name"], "Test Portfolio")
+        self.assertIn(project_id, body["included_project_ids"])
 
-        resp_edit = self.client.post(
-            f"/portfolio/{portfolio_id}/edit",
-            json={"content": "# Portfolio — alice\nUpdated\n", "metadata": {"edited": True}},
+        # LIST by username
+        resp_list = self.client.get("/portfolios", params={"username": "alice"})
+        self.assertEqual(resp_list.status_code, 200)
+        names = [p["portfolio_name"] for p in resp_list.json()]
+        self.assertIn("Test Portfolio", names)
+
+        # RENAME
+        resp_rename = self.client.patch(
+            f"/portfolios/{portfolio_id}/name",
+            json={"portfolio_name": "Renamed Portfolio"},
         )
-        self.assertEqual(resp_edit.status_code, 200)
-        self.assertTrue(resp_edit.json()["metadata"].get("edited"))
+        self.assertEqual(resp_rename.status_code, 200)
+        self.assertEqual(resp_rename.json()["portfolio_name"], "Renamed Portfolio")
 
     def test_web_portfolio_endpoints(self):
         portfolio_id, project_id = self._seed_web_portfolio_data()
@@ -589,20 +647,15 @@ class TestAPI(unittest.TestCase):
         customize_resp = self.client.patch(
             f"/web/portfolio/{portfolio_id}/customize",
             json={
-                "is_public": False,
                 "selected_project_ids": [project_id],
-                "showcase_project_ids": [project_id],
-                "hidden_skills": ["Testing"],
+                "featured_project_ids": [project_id],
             },
         )
         self.assertEqual(customize_resp.status_code, 200)
-        self.assertFalse(customize_resp.json()["web_config"]["is_public"])
+        self.assertIn(project_id, customize_resp.json()["featured_project_ids"])
 
-        public_blocked_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=public")
-        self.assertEqual(public_blocked_resp.status_code, 403)
-
-        private_ok_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline?mode=private")
-        self.assertEqual(private_ok_resp.status_code, 200)
+        timeline_after_resp = self.client.get(f"/web/portfolio/{portfolio_id}/timeline")
+        self.assertEqual(timeline_after_resp.status_code, 200)
 
 
     def test_delete_project_endpoint(self):
@@ -660,8 +713,8 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(data["llm_summary"]["model"], "llama3")
         self.assertEqual(data["llm_summary"]["updated_at"], "2026-03-11T12:00:00")
 
-        def test_delete_project_endpoint(self):
-         with api_mod.get_connection() as conn:
+    def test_delete_project_endpoint(self):
+        with api_mod.get_connection() as conn:
             conn.execute(
                 "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
                 ("Delete Me", None),
@@ -888,9 +941,167 @@ class TestAPI(unittest.TestCase):
         self.assertIsNone(contributor_row)
         self.assertIsNone(language_row)   
 
+    def test_delete_resume_endpoint(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+        resume_path = os.path.join(resume_dir, "resume_alice.md")
+        with open(resume_path, "w") as f:
+            f.write("# Resume — alice\n")
 
-if __name__ == "__main__":
-    unittest.main()
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/resume/{resume_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["deleted"])
+        self.assertFalse(os.path.isfile(resume_path))
+
+        resp_again = self.client.delete(f"/resume/{resume_id}")
+        self.assertEqual(resp_again.status_code, 404)
 
 
+
+
+
+    def test_create_project_evidence_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.post(
+            f"/projects/{project_id}/evidence",
+            json={
+                "type": "metric",
+                "value": "10k+ downloads",
+                "source": "GitHub",
+                "url": "https://example.com/proof",
+            },
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertEqual(body["message"], "Evidence added successfully")
+        self.assertIn("evidence_id", body)
+
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(detail_resp.status_code, 200)
+        evidence = detail_resp.json()["evidence"]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["type"], "metric")
+        self.assertEqual(evidence[0]["value"], "10k+ downloads")
+        self.assertEqual(evidence[0]["source"], "GitHub")
+
+    def test_delete_project_evidence_endpoint(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+
+            conn.execute(
+                """
+                INSERT INTO project_evidence (project_id, type, description, value, source, url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (project_id, "metric", "", "10k+ downloads", "GitHub", "https://example.com/proof"),
+            )
+            evidence_id = conn.execute(
+                "SELECT id FROM project_evidence WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.delete(f"/projects/{project_id}/evidence/{evidence_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["message"], "Evidence deleted successfully")
+
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        self.assertEqual(detail_resp.status_code, 200)
+        self.assertEqual(detail_resp.json()["evidence"], [])
+
+
+    def test_create_project_evidence_rejects_invalid_type(self):
+        with api_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                ("Evidence Project", None),
+            )
+            project_id = conn.execute(
+                "SELECT id FROM projects WHERE name = ?",
+                ("Evidence Project",),
+            ).fetchone()["id"]
+            conn.commit()
+
+        resp = self.client.post(
+            f"/projects/{project_id}/evidence",
+            json={
+                "type": "fake_type",
+                "value": "Some impact",
+                "source": "GitHub",
+                "url": "",
+            },
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid type", resp.json()["detail"])
     
+    def test_update_project_evidence(self):
+        with api_mod.get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO projects (name, repo_url) VALUES (?, ?)",
+                    ("Test Project", None),
+                )
+                project_id = conn.execute(
+                    "SELECT id FROM projects WHERE name = ?",
+                    ("Test Project",),
+                ).fetchone()["id"]
+
+                conn.execute(
+                    """
+                    INSERT INTO project_evidence (project_id, type, description, value, source, url)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (project_id, "metric", "", "100 users", "GitHub", "https://example.com"),
+                )
+
+                evidence_id = conn.execute(
+                    "SELECT id FROM project_evidence WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()["id"]
+
+                conn.commit()
+
+        resp = self.client.patch(
+                f"/projects/{project_id}/evidence/{evidence_id}",
+                json={
+                    "value": "200 users",
+                    "source": "Updated Source",
+                },
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        
+        detail_resp = self.client.get(f"/projects/{project_id}")
+        updated = detail_resp.json()["evidence"][0]
+
+        self.assertEqual(updated["value"], "200 users")
+        self.assertEqual(updated["source"], "Updated Source")
+

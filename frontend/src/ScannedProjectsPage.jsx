@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
+import { showModal } from './modal.js';
 
 function getThumbnailSrc(projectId, path) {
   if (!projectId || !path) return '';
@@ -40,7 +41,7 @@ function getProjectName(project, fallbackId) {
 
 function getEvidenceTitle(item, index) {
   if (typeof item === 'string') return item;
-  return item?.title ?? item?.description ?? item?.name ?? item?.value ?? `Evidence ${index + 1}`;
+  return item?.value ?? item?.description ?? item?.title ?? item?.name ?? `Evidence ${index + 1}`;
 }
 
 function getEvidenceMeta(item) {
@@ -48,9 +49,22 @@ function getEvidenceMeta(item) {
   return item.type ?? item.kind ?? item.category ?? item.source ?? '';
 }
 
+function formatEvidenceTypeLabel(value) {
+  if (!value) return '';
+  return String(value)
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function getEvidenceDescription(item) {
   if (!item || typeof item !== 'object') return '';
-  return item.description ?? item.value ?? item.source ?? item.url ?? '';
+  return item.value ?? item.description ?? item.source ?? item.url ?? '';
+}
+
+function getEvidenceId(item) {
+  if (!item || typeof item !== 'object') return null;
+  return item.id ?? item.evidence_id ?? item.evidenceId ?? null;
 }
 
 function ScannedProjectsPage({ onBack }) {
@@ -65,9 +79,19 @@ function ScannedProjectsPage({ onBack }) {
   const [projectsError, setProjectsError] = useState('');
   const [detailsError, setDetailsError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [editError, setEditError] = useState('');
   const [editCustomName, setEditCustomName] = useState('');
   const [editRepoUrl, setEditRepoUrl] = useState('');
   const [editThumbnailPath, setEditThumbnailPath] = useState('');
+  const [editSummaryText, setEditSummaryText] = useState('');
+  const [isAddingEvidence, setIsAddingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState('');
+  const [newEvidenceType, setNewEvidenceType] = useState('metric');
+  const [newEvidenceValue, setNewEvidenceValue] = useState('');
+  const [newEvidenceSource, setNewEvidenceSource] = useState('');
+  const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
+  const [evidenceToDelete, setEvidenceToDelete] = useState(null);
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -117,11 +141,13 @@ function ScannedProjectsPage({ onBack }) {
     loadProjectDetails();
   }, [selectedProjectId]);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedProject && isEditing) {
       setEditCustomName(selectedProject.project?.custom_name || '');
       setEditRepoUrl(selectedProject.project?.repo_url || '');
       setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+      setEditSummaryText(selectedProject.llm_summary?.text || '');
+      setEditError('');
     }
   }, [selectedProject, isEditing]);
 
@@ -134,42 +160,77 @@ function ScannedProjectsPage({ onBack }) {
     setProjects(Array.isArray(listResponse.data) ? listResponse.data : []);
   };
 
-  const handleEditProject = () => {
+    const handleEditProject = () => {
     if (!selectedProject) return;
     setEditCustomName(selectedProject.project?.custom_name || '');
     setEditRepoUrl(selectedProject.project?.repo_url || '');
     setEditThumbnailPath(selectedProject.project?.thumbnail_path || '');
+    setEditSummaryText(selectedProject.llm_summary?.text || '');
+    setEditError('');
     setIsEditing(true);
   };
 
-  const handleSaveProject = async () => {
-    if (selectedProjectId == null) return;
 
-    try {
-      await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
-        custom_name: editCustomName,
-        repo_url: editRepoUrl,
-        thumbnail_path: editThumbnailPath,
-      });
-      window.alert('Project updated successfully');
-      setIsEditing(false);
-      await refreshProjectData();
-    } catch (error) {
-      console.error('Failed to update project:', error);
-      window.alert('Failed to update project.');
-    }
+    const handleCancelEdit = () => {
+    setEditCustomName(selectedProject?.project?.custom_name || '');
+    setEditRepoUrl(selectedProject?.project?.repo_url || '');
+    setEditThumbnailPath(selectedProject?.project?.thumbnail_path || '');
+    setEditSummaryText(selectedProject?.llm_summary?.text || '');
+    setEditError('');
+    setIsEditing(false);
   };
+
+  const handleSaveProject = async () => {
+  if (selectedProjectId == null || !selectedProject) return;
+
+  const trimmedCustomName = editCustomName.trim();
+  const trimmedRepoUrl = editRepoUrl.trim();
+  const trimmedThumbnailPath = editThumbnailPath.trim();
+  const trimmedSummaryText = editSummaryText.trim();
+
+  try {
+    setIsSavingProject(true);
+    setEditError('');
+
+    await axios.patch(`${API_BASE_URL}/projects/${selectedProjectId}`, {
+      custom_name: trimmedCustomName,
+      repo_url: trimmedRepoUrl,
+      thumbnail_path: trimmedThumbnailPath,
+      summary_text: trimmedSummaryText,
+    });
+
+    setIsEditing(false);
+    await refreshProjectData();
+  } catch (error) {
+    console.error('Failed to update project:', error);
+    setEditError('Failed to update project.');
+  } finally {
+    setIsSavingProject(false);
+  }
+};
 
   const handleDeleteProject = async () => {
     if (selectedProjectId == null) return;
 
     const projectName = getProjectName(selectedProject?.project, selectedProjectId);
-    const confirmed = window.confirm(`Are you sure you want to delete "${projectName}"?`);
+    const confirmed = await showModal({
+      type: 'danger',
+      title: 'Delete Project',
+      message: `Are you sure you want to delete "${projectName}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
       await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}`);
-      window.alert('Project deleted successfully');
+
+      await showModal({
+        type: 'success',
+        title: 'Project Deleted',
+        message: 'Project deleted successfully',
+        confirmText: 'OK',
+      });
 
       const updatedProjects = projects.filter((project) => getProjectId(project) !== selectedProjectId);
       setProjects(updatedProjects);
@@ -183,7 +244,85 @@ function ScannedProjectsPage({ onBack }) {
       }
     } catch (error) {
       console.error('Failed to delete project:', error);
-      window.alert('Failed to delete project.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to delete project.',
+        confirmText: 'OK',
+      });
+    }
+  };
+
+    const handleAddEvidence = async (event) => {
+    event.preventDefault();
+    if (selectedProjectId == null) return;
+
+    const trimmedValue = newEvidenceValue.trim();
+    if (!trimmedValue) {
+      setEvidenceError('Outcome / impact is required.');
+      return;
+    }
+
+    try {
+      setIsAddingEvidence(true);
+      setEvidenceError('');
+
+      const response = await axios.post(`${API_BASE_URL}/projects/${selectedProjectId}/evidence`, {
+        type: newEvidenceType,
+        value: trimmedValue,
+        source: newEvidenceSource.trim() || null,
+        url: newEvidenceUrl.trim() || null,
+      });
+
+      const createdEvidenceId = response?.data?.evidence_id ?? null;
+      const createdEvidence = {
+        id: createdEvidenceId,
+        type: newEvidenceType,
+        value: trimmedValue,
+        source: newEvidenceSource.trim() || null,
+        url: newEvidenceUrl.trim() || null,
+      };
+
+      setSelectedProject((current) => {
+        if (!current) return current;
+
+        const currentEvidence = Array.isArray(current.evidence) ? current.evidence : [];
+        return {
+          ...current,
+          evidence: [createdEvidence, ...currentEvidence],
+        };
+      });
+
+      setNewEvidenceType('metric');
+      setNewEvidenceValue('');
+      setNewEvidenceSource('');
+      setNewEvidenceUrl('');
+    } catch (error) {
+      console.error('Failed to add evidence:', error);
+      setEvidenceError(error?.response?.data?.detail || 'Failed to add evidence.');
+    } finally {
+      setIsAddingEvidence(false);
+    }
+  };
+
+  const handleDeleteEvidence = async () => {
+    const evidenceId = getEvidenceId(evidenceToDelete);
+    if (selectedProjectId == null || !evidenceId) return;
+
+    try {
+      setEvidenceError('');
+      await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}/evidence/${evidenceId}`);
+      setEvidenceToDelete(null);
+      await refreshProjectData();
+    } catch (error) {
+      console.error('Failed to delete evidence:', error);
+      setEvidenceError(error?.response?.data?.detail || 'Failed to delete evidence.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to delete evidence.',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -206,7 +345,12 @@ function ScannedProjectsPage({ onBack }) {
       await refreshProjectData();
     } catch (error) {
       console.error('Failed to update project thumbnail:', error);
-      window.alert('Failed to update project thumbnail.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to update project thumbnail.',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUpdatingThumbnail(false);
     }
@@ -415,7 +559,7 @@ function ScannedProjectsPage({ onBack }) {
               </div>
 
               <div className="project-panel-tabs" role="tablist" aria-label="Project detail panels">
-                {['overview', 'signals', 'contributors', 'activity'].map((panel) => (
+                {['overview', 'signals', 'contributors', 'activity','evidence'].map((panel) => (
                   <button
                     key={panel}
                     type="button"
@@ -424,7 +568,7 @@ function ScannedProjectsPage({ onBack }) {
                     className={`project-panel-tab ${activePanel === panel ? 'is-active' : ''}`}
                     onClick={() => setActivePanel(panel)}
                   >
-                    {panel}
+                    {panel.charAt(0).toUpperCase() + panel.slice(1)}
                   </button>
                 ))}
               </div>
@@ -458,38 +602,94 @@ function ScannedProjectsPage({ onBack }) {
                       </div>
                     </div>
 
-                    {isEditing ? (
+                                        {isEditing ? (
                       <div className="edit-project-panel">
                         <div className="detail-card-header">
                           <span className="panel-eyebrow">Edit</span>
                           <h4>Edit Project Info</h4>
                         </div>
+
                         <label className="edit-field" htmlFor="edit-custom-name">
                           <span>Display Name</span>
-                          <input id="edit-custom-name" type="text" value={editCustomName} onChange={(e) => setEditCustomName(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-custom-name"
+                            type="text"
+                            value={editCustomName}
+                            onChange={(e) => setEditCustomName(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
                         <label className="edit-field" htmlFor="edit-repo-url">
                           <span>Repo URL</span>
-                          <input id="edit-repo-url" type="text" value={editRepoUrl} onChange={(e) => setEditRepoUrl(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-repo-url"
+                            type="text"
+                            value={editRepoUrl}
+                            onChange={(e) => setEditRepoUrl(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
                         <label className="edit-field" htmlFor="edit-thumbnail-path">
                           <span>Thumbnail Path</span>
-                          <input id="edit-thumbnail-path" type="text" value={editThumbnailPath} onChange={(e) => setEditThumbnailPath(e.target.value)} className="detail-input" />
+                          <input
+                            id="edit-thumbnail-path"
+                            type="text"
+                            value={editThumbnailPath}
+                            onChange={(e) => setEditThumbnailPath(e.target.value)}
+                            className="detail-input"
+                          />
                         </label>
+
+                        <label className="edit-field" htmlFor="edit-summary-text">
+                          <span>LLM Summary</span>
+                          <textarea
+                            id="edit-summary-text"
+                            value={editSummaryText}
+                            onChange={(e) => setEditSummaryText(e.target.value)}
+                            className="detail-input detail-textarea"
+                            rows={8}
+                            placeholder="Add or edit the project summary"
+                          />
+                        </label>
+
+                        {editError ? <p className="error-text">{editError}</p> : null}
+
                         <div className="project-hero-actions">
-                          <button type="button" className="hero-action-button save-action-button" onClick={handleSaveProject}>Save Changes</button>
-                          <button type="button" className="hero-action-button" onClick={() => setIsEditing(false)}>Cancel</button>
+                          <button
+                            type="button"
+                            className="hero-action-button save-action-button"
+                            onClick={handleSaveProject}
+                            disabled={isSavingProject}
+                          >
+                            {isSavingProject ? 'Saving...' : 'Save Changes'}
+                          </button>
+                          <button
+                            type="button"
+                            className="hero-action-button"
+                            onClick={handleCancelEdit}
+                            disabled={isSavingProject}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : null}
 
-                    {selectedProject.llm_summary?.text ? (
-                      <div className="llm-summary-card">
-                        <span className="panel-eyebrow">LLM Summary</span>
-                        <p>{selectedProject.llm_summary.text}</p>
-                        <span className="summary-updated">Updated {formatDate(selectedProject.llm_summary.updated_at)}</span>
-                      </div>
-                    ) : null}
+                                        <div className="llm-summary-card">
+                      <span className="panel-eyebrow">LLM Summary</span>
+                      {selectedProject.llm_summary?.text ? (
+                        <>
+                          <p>{selectedProject.llm_summary.text}</p>
+                          <span className="summary-updated">
+                            Updated {formatDate(selectedProject.llm_summary.updated_at)}
+                          </span>
+                        </>
+                      ) : (
+                        <p className="empty-copy">No LLM summary saved for this project yet.</p>
+                      )}
+                    </div>
                   </article>
 
                   <article className="detail-card">
@@ -649,43 +849,161 @@ function ScannedProjectsPage({ onBack }) {
                       <p className="empty-copy">No scans have been recorded for this project yet.</p>
                     )}
                   </article>
-
-                  <article className="detail-card">
-                    <div className="detail-card-header">
-                      <span className="panel-eyebrow">Evidence</span>
-                      <h4>Saved Items</h4>
-                    </div>
-                    {evidence.length > 0 ? (
-                      <div className="evidence-list">
-                        {evidence.slice(0, 6).map((item, index) => (
-                          <div key={`${getEvidenceTitle(item, index)}-${index}`} className="evidence-item">
-                            <div className="evidence-item-top">
-                              <strong>{getEvidenceTitle(item, index)}</strong>
-                              {getEvidenceMeta(item) ? <span className="detail-chip muted">{getEvidenceMeta(item)}</span> : null}
-                            </div>
-                            <p>{getEvidenceDescription(item) || 'No evidence details available.'}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="empty-copy">No evidence items stored.</p>
-                    )}
-                  </article>
                 </div>
               ) : null}
-            </div>
-          )}
 
-          {!isLoadingDetails && !detailsError && !selectedProject && projects.length > 0 ? (
-            <div className="empty-state-card">
-              <h3>Select a project to view details</h3>
-              <p>Choose a project from the explorer to open its dashboard.</p>
-            </div>
-          ) : null}
-        </section>
+              {activePanel === 'evidence' ? (
+                <div className="detail-grid">
+              <article className="detail-card">
+                    <div className="detail-card-header">
+                      <span className="panel-eyebrow">Evidence</span>
+                      <h4>Project Evidence</h4>
+                    </div>
+
+                    <form className="evidence-form" onSubmit={handleAddEvidence}>
+                      <label className="edit-field">
+                        <span>Type</span>
+                        <select
+                          value={newEvidenceType}
+                          onChange={(event) => setNewEvidenceType(event.target.value)}
+                          className="detail-input"
+                        >
+                          <option value="metric">Metric</option>
+                          <option value="award">Award</option>
+                          <option value="endorsement">Endorsement</option>
+                          <option value="publication">Publication</option>
+                          <option value="external_link">External Link</option>
+                        </select>
+                      </label>
+
+                      <label className="edit-field">
+                        <span>Outcome / Impact</span>
+                        <input
+                          type="text"
+                          value={newEvidenceValue}
+                          onChange={(event) => setNewEvidenceValue(event.target.value)}
+                          className="detail-input"
+                          placeholder="e.g. 10k+ downloads"
+                        />
+                      </label>
+
+                      <label className="edit-field">
+                        <span>Source</span>
+                        <input
+                          type="text"
+                          value={newEvidenceSource}
+                          onChange={(event) => setNewEvidenceSource(event.target.value)}
+                          className="detail-input"
+                          placeholder="e.g. GitHub, Google Play, Email"
+                        />
+                      </label>
+
+                      <label className="edit-field">
+                        <span>URL</span>
+                        <input
+                          type="text"
+                          value={newEvidenceUrl}
+                          onChange={(event) => setNewEvidenceUrl(event.target.value)}
+                          className="detail-input"
+                          placeholder="Optional link"
+                        />
+                      </label>
+
+                      {evidenceError ? <p className="error-text">{evidenceError}</p> : null}
+
+                      <div className="project-hero-actions evidence-form-actions">
+                        <button
+                          type="submit"
+                          className="hero-action-button save-action-button"
+                          disabled={isAddingEvidence}
+                        >
+                          {isAddingEvidence ? 'Adding...' : 'Add Evidence'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {evidence.length > 0 ? (
+                      <div className="evidence-list">
+                    {evidence.map((item, index) => {
+                      const evidenceId = getEvidenceId(item);
+
+                      return (
+                      <div key={evidenceId ?? index} className="evidence-item" style={{ marginBottom: "10px" }}>
+
+                        <div className="evidence-item-top">
+                          {getEvidenceMeta(item) ? (
+                            <span className="detail-chip muted">{formatEvidenceTypeLabel(getEvidenceMeta(item))}</span>
+                          ) : null}
+
+                              <div className="evidence-item-actions">
+                                <button
+                                  type="button"
+                                  className="danger evidence-delete-button"
+                                  disabled={!evidenceId}
+                                  onClick={() => setEvidenceToDelete(item)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                        </div>
+
+                        <p className="evidence-item-value">
+                          {item?.value || 'No evidence details available.'}
+                        </p>
+
+                        {item?.source && (
+                          <p className="evidence-item-meta">Source: {item.source}</p>
+                        )}
+
+                        {item?.url && (
+                          <p className="evidence-item-meta">Evidence URL: {item.url}</p>
+                        )}
+
+                      </div>
+                    )})}                       
+                                          </div>
+                                        ) : (
+                                          <p className="empty-copy">No evidence items stored.</p>
+                                        )}
+                                      </article>
+                </div>
+              ) : null}
+                                </div>
+                              )}
+
+                              {!isLoadingDetails && !detailsError && !selectedProject && projects.length > 0 ? (
+                                <div className="empty-state-card">
+                                  <h3>Select a project to view details</h3>
+                                  <p>Choose a project from the explorer to open its dashboard.</p>
+                                </div>
+                              ) : null}
+                            </section>
       </div>
+
+      {evidenceToDelete ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete evidence confirmation">
+          <div className="modal-card">
+            <h3>Delete Evidence</h3>
+            <p>
+              Are you sure you want to delete this evidence item?
+              <br />
+              <strong>{getEvidenceTitle(evidenceToDelete, 0)}</strong>
+            </p>
+
+            <div className="modal-actions">
+              <button className="danger" onClick={handleDeleteEvidence}>
+                Yes, Delete Evidence
+              </button>
+
+              <button className="secondary" onClick={() => setEvidenceToDelete(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export default ScannedProjectsPage;
+    export default ScannedProjectsPage;
