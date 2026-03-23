@@ -82,6 +82,27 @@ def _ensure_projects_column(conn, column_name: str, column_type: str):
     if column_name not in cols:
         cur.execute(f"ALTER TABLE projects ADD COLUMN {column_name} {column_type}")
         conn.commit()
+
+
+def _table_exists(conn, table_name: str) -> bool:
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    )
+    return cur.fetchone() is not None
+
+
+def _ensure_table_column(conn, table_name: str, column_name: str, column_type: str):
+    """Add a missing column to an existing table without touching user data."""
+    if not _table_exists(conn, table_name):
+        return
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table_name})")
+    cols = {row['name'] for row in cur.fetchall()}
+    if column_name not in cols:
+        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+        conn.commit()
 def get_project_display_name(project_name: str):
     if not project_name:
         return None
@@ -1070,6 +1091,13 @@ def _ensure_schema(conn):
             FOREIGN KEY (contributor_id) REFERENCES contributors(id)
         )
     """)
+
+    # Upgrade legacy generated-output tables in-place when users already have older DBs.
+    _ensure_table_column(conn, "resumes", "metadata_json", "TEXT")
+    _ensure_table_column(conn, "resumes", "generated_at", "TEXT DEFAULT CURRENT_TIMESTAMP")
+    _ensure_table_column(conn, "portfolios", "portfolio_path", "TEXT")
+    _ensure_table_column(conn, "portfolios", "metadata_json", "TEXT")
+    _ensure_table_column(conn, "portfolios", "generated_at", "TEXT DEFAULT CURRENT_TIMESTAMP")
 
     # --- Indexes ---
     cur.execute("CREATE INDEX IF NOT EXISTS idx_file_path ON files (file_path)")

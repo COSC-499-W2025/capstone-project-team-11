@@ -16,6 +16,10 @@ function ResumePage({ onBack }) {
   const [llmSummary, setLlmSummary] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
+  const [userProjects, setUserProjects] = useState([]);
+  const [excludedProjectIds, setExcludedProjectIds] = useState([]);
+  const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
 
   const selectedUsername = username.trim() || "local";
 
@@ -32,6 +36,15 @@ function ResumePage({ onBack }) {
       })
       .catch(() => {
         setLlmConsentGranted(false);
+      });
+
+    fetch("http://127.0.0.1:8000/projects")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((projects) => {
+        setAllProjects(Array.isArray(projects) ? projects : []);
+      })
+      .catch(() => {
+        setAllProjects([]);
       });
   }, []);
 
@@ -50,6 +63,39 @@ function ResumePage({ onBack }) {
     fetchHistory(username);
   }, [username]);
 
+  useEffect(() => {
+    if (!username.trim()) {
+      setUserProjects([]);
+      setExcludedProjectIds([]);
+      setIsLoadingUserProjects(false);
+      return;
+    }
+
+    setIsLoadingUserProjects(true);
+    setExcludedProjectIds([]);
+
+    fetch(`http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=${encodeURIComponent(username.trim())}`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((ranked) => {
+        const rankedNames = new Set((Array.isArray(ranked) ? ranked : []).map((item) => item.project));
+        setUserProjects(allProjects.filter((project) => rankedNames.has(project.name)));
+      })
+      .catch(() => {
+        setUserProjects([]);
+      })
+      .finally(() => {
+        setIsLoadingUserProjects(false);
+      });
+  }, [username, allProjects]);
+
+  const toggleExclude = (id) => {
+    setExcludedProjectIds((prev) => (
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    ));
+  };
+
   const loadResumeById = async (id) => {
     setError("");
     try {
@@ -67,11 +113,21 @@ function ResumePage({ onBack }) {
 
   const handleGenerateResume = async () => {
     setError(""); setResumeContent(""); setResumeId(null); setIsLoading(true);
+
+    const excludedProjectNames = excludedProjectIds
+      .map((id) => userProjects.find((p) => (p.id ?? p.project_id) === id)?.name)
+      .filter(Boolean);
+
     try {
       const gen = await fetch("http://127.0.0.1:8000/resume/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: selectedUsername, save_to_db: true, llm_summary: llmSummary }),
+        body: JSON.stringify({
+          username: selectedUsername,
+          save_to_db: true,
+          llm_summary: llmSummary,
+          excluded_project_names: excludedProjectNames,
+        }),
       });
       if (!gen.ok) {
         const { detail } = await gen.json().catch(() => ({}));
@@ -158,41 +214,36 @@ function ResumePage({ onBack }) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPdf = () => {
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    iframe.setAttribute("aria-hidden", "true");
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
+  const downloadPdf = async () => {
+    setError("");
+    if (!resumeId) {
+      setError("Select or generate a saved resume before downloading PDF.");
       return;
     }
 
-    const escaped = resumeContent
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf`);
+      if (!response.ok) {
+        const { detail } = await response.json().catch(() => ({}));
+        throw new Error(detail || "Failed to generate PDF.");
+      }
 
-    doc.open();
-    doc.write(
-      `<html><head><title>resume_${selectedUsername}.pdf</title></head><body style="margin:24px;color:#0f172a;font-family:'DM Sans',sans-serif;"><pre style="white-space:pre-wrap;font-family:'DM Mono',Consolas,monospace;font-size:12px;line-height:1.45;">${escaped}</pre></body></html>`
-    );
-    doc.close();
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("Content-Disposition") || "";
+      const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+      const filename = filenameMatch?.[1] || `resume_${selectedUsername}.pdf`;
 
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 1200);
-    }, 250);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Unexpected error occurred.");
+    }
   };
 
   const formatGeneratedAt = (value) => {
@@ -339,6 +390,53 @@ function ResumePage({ onBack }) {
               </select>
             </label>
 
+            {username.trim() && (
+              <fieldset
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "0.8rem",
+                  margin: 0,
+                }}
+              >
+                <legend style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, padding: "0 0.35rem" }}>
+                  Exclude Projects from Resume
+                </legend>
+
+                {isLoadingUserProjects && (
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                    Loading contributor projects...
+                  </p>
+                )}
+
+                {!isLoadingUserProjects && userProjects.length === 0 && (
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                    No ranked projects found for this contributor.
+                  </p>
+                )}
+
+                {!isLoadingUserProjects && userProjects.length > 0 && (
+                  <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
+                    {userProjects.map((project) => {
+                      const projectId = project.id ?? project.project_id;
+                      if (projectId == null) return null;
+                      const label = project.custom_name || project.display_name || project.name;
+                      return (
+                        <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={!excludedProjectIds.includes(projectId)}
+                            onChange={() => toggleExclude(projectId)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </fieldset>
+            )}
+
             <label
               className="toggle-row"
               onClick={(event) => {
@@ -456,6 +554,7 @@ function ResumePage({ onBack }) {
                   </button>
                   <button
                     onClick={downloadPdf}
+                    disabled={!resumeId}
                     className="secondary px-3 py-1"
                     style={{
                       background: "rgba(74,222,128,0.08)",

@@ -349,7 +349,8 @@ test("renders evidence items with value, source, and url", async () => {
 
   expect(await within(evidenceContainer).findByText(/10k\+ downloads/i)).toBeInTheDocument();
   expect(within(evidenceContainer).getByText(/Source: GitHub/i)).toBeInTheDocument();
-  expect(within(evidenceContainer).getByRole("link", { name: /view evidence/i })).toBeInTheDocument();
+  expect(within(evidenceContainer).getByText(/Evidence URL: https:\/\/example\.com/i)).toBeInTheDocument();
+  expect(within(evidenceContainer).queryByRole("link", { name: /view evidence/i })).not.toBeInTheDocument();
 });
 
 test("deletes evidence when delete button is clicked", async () => {
@@ -410,6 +411,7 @@ test("deletes evidence when delete button is clicked", async () => {
 
   const deleteButton = await within(evidenceContainer).findByRole("button", { name: /delete/i });
   fireEvent.click(deleteButton);
+  fireEvent.click(await screen.findByRole("button", { name: /yes, delete evidence/i }));
 
   await waitFor(() => {
     expect(axios.delete).toHaveBeenCalledWith(
@@ -418,7 +420,7 @@ test("deletes evidence when delete button is clicked", async () => {
   });
 });
 
-test("renders formatted evidence type and cleaned evidence link label", async () => {
+test("renders formatted evidence type and plain evidence url text", async () => {
   axios.get.mockImplementation((url) => {
     if (url.includes("/projects/")) {
       return Promise.resolve({
@@ -453,8 +455,165 @@ test("renders formatted evidence type and cleaned evidence link label", async ()
     )
   ).toBeInTheDocument();
   expect(await within(evidenceContainer).findByText(/10k downloads/i)).toBeInTheDocument();
-  const link = await within(evidenceContainer).findByRole("link", { name: /view evidence/i });
-  expect(link).toBeInTheDocument();
-  expect(screen.queryByText("https://example.com")).not.toBeInTheDocument();
+  expect(within(evidenceContainer).getByText(/Evidence URL: https:\/\/example\.com/i)).toBeInTheDocument();
+  expect(within(evidenceContainer).queryByRole("link", { name: /view evidence/i })).not.toBeInTheDocument();
+});
+
+test("renders evidence delete button when detail payload includes evidence id", async () => {
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [
+          {
+            id: 10,
+            type: "metric",
+            value: "10k+ downloads",
+          },
+        ],
+        llm_summary: null,
+      },
+    });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest("article");
+
+  expect(await within(evidenceContainer).findByRole("button", { name: /delete/i })).toBeInTheDocument();
+});
+
+test("newly added evidence is immediately deletable from local state", async () => {
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [],
+        llm_summary: null,
+      },
+    });
+
+  axios.post.mockResolvedValueOnce({
+    data: {
+      evidence_id: 77,
+      message: "Evidence added successfully",
+    },
+  });
+
+  axios.delete.mockResolvedValueOnce({ data: {} });
+  axios.get
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [],
+        llm_summary: null,
+      },
+    })
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  fireEvent.change(screen.getByLabelText(/Outcome \/ Impact/i), {
+    target: { value: "10k+ downloads" },
+  });
+  fireEvent.change(screen.getByLabelText(/URL/i), {
+    target: { value: "https://example.com" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /add evidence/i }));
+
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest("article");
+  const deleteButton = await within(evidenceContainer).findByRole("button", { name: /delete/i });
+  expect(deleteButton).toBeEnabled();
+
+  fireEvent.click(deleteButton);
+  fireEvent.click(await screen.findByRole("button", { name: /yes, delete evidence/i }));
+
+  await waitFor(() => {
+    expect(axios.delete).toHaveBeenCalledWith(
+      expect.stringMatching(/\/projects\/1\/evidence\/77/)
+    );
+  });
+});
+
+test("evidence delete button opens in-app confirmation modal", async () => {
+  axios.get
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    })
+    .mockResolvedValueOnce({
+      data: {
+        project: {
+          id: 1,
+          name: "demo_project",
+          custom_name: null,
+        },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [
+          {
+            id: 10,
+            type: "metric",
+            value: "10k+ downloads",
+          },
+        ],
+        llm_summary: null,
+      },
+    });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest("article");
+
+  fireEvent.click(await within(evidenceContainer).findByRole("button", { name: /delete/i }));
+
+  expect(await screen.findByText(/Are you sure you want to delete this evidence item/i)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /yes, delete evidence/i })).toBeInTheDocument();
 });
 });
