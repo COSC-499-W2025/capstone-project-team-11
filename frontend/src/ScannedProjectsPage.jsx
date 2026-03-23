@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
+import { showModal } from './modal.js';
 
 function getThumbnailSrc(projectId, path) {
   if (!projectId || !path) return '';
@@ -210,12 +211,24 @@ function ScannedProjectsPage({ onBack }) {
     if (selectedProjectId == null) return;
 
     const projectName = getProjectName(selectedProject?.project, selectedProjectId);
-    const confirmed = window.confirm(`Are you sure you want to delete "${projectName}"?`);
+    const confirmed = await showModal({
+      type: 'danger',
+      title: 'Delete Project',
+      message: `Are you sure you want to delete "${projectName}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
       await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}`);
-      window.alert('Project deleted successfully');
+
+      await showModal({
+        type: 'success',
+        title: 'Project Deleted',
+        message: 'Project deleted successfully',
+        confirmText: 'OK',
+      });
 
       const updatedProjects = projects.filter((project) => getProjectId(project) !== selectedProjectId);
       setProjects(updatedProjects);
@@ -229,7 +242,12 @@ function ScannedProjectsPage({ onBack }) {
       }
     } catch (error) {
       console.error('Failed to delete project:', error);
-      window.alert('Failed to delete project.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to delete project.',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -296,7 +314,13 @@ function ScannedProjectsPage({ onBack }) {
   const handleDeleteEvidence = async (evidenceId) => {
     if (selectedProjectId == null || !evidenceId) return;
 
-    const confirmed = window.confirm('Are you sure you want to delete this evidence item?');
+    const confirmed = await showModal({
+      type: 'danger',
+      title: 'Delete Evidence',
+      message: 'Are you sure you want to delete this evidence item?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -306,6 +330,12 @@ function ScannedProjectsPage({ onBack }) {
     } catch (error) {
       console.error('Failed to delete evidence:', error);
       setEvidenceError(error?.response?.data?.detail || 'Failed to delete evidence.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to delete evidence.',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -328,7 +358,12 @@ function ScannedProjectsPage({ onBack }) {
       await refreshProjectData();
     } catch (error) {
       console.error('Failed to update project thumbnail:', error);
-      window.alert('Failed to update project thumbnail.');
+      await showModal({
+        type: 'danger',
+        title: 'Error',
+        message: 'Failed to update project thumbnail.',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUpdatingThumbnail(false);
     }

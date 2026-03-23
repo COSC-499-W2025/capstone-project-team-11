@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { API_BASE_URL } from './api';
+import { showModal } from "./modal";
 
 const MAX_FEATURED = 3;
 

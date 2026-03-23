@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { showModal } from "./modal.js";
 
 function ResumePage({ onBack }) {
   const [contributors, setContributors] = useState([]);
@@ -114,7 +115,18 @@ function ResumePage({ onBack }) {
 
   const handleDeleteResume = async (id, e) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this resume? This cannot be undone.")) return;
+
+    // Replace window.confirm with showModal
+    const confirmed = await showModal({
+      type: "danger",
+      title: "Delete Resume",
+      message: "Delete this resume? This cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return;
+
     setDeletingId(id);
     try {
       const res = await fetch(`http://127.0.0.1:8000/resume/${id}`, { method: "DELETE" });

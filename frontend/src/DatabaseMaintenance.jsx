@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "./api";
+import { showModal } from "./modal";
 
 function DatabaseMaintenance({ onBack }) {
   const [tables, setTables] = useState({});
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     inspectDatabase();
@@ -127,12 +127,19 @@ function DatabaseMaintenance({ onBack }) {
     setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  const clearDatabase = () => {
-    setShowConfirmModal(true);
-  };
+  const clearDatabase = async () => {
+    const confirmed = await showModal({
+      type: "danger",
+      title: "Clear Database",
+      message: `
+        Are you sure you want to delete all database data?<br/>
+        <strong>This action cannot be undone.</strong>
+      `,
+      confirmText: "Yes, Clear Database",
+      cancelText: "Cancel",
+    });
 
-  const confirmClearDatabase = async () => {
-    setShowConfirmModal(false);
+    if (!confirmed) return;
 
     try {
       await axios.delete(`${API_BASE_URL}/database/clear`);
@@ -141,11 +148,6 @@ function DatabaseMaintenance({ onBack }) {
       console.error(err);
     }
   };
-
-  const cancelClearDatabase = () => {
-    setShowConfirmModal(false);
-  };
-
 
   const renderTables = () => {
     const tableNames = Object.keys(tables);
@@ -180,7 +182,9 @@ function DatabaseMaintenance({ onBack }) {
                       <tr key={i}>
                         {columnIndexes.map(index => {
                           let value = row[index];
-                          if (typeof value === "string" && value.length > 60) value = value.substring(0, 60) + "...";
+                          if (typeof value === "string" && value.length > 60) {
+                            value = value.substring(0, 60) + "...";
+                          }
                           return <td key={index}>{value ?? "NULL"}</td>;
                         })}
                       </tr>
@@ -216,30 +220,6 @@ function DatabaseMaintenance({ onBack }) {
           {content}
         </section>
       </div>
-
-      {showConfirmModal && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Clear Database</h3>
-
-            <p>
-              Are you sure you want to delete all database data?
-              <br />
-              <strong>This action cannot be undone.</strong>
-            </p>
-
-            <div className="modal-actions">
-              <button className="danger" onClick={confirmClearDatabase}>
-                Yes, Clear Database
-              </button>
-
-              <button className="secondary" onClick={cancelClearDatabase}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
