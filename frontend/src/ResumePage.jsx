@@ -152,6 +152,7 @@ function ResumePage({ onBack }) {
       });
       return next;
     });
+  };
   const handleSelectAllProjects = () => {
     setExcludedProjectIds([]);
   };
