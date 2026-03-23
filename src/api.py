@@ -27,7 +27,7 @@ import zipfile
 
 from config import load_config, save_config, config_path as default_config_path
 from cli_username_selection import get_candidate_usernames
-from db import get_connection, save_portfolio, list_portfolios, rename_portfolio, save_resume, delete_project_by_id
+from db import get_connection, save_portfolio, update_portfolio, list_portfolios, list_all_portfolios, rename_portfolio, delete_portfolio, save_resume, delete_project_by_id
 from generate_portfolio import aggregate_projects_for_portfolio
 from generate_resume import (
     collect_projects,
@@ -144,6 +144,13 @@ class PortfolioSaveRequest(BaseModel):
 
 class PortfolioRenameRequest(BaseModel):
     portfolio_name: str
+
+
+class PortfolioUpdateRequest(BaseModel):
+    portfolio_name: str
+    display_name: Optional[str] = None
+    included_project_ids: List[int] = []
+    featured_project_ids: List[int] = []
 
 
 class WebPortfolioCustomizeRequest(BaseModel):
@@ -982,9 +989,6 @@ def remove_project_evidence(project_id: int, evidence_id: int):
 
     return {"message": "Evidence deleted successfully"}
 
-
-
-
 @app.get("/skills")
 def list_skills():
     with get_connection() as conn:
@@ -1430,6 +1434,11 @@ def delete_resume(resume_id: int):
     return {"deleted": True}
 
 
+@app.get("/portfolios/all")
+def get_all_portfolios():
+    return list_all_portfolios()
+
+
 @app.get("/portfolios")
 def get_portfolios(username: str = Query(..., min_length=1)):
     return list_portfolios(username)
@@ -1459,6 +1468,42 @@ def save_portfolio_endpoint(payload: PortfolioSaveRequest):
     )
     row = _load_portfolio_row_or_404(portfolio_id)
     return _portfolio_row_to_dict(row)
+
+
+@app.delete("/portfolios/cleanup-temp", status_code=204)
+def cleanup_temp_portfolios():
+    """Delete any portfolio rows that were created as temporary entries but never saved:
+    Temp rows are identified by the prefix "__temp__" flag
+    This endpoint is called on PortfolioPage mount to delete orphaned temporary entries left by abrupt app closes
+    """
+    with get_connection() as conn:
+        conn.execute("DELETE FROM portfolios WHERE portfolio_name LIKE '__temp__%'")
+        conn.commit()
+
+
+@app.put("/portfolios/{portfolio_id}")
+def update_portfolio_endpoint(portfolio_id: int, payload: PortfolioUpdateRequest):
+    portfolio_name = payload.portfolio_name.strip()
+    if not portfolio_name:
+        raise HTTPException(status_code=400, detail="portfolio_name is required")
+    found = update_portfolio(
+        portfolio_id,
+        portfolio_name=portfolio_name,
+        display_name=payload.display_name,
+        included_project_ids=payload.included_project_ids,
+        featured_project_ids=payload.featured_project_ids,
+    )
+    if not found:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    row = _load_portfolio_row_or_404(portfolio_id)
+    return _portfolio_row_to_dict(row)
+
+
+@app.delete("/portfolios/{portfolio_id}", status_code=204)
+def delete_portfolio_endpoint(portfolio_id: int):
+    found = delete_portfolio(portfolio_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
 
 
 @app.patch("/portfolios/{portfolio_id}/name")

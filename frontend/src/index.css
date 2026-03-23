@@ -137,14 +137,13 @@ button:disabled {
   border: 1px solid var(--border);
   color: var(--text-secondary);
   box-shadow: none;
-  margin-top: 0.5rem;
 }
 
 .secondary:hover:not(:disabled) {
   background: var(--bg-surface-hi);
   color: var(--text-primary);
   box-shadow: none;
-  transform: none;
+  transform: translateY(-1px);
 }
 
 .danger {
@@ -156,6 +155,7 @@ button:disabled {
 
 .danger:hover:not(:disabled) {
   box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35);
+  transform: translateY(-1px);
 }
 
 /* ─── Page Shell ─────────────────────────────────────────────────────────── */
@@ -1787,6 +1787,8 @@ button:disabled {
 .portfolio-toolbar {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
 }
  
 .portfolio-setup-panel {
