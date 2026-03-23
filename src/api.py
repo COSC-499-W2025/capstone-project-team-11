@@ -724,7 +724,7 @@ def get_project(project_id: int):
 
         evidence_rows = conn.execute(
             """
-            SELECT type, description, value, source, url, added_by_user, created_at
+            SELECT id, type, description, value, source, url, added_by_user, created_at
             FROM project_evidence
             WHERE project_id = ?
             ORDER BY created_at DESC
@@ -1552,7 +1552,7 @@ def get_web_showcase(
 
             evidence_rows = conn.execute(
                 """
-                SELECT type, description, value, source, url, created_at
+                SELECT id, type, description, value, source, url, created_at
                 FROM project_evidence
                 WHERE project_id = ?
                 ORDER BY created_at DESC

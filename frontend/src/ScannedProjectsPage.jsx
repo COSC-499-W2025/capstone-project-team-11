@@ -61,6 +61,11 @@ function getEvidenceDescription(item) {
   return item.value ?? item.description ?? item.source ?? item.url ?? '';
 }
 
+function getEvidenceId(item) {
+  if (!item || typeof item !== 'object') return null;
+  return item.id ?? item.evidence_id ?? item.evidenceId ?? null;
+}
+
 function ScannedProjectsPage({ onBack }) {
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -85,10 +90,7 @@ function ScannedProjectsPage({ onBack }) {
   const [newEvidenceValue, setNewEvidenceValue] = useState('');
   const [newEvidenceSource, setNewEvidenceSource] = useState('');
   const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
-  const [editingEvidenceId, setEditingEvidenceId] = useState(null);
-  const [editEvidenceValue, setEditEvidenceValue] = useState('');
-  const [editEvidenceSource, setEditEvidenceSource] = useState('');
-  const [editEvidenceUrl, setEditEvidenceUrl] = useState('');
+  const [evidenceToDelete, setEvidenceToDelete] = useState(null);
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -247,19 +249,36 @@ function ScannedProjectsPage({ onBack }) {
       setIsAddingEvidence(true);
       setEvidenceError('');
 
-      await axios.post(`${API_BASE_URL}/projects/${selectedProjectId}/evidence`, {
+      const response = await axios.post(`${API_BASE_URL}/projects/${selectedProjectId}/evidence`, {
         type: newEvidenceType,
         value: trimmedValue,
         source: newEvidenceSource.trim() || null,
         url: newEvidenceUrl.trim() || null,
       });
 
+      const createdEvidenceId = response?.data?.evidence_id ?? null;
+      const createdEvidence = {
+        id: createdEvidenceId,
+        type: newEvidenceType,
+        value: trimmedValue,
+        source: newEvidenceSource.trim() || null,
+        url: newEvidenceUrl.trim() || null,
+      };
+
+      setSelectedProject((current) => {
+        if (!current) return current;
+
+        const currentEvidence = Array.isArray(current.evidence) ? current.evidence : [];
+        return {
+          ...current,
+          evidence: [createdEvidence, ...currentEvidence],
+        };
+      });
+
       setNewEvidenceType('metric');
       setNewEvidenceValue('');
       setNewEvidenceSource('');
       setNewEvidenceUrl('');
-
-      await refreshProjectData();
     } catch (error) {
       console.error('Failed to add evidence:', error);
       setEvidenceError(error?.response?.data?.detail || 'Failed to add evidence.');
@@ -268,40 +287,14 @@ function ScannedProjectsPage({ onBack }) {
     }
   };
 
-  const handleUpdateEvidence = async (evidenceId) => {
-  if (!selectedProjectId || !evidenceId) return;
-
-  try {
-    setEvidenceError('');
-
-    await axios.patch(
-      `${API_BASE_URL}/projects/${selectedProjectId}/evidence/${evidenceId}`,
-      {
-        value: editEvidenceValue,
-        source: editEvidenceSource,
-        url: editEvidenceUrl,
-      }
-    );
-
-    setEditingEvidenceId(null);
-    await refreshProjectData();
-  } catch (error) {
-    console.error('Failed to update evidence:', error);
-    setEvidenceError(
-      error?.response?.data?.detail || 'Failed to update evidence.'
-    );
-  }
-};
-
-  const handleDeleteEvidence = async (evidenceId) => {
+  const handleDeleteEvidence = async () => {
+    const evidenceId = getEvidenceId(evidenceToDelete);
     if (selectedProjectId == null || !evidenceId) return;
-
-    const confirmed = window.confirm('Are you sure you want to delete this evidence item?');
-    if (!confirmed) return;
 
     try {
       setEvidenceError('');
       await axios.delete(`${API_BASE_URL}/projects/${selectedProjectId}/evidence/${evidenceId}`);
+      setEvidenceToDelete(null);
       await refreshProjectData();
     } catch (error) {
       console.error('Failed to delete evidence:', error);
@@ -889,7 +882,7 @@ function ScannedProjectsPage({ onBack }) {
 
                       {evidenceError ? <p className="error-text">{evidenceError}</p> : null}
 
-                      <div className="project-hero-actions">
+                      <div className="project-hero-actions evidence-form-actions">
                         <button
                           type="submit"
                           className="hero-action-button save-action-button"
@@ -902,107 +895,43 @@ function ScannedProjectsPage({ onBack }) {
 
                     {evidence.length > 0 ? (
                       <div className="evidence-list">
-                    {evidence.map((item, index) => (
-                      <div key={item.id ?? index} className="evidence-item" style={{ marginBottom: "10px" }}>
+                    {evidence.map((item, index) => {
+                      const evidenceId = getEvidenceId(item);
+
+                      return (
+                      <div key={evidenceId ?? index} className="evidence-item" style={{ marginBottom: "10px" }}>
 
                         <div className="evidence-item-top">
                           {getEvidenceMeta(item) ? (
                             <span className="detail-chip muted">{formatEvidenceTypeLabel(getEvidenceMeta(item))}</span>
                           ) : null}
 
-                          {item?.id ? (
-                              <div style={{ display: 'flex', gap: '8px' }}>
+                              <div className="evidence-item-actions">
                                 <button
                                   type="button"
-                                  className="hero-action-button"
-                                  onClick={() => {
-                                    setEditingEvidenceId(item.id);
-                                    setEditEvidenceValue(item.value || '');
-                                    setEditEvidenceSource(item.source || '');
-                                    setEditEvidenceUrl(item.url || '');
-                                  }}
-                                >
-                                  Edit
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="danger"
-                                  onClick={() => handleDeleteEvidence(item.id)}
+                                  className="danger evidence-delete-button"
+                                  disabled={!evidenceId}
+                                  onClick={() => setEvidenceToDelete(item)}
                                 >
                                   Delete
                                 </button>
                               </div>
-                            ) : null}
                         </div>
 
-                        {editingEvidenceId === item.id ? (
-                              <div className="edit-evidence-form">
-
-                                <input
-                                  type="text"
-                                  value={editEvidenceValue}
-                                  onChange={(e) => setEditEvidenceValue(e.target.value)}
-                                  className="detail-input"
-                                  placeholder="Value"
-                                />
-
-                                <input
-                                  type="text"
-                                  value={editEvidenceSource}
-                                  onChange={(e) => setEditEvidenceSource(e.target.value)}
-                                  className="detail-input"
-                                  placeholder="Source"
-                                />
-
-                                <input
-                                  type="text"
-                                  value={editEvidenceUrl}
-                                  onChange={(e) => setEditEvidenceUrl(e.target.value)}
-                                  className="detail-input"
-                                  placeholder="URL"
-                                />
-
-                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                  <button
-                                    className="hero-action-button save-action-button"
-                                    onClick={() => handleUpdateEvidence(item.id)}
-                                  >
-                                    Save
-                                  </button>
-
-                                  <button
-                                    className="hero-action-button"
-                                    onClick={() => setEditingEvidenceId(null)}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-
-                              </div>
-                            ) : (
-                              <p className="evidence-item-value">
-                                {item?.value || 'No evidence details available.'}
-                              </p>
-                            )}
+                        <p className="evidence-item-value">
+                          {item?.value || 'No evidence details available.'}
+                        </p>
 
                         {item?.source && (
                           <p className="evidence-item-meta">Source: {item.source}</p>
                         )}
 
-                              {item?.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="evidence-item-meta"
-                      >
-                        View Evidence →
-                      </a>
-                    )}
+                        {item?.url && (
+                          <p className="evidence-item-meta">Evidence URL: {item.url}</p>
+                        )}
 
                       </div>
-                    ))}                       
+                    )})}                       
                                           </div>
                                         ) : (
                                           <p className="empty-copy">No evidence items stored.</p>
@@ -1020,9 +949,32 @@ function ScannedProjectsPage({ onBack }) {
                                 </div>
                               ) : null}
                             </section>
-                          </div>
-                        </div>
-                      );
-                    }
+      </div>
+
+      {evidenceToDelete ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete evidence confirmation">
+          <div className="modal-card">
+            <h3>Delete Evidence</h3>
+            <p>
+              Are you sure you want to delete this evidence item?
+              <br />
+              <strong>{getEvidenceTitle(evidenceToDelete, 0)}</strong>
+            </p>
+
+            <div className="modal-actions">
+              <button className="danger" onClick={handleDeleteEvidence}>
+                Yes, Delete Evidence
+              </button>
+
+              <button className="secondary" onClick={() => setEvidenceToDelete(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
     export default ScannedProjectsPage;
