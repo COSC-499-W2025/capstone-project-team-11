@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import axios from "axios";
 import ScannedProjectsPage from "../src/ScannedProjectsPage.jsx";
 
@@ -91,7 +91,7 @@ describe("ScannedProjectsPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
     expect(await screen.findByText(/Scan Activity/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/winner/i).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Nightly scan/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Search projects/i), {
       target: { value: "beta" },
@@ -343,11 +343,13 @@ test("renders evidence items with value, source, and url", async () => {
 
   render(<ScannedProjectsPage onBack={() => {}} />);
 
-  fireEvent.click(await screen.findByRole("tab", { name: /activity/i }));
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest('article');
 
-  expect(await screen.findByText(/10k\+ downloads/i)).toBeInTheDocument();
-  expect(screen.getByText(/Source: GitHub/i)).toBeInTheDocument();
-  expect(screen.getByText(/https:\/\/example.com/i)).toBeInTheDocument();
+  expect(await within(evidenceContainer).findByText(/10k\+ downloads/i)).toBeInTheDocument();
+  expect(within(evidenceContainer).getByText(/Source: GitHub/i)).toBeInTheDocument();
+  expect(within(evidenceContainer).getByRole("link", { name: /view evidence/i })).toBeInTheDocument();
 });
 
 test("deletes evidence when delete button is clicked", async () => {
@@ -381,17 +383,78 @@ test("deletes evidence when delete button is clicked", async () => {
 
   axios.delete.mockResolvedValueOnce({ data: {} });
 
+  // refreshProjectData makes two GET calls after delete
+  axios.get
+    .mockResolvedValueOnce({
+      data: {
+        project: { id: 1, name: "demo_project", custom_name: null },
+        skills: [],
+        languages: [],
+        contributors: [],
+        contributor_roles: { contributors: [], summary: {} },
+        scans: [],
+        files_summary: { total_files: 0, extensions: {} },
+        evidence: [],
+        llm_summary: null,
+      },
+    })
+    .mockResolvedValueOnce({
+      data: [{ id: 1, name: "demo_project", custom_name: null }],
+    });
+
   render(<ScannedProjectsPage onBack={() => {}} />);
 
-  fireEvent.click(await screen.findByRole("tab", { name: /activity/i }));
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest('article');
 
-  const deleteButtons = await screen.findAllByRole("button", { name: /delete/i });
-  fireEvent.click(deleteButtons[1]);
+  const deleteButton = await within(evidenceContainer).findByRole("button", { name: /delete/i });
+  fireEvent.click(deleteButton);
 
   await waitFor(() => {
     expect(axios.delete).toHaveBeenCalledWith(
       expect.stringMatching(/\/projects\/1\/evidence\/10/)
     );
   });
+});
+
+test("renders formatted evidence type and cleaned evidence link label", async () => {
+  axios.get.mockImplementation((url) => {
+    if (url.includes("/projects/")) {
+      return Promise.resolve({
+        data: {
+          project: { id: 1 },
+          evidence: [
+            {
+              id: 1,
+              type: "external_link",
+              value: "10k downloads",
+              url: "https://example.com"
+            }
+          ]
+        },
+      });
+    }
+
+    return Promise.resolve({
+      data: [{ id: 1, custom_name: "Test Project" }],
+    });
+  });
+
+  render(<ScannedProjectsPage onBack={() => {}} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: /evidence/i }));
+  const evidenceSection = await screen.findByText(/Project Evidence/i);
+  const evidenceContainer = evidenceSection.closest('article');
+
+  expect(
+    within(evidenceContainer).getByText((content, element) =>
+      element.tagName.toLowerCase() === "span" && /external link/i.test(content)
+    )
+  ).toBeInTheDocument();
+  expect(await within(evidenceContainer).findByText(/10k downloads/i)).toBeInTheDocument();
+  const link = await within(evidenceContainer).findByRole("link", { name: /view evidence/i });
+  expect(link).toBeInTheDocument();
+  expect(screen.queryByText("https://example.com")).not.toBeInTheDocument();
 });
 });

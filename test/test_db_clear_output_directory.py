@@ -1,8 +1,9 @@
+import gc
 import os
+import shutil
 import sys
 import tempfile
 import unittest
-import shutil
 
 # Add src to path
 sys.path.insert(
@@ -47,8 +48,9 @@ class TestClearDatabaseOutputDirectory(unittest.TestCase):
     def tearDown(self):
         # Clean up temp DB
         os.close(self.db_fd)
-        os.unlink(self.db_path)
         os.environ.pop("FILE_DATA_DB_PATH", None)
+        gc.collect()  # Force-release SQLite file handles before unlinking (fixes failing tests on Windows)
+        os.unlink(self.db_path)
 
         # Clean up output directory if it still exists
         if os.path.isdir(self.output_dir):
