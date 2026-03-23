@@ -272,43 +272,43 @@ await waitFor(() => {
   });
 
   test("delete confirmation uses project name", async () => {
-  window.confirm = vi.fn(() => false);
-
-  axios.get
-    .mockResolvedValueOnce({
-      data: [{ id: 1, name: "demo_project", custom_name: "Pretty Project Name" }],
-    })
-    .mockResolvedValueOnce({
-      data: {
-        project: {
-          id: 1,
-          name: "demo_project",
-          custom_name: "Pretty Project Name",
-          repo_url: null,
-          created_at: "2025-01-01",
-          thumbnail_path: null,
+    axios.get
+      .mockResolvedValueOnce({
+        data: [{ id: 1, name: "demo_project", custom_name: "Pretty Project Name" }],
+      })
+      .mockResolvedValueOnce({
+        data: {
+          project: {
+            id: 1,
+            name: "demo_project",
+            custom_name: "Pretty Project Name",
+            repo_url: null,
+            created_at: "2025-01-01",
+            thumbnail_path: null,
+          },
+          skills: [],
+          languages: [],
+          contributors: [],
+          contributor_roles: { contributors: [], summary: {} },
+          scans: [],
+          files_summary: { total_files: 0, extensions: {} },
+          evidence: [],
+          llm_summary: null,
         },
-        skills: [],
-        languages: [],
-        contributors: [],
-        contributor_roles: { contributors: [], summary: {} },
-        scans: [],
-        files_summary: { total_files: 0, extensions: {} },
-        evidence: [],
-        llm_summary: null,
-      },
-    });
+      });
 
-  render(<ScannedProjectsPage onBack={() => {}} />);
+    render(<ScannedProjectsPage onBack={() => {}} />);
 
-  expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Pretty Project Name/i)).toBeInTheDocument();
 
-  fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Delete Project/i }));
 
-  expect(window.confirm).toHaveBeenCalledWith(
-    'Are you sure you want to delete "Pretty Project Name"?'
-  );
-});
+    expect(
+      await screen.findByText('Are you sure you want to delete "Pretty Project Name"?')
+    ).toBeInTheDocument();
+
+    expect(axios.delete).not.toHaveBeenCalled();
+  });
 
 test("renders evidence items with value, source, and url", async () => {
   axios.get

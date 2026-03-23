@@ -2487,52 +2487,137 @@ button:disabled {
   }
 }
 
-/* --- Project Modal --- */
+/* ─── Enhanced Modal System ───────────────────────────────────────────── */
 
+/* Overlay animation */
 .modal-overlay {
+  animation: fade-in 0.15s ease;
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 
+/* Glow backdrop */
+.modal-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(74,222,128,0.08), transparent 60%);
+  pointer-events: none;
+}
+
+/* Modal card */
 .modal-card {
   width: 420px;
-  max-width: 90%;
+  max-width: 92%;
   background: var(--bg-surface);
-  color: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1.4rem;
-  text-align: center;
+  padding: 1.3rem;
   box-shadow: var(--shadow-lg);
+  animation: modal-in 0.18s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.modal-card h3 {
-  margin-top: 0;
-  margin-bottom: 0.6rem;
+/* subtle gradient overlay */
+.modal-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(34,211,238,0.12), transparent 40%);
+  pointer-events: none;
 }
 
-.modal-card p {
+/* Header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Icon */
+.modal-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+/* Body */
+.modal-body {
   font-size: 0.88rem;
+  color: var(--text-secondary);
   margin-bottom: 1rem;
+  line-height: 1.5;
 }
 
+/* Actions */
 .modal-actions {
   display: flex;
-  justify-content: center;
-  gap: 0.6rem;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
-.detail-textarea {
-  min-height: 180px;
-  resize: vertical;
-  font: inherit;
+/* Types */
+.modal-card--success { border-color: rgba(74,222,128,0.35); }
+.modal-card--danger  { border-color: rgba(248,113,113,0.35); }
+.modal-card--warning { border-color: rgba(251,191,36,0.35); }
+.modal-card--info    { border-color: rgba(34,211,238,0.35); }
+
+/* Icon colors */
+.modal-icon--success {
+  background: rgba(74,222,128,0.15);
+  color: var(--accent-green);
 }
+
+.modal-icon--danger {
+  background: rgba(248,113,113,0.15);
+  color: var(--accent-red);
+}
+
+.modal-icon--warning {
+  background: rgba(251,191,36,0.15);
+  color: var(--accent-amber);
+}
+
+.modal-icon--info {
+  background: rgba(34,211,238,0.15);
+  color: var(--accent-cyan);
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* --- Project Modal Sections --- */
 
 /* Shared card shell */
