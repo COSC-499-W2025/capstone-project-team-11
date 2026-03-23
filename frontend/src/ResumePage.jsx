@@ -21,6 +21,26 @@ function ResumePage({ onBack }) {
   const [userProjects, setUserProjects] = useState([]);
   const [excludedProjectIds, setExcludedProjectIds] = useState([]);
   const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
+  const [education, setEducation] = useState([
+    {
+      school: "",
+      degree: "",
+      field: "",
+      start: "",
+      end: "",
+      gpa: "",
+    },
+  ]);
+  const [openIndex, setOpenIndex] = useState(0);
+
+  const createEmptyEducation = () => ({
+    school: "",
+    degree: "",
+    field: "",
+    start: "",
+    end: "",
+    gpa: "",
+  });
 
   const selectedUsername = username.trim() || "local";
 
@@ -97,6 +117,43 @@ function ResumePage({ onBack }) {
     ));
   };
 
+  const handleEducationChange = (index, field, value) => {
+    setEducation((prev) => prev.map((item, i) => (
+      i === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const addEducation = () => {
+    const last = education[education.length - 1];
+
+    const isEmpty =
+      !last.school &&
+      !last.degree &&
+      !last.field;
+
+    if (isEmpty) return;
+
+    setEducation((prev) => {
+      const next = [...prev, createEmptyEducation()];
+      setOpenIndex(next.length - 1);
+      return next;
+    });
+  };
+
+  const removeEducation = (index) => {
+    setEducation((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setOpenIndex((current) => {
+        if (!next.length) return null;
+        if (current == null) return 0;
+        if (current === index) return Math.min(index, next.length - 1);
+        if (current > index) return current - 1;
+        return Math.min(current, next.length - 1);
+      });
+      return next;
+    });
+  };
+
   const loadResumeById = async (id) => {
     setError("");
     try {
@@ -118,6 +175,11 @@ function ResumePage({ onBack }) {
     const excludedProjectNames = excludedProjectIds
       .map((id) => userProjects.find((p) => (p.id ?? p.project_id) === id)?.name)
       .filter(Boolean);
+    const cleanedEducation = education.filter((edu) =>
+      edu.school.trim() ||
+      edu.degree.trim() ||
+      edu.field.trim()
+    );
 
     try {
       const gen = await fetch("http://127.0.0.1:8000/resume/generate", {
@@ -128,6 +190,7 @@ function ResumePage({ onBack }) {
           save_to_db: true,
           llm_summary: llmSummary,
           excluded_project_names: excludedProjectNames,
+          education: cleanedEducation,
         }),
       });
       if (!gen.ok) {
@@ -475,6 +538,181 @@ function ResumePage({ onBack }) {
                 )}
               </span>
             </label>
+
+            <fieldset
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "0.8rem",
+                margin: 0,
+              }}
+            >
+              <legend style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, padding: "0 0.35rem" }}>
+                Education
+              </legend>
+
+              <div className="grid gap-3">
+                {education.map((edu, index) => {
+                  const isOpen = openIndex === index;
+                  const getSummary = (entry) => {
+                    const parts = [];
+
+                    if (entry.school) parts.push(entry.school);
+
+                    const degreeField = [entry.degree, entry.field].filter(Boolean).join(" ");
+                    if (degreeField) parts.push(degreeField);
+
+                    if (entry.start || entry.end) {
+                      parts.push(`(${entry.start || ""}-${entry.end || ""})`);
+                    }
+
+                    return parts.join(" — ") || "New Education";
+                  };
+
+                  const summary = getSummary(edu);
+                  const displaySummary = summary;
+
+                  return (
+                    <div
+                      key={`edu-${index}`}
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        overflow: "hidden",
+                        background: "var(--bg-surface)",
+                        transition: "all 0.18s ease",
+                      }}
+                    >
+                      <div
+                        onClick={() => setOpenIndex(isOpen ? null : index)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setOpenIndex(isOpen ? null : index);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "0.6rem",
+                          padding: "0.7rem 0.8rem",
+                          cursor: "pointer",
+                          background: isOpen
+                            ? "rgba(74, 222, 128, 0.08)"
+                            : "var(--bg-surface-md)",
+                          boxShadow: isOpen
+                            ? "0 0 0 1px rgba(74, 222, 128, 0.2)"
+                            : "none",
+                          borderBottom: isOpen ? "1px solid var(--border)" : "none",
+                          transition: "all 0.18s ease",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--text-secondary)",
+                            fontSize: "0.82rem",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={summary}
+                        >
+                          {displaySummary}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                          {education.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                removeEducation(index);
+                              }}
+                              style={{
+                                background: "rgba(248, 113, 113, 0.08)",
+                                border: "1px solid rgba(248, 113, 113, 0.2)",
+                                color: "rgba(248, 113, 113, 0.9)",
+                                cursor: "pointer",
+                                fontSize: "0.75rem",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                lineHeight: 1.2,
+                                whiteSpace: "nowrap",
+                                transition: "all 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(248,113,113,0.18)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "rgba(248,113,113,0.08)";
+                              }}
+                              title="Remove education entry"
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <span style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                            {isOpen ? "▾" : "▸"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isOpen && (
+                        <div className="grid gap-2" style={{ padding: "0.7rem" }}>
+                          <input
+                            type="text"
+                            placeholder="School or University"
+                            value={edu.school}
+                            onChange={(e) => handleEducationChange(index, "school", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Degree (e.g., BSc, MSc, Diploma)"
+                            value={edu.degree}
+                            onChange={(e) => handleEducationChange(index, "degree", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Field (e.g., Computer Science)"
+                            value={edu.field}
+                            onChange={(e) => handleEducationChange(index, "field", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Start (e.g., Sep 2022)"
+                            value={edu.start}
+                            onChange={(e) => handleEducationChange(index, "start", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="End (e.g., May 2026)"
+                            value={edu.end}
+                            onChange={(e) => handleEducationChange(index, "end", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="GPA (optional, e.g., 3.7/4.0)"
+                            value={edu.gpa}
+                            onChange={(e) => handleEducationChange(index, "gpa", e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                className="secondary px-3 py-1"
+                style={{ marginTop: "0.7rem" }}
+                onClick={addEducation}
+              >
+                + Add Education
+              </button>
+            </fieldset>
 
             <div className="flex flex-wrap gap-3">
               <button onClick={handleGenerateResume} disabled={isLoading}

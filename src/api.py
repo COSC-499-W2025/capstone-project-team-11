@@ -127,6 +127,7 @@ class ResumeGenerateRequest(BaseModel):
     save_to_db: bool = False
     llm_summary: bool = False
     excluded_project_names: List[str] = Field(default_factory=list)
+    education: Optional[List[Dict[str, str]]] = None
 
 
 class ResumeEditRequest(BaseModel):
@@ -1375,12 +1376,13 @@ def generate_resume(payload: ResumeGenerateRequest):
         root_repo_jsons,
         excluded_project_names=payload.excluded_project_names,
     )
+    education = payload.education or []
 
     os.makedirs(payload.resume_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     ts_fname = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     llm_summary = maybe_generate_resume_summary(agg, use_llm=payload.llm_summary)
-    md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary)
+    md = render_markdown(agg, generated_ts=ts_iso, llm_summary=llm_summary, education=education)
 
     out_path = os.path.join(payload.resume_dir, f"resume_{username}_{ts_fname}.md")
     with open(out_path, "w", encoding="utf-8") as fh:
