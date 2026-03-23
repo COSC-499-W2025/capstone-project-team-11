@@ -139,8 +139,15 @@ def collect_projects(output_root=None):
     return load_projects_for_generation()
 
 
-def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=None):
+def aggregate_for_user(
+    username,
+    projects,
+    root_repo_jsons,
+    selected_non_git=None,
+    excluded_project_names: list = [],
+):
     selected_non_git = selected_non_git or []
+    excluded_project_name_set = {name for name in (excluded_project_names or []) if name}
 
     user_projects = []
     tech_set = set()
@@ -150,6 +157,9 @@ def aggregate_for_user(username, projects, root_repo_jsons, selected_non_git=Non
 
    
     for name, info in projects.items():
+        if name in excluded_project_name_set:
+            continue
+
         contribs = info.get("contributions") or {}
 
         # unwrap nested structure
@@ -385,7 +395,7 @@ def render_markdown(agg, generated_ts=None, llm_summary: str = None):
         files = p.get('user_files') or []
 
         md.append(line)
-        
+        md.append('')
         # generate 2-4 bullets similar to earlier style
         techs = ', '.join([t for t in (languages + frameworks) if t])
         bullets = []

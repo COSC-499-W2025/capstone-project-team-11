@@ -1377,6 +1377,10 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.evidence-form-actions {
+  margin: 0.8rem 0;
+}
+
 .hero-action-button {
   display: inline-flex;
   align-items: center;
@@ -1666,6 +1670,20 @@ button:disabled {
   align-items: start;
   gap: 0.6rem;
   margin-bottom: 0.35rem;
+}
+
+.evidence-item-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.evidence-delete-button {
+  min-height: 1.95rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  border-radius: 999px;
 }
 
 .evidence-item p,

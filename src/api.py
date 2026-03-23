@@ -2,6 +2,8 @@ import json
 import mimetypes
 import os
 import sys
+import re
+import sqlite3
 from io import StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -13,6 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from markdown import markdown as render_markdown_html
 from project_evidence import add_evidence, delete_evidence, update_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
@@ -117,6 +120,7 @@ class ResumeGenerateRequest(BaseModel):
     allow_bots: bool = False
     save_to_db: bool = False
     llm_summary: bool = False
+    excluded_project_names: List[str] = Field(default_factory=list)
 
 
 class ResumeEditRequest(BaseModel):
@@ -157,6 +161,21 @@ def _parse_metadata(metadata_json: Optional[str]) -> Dict[str, Any]:
         return {}
 
 
+def _table_exists(conn: Any, table_name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return bool(row)
+
+
+def _table_has_column(conn: Any, table_name: str, column_name: str) -> bool:
+    if not _table_exists(conn, table_name):
+        return False
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(row["name"] == column_name for row in rows)
+
+
 def _resume_payload(row: Any) -> Dict[str, Any]:
     # Hydrate response with file contents stored on disk.
     resume_path = row["resume_path"]
@@ -172,6 +191,116 @@ def _resume_payload(row: Any) -> Dict[str, Any]:
         "generated_at": row["generated_at"],
         "content": content,
     }
+
+
+def _portfolio_payload(row: Any) -> Dict[str, Any]:
+    # Hydrate response with file contents stored on disk.
+    portfolio_path = row["portfolio_path"]
+    if not os.path.isfile(portfolio_path):
+        raise HTTPException(status_code=404, detail="Portfolio file not found")
+    with open(portfolio_path, "r", encoding="utf-8") as fh:
+        content = fh.read()
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "portfolio_path": portfolio_path,
+        "metadata": _parse_metadata(row["metadata_json"]),
+        "generated_at": row["generated_at"],
+        "content": content,
+    }
+
+
+def _safe_pdf_filename(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", value or "resume")
+    return cleaned.strip("_.") or "resume"
+
+
+def _resume_pdf_html(markdown_text: str) -> str:
+    body_html = render_markdown_html(markdown_text or "", extensions=["extra", "sane_lists"])
+    return f"""<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
+  <style>
+    @page {{
+      size: letter;
+      margin: 0.75in;
+    }}
+
+    html, body {{
+      margin: 0;
+      padding: 0;
+      color: #0f172a;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }}
+
+    .resume {{
+      width: 100%;
+    }}
+
+    h1 {{
+      margin: 0 0 0.22in;
+      font-size: 25pt;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #111827;
+    }}
+
+    h2 {{
+      margin: 0.2in 0 0.09in;
+      padding-bottom: 0.05in;
+      border-bottom: 1px solid #cbd5e1;
+      font-size: 10.8pt;
+      line-height: 1.2;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #334155;
+      font-weight: 700;
+    }}
+
+    h3 {{
+      margin: 0.14in 0 0.05in;
+      font-size: 10.8pt;
+      font-weight: 700;
+      color: #1f2937;
+    }}
+
+    p {{
+      margin: 0 0 0.08in;
+    }}
+
+    ul {{
+      margin: 0.04in 0 0.1in 0.2in;
+      padding: 0;
+    }}
+
+    li {{
+      margin: 0 0 0.055in;
+      padding-left: 0.01in;
+    }}
+
+    strong {{
+      font-weight: 700;
+      color: #111827;
+    }}
+
+    p > strong:first-child:last-child {{
+      display: block;
+      margin-top: 0.03in;
+      margin-bottom: 0.03in;
+      font-size: 10.8pt;
+    }}
+  </style>
+</head>
+<body>
+  <main class=\"resume\">{body_html}</main>
+</body>
+</html>
+"""
 
 
 def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
@@ -724,7 +853,7 @@ def get_project(project_id: int):
 
         evidence_rows = conn.execute(
             """
-            SELECT type, description, value, source, url, added_by_user, created_at
+            SELECT id, type, description, value, source, url, added_by_user, created_at
             FROM project_evidence
             WHERE project_id = ?
             ORDER BY created_at DESC
@@ -802,6 +931,56 @@ def update_project_evidence(project_id: int, evidence_id: int, payload: dict = B
         raise HTTPException(status_code=404, detail="Evidence not found")
 
     return {"message": "Evidence updated successfully"}
+
+
+@app.post("/projects/{project_id}/evidence", status_code=201)
+def create_project_evidence(project_id: int, payload: dict = Body(...)):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT id FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        evidence_id = add_evidence(
+            project_id,
+            {
+                "type": validate_evidence_type(payload.get("type", "")),
+                "value": payload.get("value"),
+                "source": payload.get("source"),
+                "url": payload.get("url"),
+                "added_by_user": payload.get("added_by_user", True),
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "evidence_id": evidence_id,
+        "message": "Evidence added successfully"
+    }
+    
+
+@app.delete("/projects/{project_id}/evidence/{evidence_id}")
+def remove_project_evidence(project_id: int, evidence_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM project_evidence WHERE id = ? AND project_id = ?",
+            (evidence_id, project_id),
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    deleted = delete_evidence(evidence_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    return {"message": "Evidence deleted successfully"}
 
 
 
@@ -918,6 +1097,95 @@ def get_resume(resume_id: int):
     return _resume_payload(row)
 
 
+@app.get("/resume/{resume_id}/pdf")
+def get_resume_pdf(resume_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
+            (resume_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+
+    resume_path = row["resume_path"]
+    if not resume_path or not os.path.isfile(resume_path):
+        raise HTTPException(status_code=404, detail="Resume file not found")
+
+    with open(resume_path, "r", encoding="utf-8") as fh:
+        markdown_text = fh.read()
+
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, KeepTogether
+    from reportlab.lib.enums import TA_LEFT
+    from io import BytesIO
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=0.75*inch, rightMargin=0.75*inch,
+        topMargin=0.75*inch, bottomMargin=0.75*inch
+    )
+
+    dark = colors.HexColor("#111827")
+    mid = colors.HexColor("#334155")
+    body_color = colors.HexColor("#0f172a")
+    divider_color = colors.HexColor("#cbd5e1")
+
+    style_h1 = ParagraphStyle("h1", fontSize=24, fontName="Helvetica-Bold",
+                               textColor=dark, spaceAfter=10, leading=28)
+    style_h2 = ParagraphStyle("h2", fontSize=8.5, fontName="Helvetica-Bold",
+                               textColor=mid, spaceBefore=16, spaceAfter=2,
+                               letterSpacing=1.2)
+    style_h3 = ParagraphStyle("h3", fontSize=10.5, fontName="Helvetica-Bold",
+                               textColor=dark, spaceBefore=8, spaceAfter=2)
+    style_body = ParagraphStyle("body", fontSize=10, fontName="Helvetica",
+                                textColor=body_color, spaceAfter=3, leading=14)
+    style_bullet = ParagraphStyle("bullet", fontSize=10, fontName="Helvetica",
+                                  textColor=body_color, spaceAfter=2, leading=14,
+                                  leftIndent=14, firstLineIndent=0)
+    style_meta = ParagraphStyle("meta", fontSize=9, fontName="Helvetica-Oblique",
+                                textColor=mid, spaceBefore=8)
+
+    story = []
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            story.append(Spacer(1, 3))
+        elif stripped.startswith("# "):
+            story.append(Paragraph(stripped[2:], style_h1))
+        elif stripped.startswith("## "):
+            text = stripped[3:].upper()
+            story.append(Spacer(1, 2))
+            story.append(Paragraph(text, style_h2))
+            story.append(HRFlowable(width="100%", thickness=0.5,
+                                    color=divider_color, spaceAfter=5))
+        elif stripped.startswith("**") and stripped.endswith("**"):
+            story.append(Paragraph(stripped[2:-2], style_h3))
+        elif stripped.startswith("- "):
+            text = stripped[2:]
+            text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+            story.append(Paragraph(f"\u2022\u00a0{text}", style_bullet))
+        elif stripped.startswith("_") and stripped.endswith("_"):
+            story.append(Paragraph(f"<i>{stripped[1:-1]}</i>", style_meta))
+        else:
+            text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', stripped)
+            story.append(Paragraph(text, style_body))
+
+    doc.build(story)
+    pdf_bytes = buf.getvalue()
+
+    username = row["username"] or "local"
+    filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": "no-store",
+    }
+    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers=headers)
+
+
 @app.get("/resumes")
 def list_resumes(username: Optional[str] = Query(default=None)):
     username_filter = (username or "").strip()
@@ -955,6 +1223,113 @@ def list_resumes(username: Optional[str] = Query(default=None)):
     return items
 
 
+@app.get("/outputs")
+def get_outputs_count():
+    """Count generated outputs (resumes and portfolios) with recent activity."""
+    with get_connection() as conn:
+        resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
+        portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
+        
+        # Get most recent output
+        latest_resume = conn.execute(
+            "SELECT generated_at FROM resumes ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        latest_portfolio = conn.execute(
+            "SELECT generated_at FROM portfolios ORDER BY generated_at DESC LIMIT 1"
+        ).fetchone()
+        
+        latest_generated = None
+        if latest_resume and latest_portfolio:
+            latest_generated = max(latest_resume["generated_at"], latest_portfolio["generated_at"])
+        elif latest_resume:
+            latest_generated = latest_resume["generated_at"]
+        elif latest_portfolio:
+            latest_generated = latest_portfolio["generated_at"]
+    
+    return {
+        "resumes": resumes_count,
+        "portfolios": portfolios_count,
+        "total": resumes_count + portfolios_count,
+        "latest_generated": latest_generated,
+    }
+
+
+@app.get("/stats/dashboard")
+def get_dashboard_stats():
+    """Comprehensive dashboard stats with insights."""
+    with get_connection() as conn:
+        # Projects info
+        projects_count = conn.execute("SELECT COUNT(*) as count FROM projects").fetchone()["count"]
+        latest_scan = conn.execute(
+            "SELECT scanned_at, project FROM scans ORDER BY scanned_at DESC LIMIT 1"
+        ).fetchone()
+        
+        # Contributors info
+        contributors_count = conn.execute(
+            "SELECT COUNT(DISTINCT name) as count FROM contributors WHERE name IS NOT NULL AND TRIM(name) <> ''"
+        ).fetchone()["count"]
+        top_contributor = conn.execute(
+            """
+            SELECT c.name, COUNT(fc.file_id) as file_count
+            FROM contributors c
+            LEFT JOIN file_contributors fc ON c.id = fc.contributor_id
+            WHERE c.name IS NOT NULL AND TRIM(c.name) <> ''
+            GROUP BY c.id
+            ORDER BY file_count DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        # Outputs info. Older local DBs may not yet have these tables/columns.
+        resumes_count = 0
+        portfolios_count = 0
+        latest_output = None
+
+        try:
+            if _table_exists(conn, "resumes"):
+                resumes_count = conn.execute("SELECT COUNT(*) as count FROM resumes").fetchone()["count"]
+            if _table_exists(conn, "portfolios"):
+                portfolios_count = conn.execute("SELECT COUNT(*) as count FROM portfolios").fetchone()["count"]
+
+            generated_timestamps: List[str] = []
+            if _table_has_column(conn, "resumes", "generated_at"):
+                generated_timestamps.extend(
+                    row["generated_at"]
+                    for row in conn.execute("SELECT generated_at FROM resumes WHERE generated_at IS NOT NULL").fetchall()
+                    if row["generated_at"]
+                )
+            if _table_has_column(conn, "portfolios", "generated_at"):
+                generated_timestamps.extend(
+                    row["generated_at"]
+                    for row in conn.execute("SELECT generated_at FROM portfolios WHERE generated_at IS NOT NULL").fetchall()
+                    if row["generated_at"]
+                )
+            if generated_timestamps:
+                latest_output = {"generated_at": max(generated_timestamps)}
+        except sqlite3.OperationalError:
+            latest_output = None
+    
+    return {
+        "projects": {
+            "count": projects_count,
+            "latest_scan": latest_scan["scanned_at"] if latest_scan else None,
+            "latest_project": latest_scan["project"] if latest_scan else None,
+        },
+        "contributors": {
+            "count": contributors_count,
+            "top_contributor": top_contributor["name"] if top_contributor else None,
+            "top_contributor_files": top_contributor["file_count"] if top_contributor else 0,
+        },
+        "outputs": {
+            "total": resumes_count + portfolios_count,
+            "resumes": resumes_count,
+            "portfolios": portfolios_count,
+            "latest_generated": latest_output["generated_at"] if latest_output else None,
+        },
+    }
+
+
+
 @app.post("/resume/generate", status_code=201)
 def generate_resume(payload: ResumeGenerateRequest):
     # Reuse the resume generator logic used by the CLI.
@@ -976,7 +1351,12 @@ def generate_resume(payload: ResumeGenerateRequest):
         raise HTTPException(status_code=403, detail="LLM resume summary consent not granted")
 
     projects, root_repo_jsons = collect_projects(payload.output_root)
-    agg = aggregate_for_user(username, projects, root_repo_jsons)
+    agg = aggregate_for_user(
+        username,
+        projects,
+        root_repo_jsons,
+        excluded_project_names=payload.excluded_project_names,
+    )
 
     os.makedirs(payload.resume_dir, exist_ok=True)
     ts_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
@@ -1502,7 +1882,7 @@ def get_web_showcase(
 
             evidence_rows = conn.execute(
                 """
-                SELECT type, description, value, source, url, created_at
+                SELECT id, type, description, value, source, url, created_at
                 FROM project_evidence
                 WHERE project_id = ?
                 ORDER BY created_at DESC
