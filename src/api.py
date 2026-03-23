@@ -1092,15 +1092,68 @@ def get_resume_pdf(resume_id: int):
     with open(resume_path, "r", encoding="utf-8") as fh:
         markdown_text = fh.read()
 
-    try:
-        from weasyprint import HTML
-    except OSError as e:
-        raise HTTPException(
-            status_code=503
-        )
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, KeepTogether
+    from reportlab.lib.enums import TA_LEFT
+    from io import BytesIO
 
-    html_doc = _resume_pdf_html(markdown_text)
-    pdf_bytes = HTML(string=html_doc, base_url=os.path.dirname(os.path.abspath(resume_path))).write_pdf()
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=0.75*inch, rightMargin=0.75*inch,
+        topMargin=0.75*inch, bottomMargin=0.75*inch
+    )
+
+    dark = colors.HexColor("#111827")
+    mid = colors.HexColor("#334155")
+    body_color = colors.HexColor("#0f172a")
+    divider_color = colors.HexColor("#cbd5e1")
+
+    style_h1 = ParagraphStyle("h1", fontSize=24, fontName="Helvetica-Bold",
+                               textColor=dark, spaceAfter=10, leading=28)
+    style_h2 = ParagraphStyle("h2", fontSize=8.5, fontName="Helvetica-Bold",
+                               textColor=mid, spaceBefore=16, spaceAfter=2,
+                               letterSpacing=1.2)
+    style_h3 = ParagraphStyle("h3", fontSize=10.5, fontName="Helvetica-Bold",
+                               textColor=dark, spaceBefore=8, spaceAfter=2)
+    style_body = ParagraphStyle("body", fontSize=10, fontName="Helvetica",
+                                textColor=body_color, spaceAfter=3, leading=14)
+    style_bullet = ParagraphStyle("bullet", fontSize=10, fontName="Helvetica",
+                                  textColor=body_color, spaceAfter=2, leading=14,
+                                  leftIndent=14, firstLineIndent=0)
+    style_meta = ParagraphStyle("meta", fontSize=9, fontName="Helvetica-Oblique",
+                                textColor=mid, spaceBefore=8)
+
+    story = []
+    for line in markdown_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            story.append(Spacer(1, 3))
+        elif stripped.startswith("# "):
+            story.append(Paragraph(stripped[2:], style_h1))
+        elif stripped.startswith("## "):
+            text = stripped[3:].upper()
+            story.append(Spacer(1, 2))
+            story.append(Paragraph(text, style_h2))
+            story.append(HRFlowable(width="100%", thickness=0.5,
+                                    color=divider_color, spaceAfter=5))
+        elif stripped.startswith("**") and stripped.endswith("**"):
+            story.append(Paragraph(stripped[2:-2], style_h3))
+        elif stripped.startswith("- "):
+            text = stripped[2:]
+            text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+            story.append(Paragraph(f"\u2022\u00a0{text}", style_bullet))
+        elif stripped.startswith("_") and stripped.endswith("_"):
+            story.append(Paragraph(f"<i>{stripped[1:-1]}</i>", style_meta))
+        else:
+            text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', stripped)
+            story.append(Paragraph(text, style_body))
+
+    doc.build(story)
+    pdf_bytes = buf.getvalue()
 
     username = row["username"] or "local"
     filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
