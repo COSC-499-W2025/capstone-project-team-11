@@ -853,7 +853,7 @@ def get_project(project_id: int):
 
         evidence_rows = conn.execute(
             """
-            SELECT type, description, value, source, url, added_by_user, created_at
+            SELECT id, type, description, value, source, url, added_by_user, created_at
             FROM project_evidence
             WHERE project_id = ?
             ORDER BY created_at DESC
@@ -931,6 +931,56 @@ def update_project_evidence(project_id: int, evidence_id: int, payload: dict = B
         raise HTTPException(status_code=404, detail="Evidence not found")
 
     return {"message": "Evidence updated successfully"}
+
+
+@app.post("/projects/{project_id}/evidence", status_code=201)
+def create_project_evidence(project_id: int, payload: dict = Body(...)):
+    with get_connection() as conn:
+        project = conn.execute(
+            "SELECT id FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        evidence_id = add_evidence(
+            project_id,
+            {
+                "type": validate_evidence_type(payload.get("type", "")),
+                "value": payload.get("value"),
+                "source": payload.get("source"),
+                "url": payload.get("url"),
+                "added_by_user": payload.get("added_by_user", True),
+            },
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "evidence_id": evidence_id,
+        "message": "Evidence added successfully"
+    }
+    
+
+@app.delete("/projects/{project_id}/evidence/{evidence_id}")
+def remove_project_evidence(project_id: int, evidence_id: int):
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM project_evidence WHERE id = ? AND project_id = ?",
+            (evidence_id, project_id),
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    deleted = delete_evidence(evidence_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    return {"message": "Evidence deleted successfully"}
 
 
 
@@ -1832,7 +1882,7 @@ def get_web_showcase(
 
             evidence_rows = conn.execute(
                 """
-                SELECT type, description, value, source, url, created_at
+                SELECT id, type, description, value, source, url, created_at
                 FROM project_evidence
                 WHERE project_id = ?
                 ORDER BY created_at DESC
