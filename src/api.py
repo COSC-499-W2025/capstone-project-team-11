@@ -1058,12 +1058,19 @@ def get_resume(resume_id: int):
             raise HTTPException(status_code=404, detail="Resume not found")
     return _resume_payload(row)
 
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from io import BytesIO
+
 
 @app.get("/resume/{resume_id}/pdf")
 def get_resume_pdf(resume_id: int):
+    # ---- FETCH RESUME ----
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
+            "SELECT id, username, resume_path FROM resumes WHERE id = ?",
             (resume_id,),
         ).fetchone()
         if not row:
@@ -1076,23 +1083,124 @@ def get_resume_pdf(resume_id: int):
     with open(resume_path, "r", encoding="utf-8") as fh:
         markdown_text = fh.read()
 
-    try:
-        from weasyprint import HTML
-    except OSError as e:
-        raise HTTPException(
-            status_code=503
-        )
+    # ---- PDF SETUP ----
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
 
-    html_doc = _resume_pdf_html(markdown_text)
-    pdf_bytes = HTML(string=html_doc, base_url=os.path.dirname(os.path.abspath(resume_path))).write_pdf()
+    width, height = letter
+    margin_x = 1 * inch
+    y = height - 1 * inch
+
+    line_spacing = 12
+
+    # ---- HELPERS ----
+    def new_page():
+        nonlocal y
+        p.showPage()
+        y = height - 1 * inch
+
+    def wrap_text(text, max_width, font_name, font_size):
+        words = text.split()
+        lines = []
+        current = ""
+
+        for word in words:
+            test_line = f"{current} {word}".strip()
+            if stringWidth(test_line, font_name, font_size) <= max_width:
+                current = test_line
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+
+        if current:
+            lines.append(current)
+
+        return lines
+
+    def draw_line(text, font="Helvetica", size=10):
+        nonlocal y
+        max_width = width - 2 * margin_x
+        wrapped_lines = wrap_text(text, max_width, font, size)
+
+        for line in wrapped_lines:
+            if y < 1 * inch:
+                new_page()
+            p.setFont(font, size)
+            p.drawString(margin_x, y, line)
+            y -= line_spacing
+
+    def draw_section(title):
+        nonlocal y
+        y -= 4
+        draw_line(title.upper(), "Helvetica-Bold", 10.5)
+        p.line(margin_x, y + 3, width - margin_x, y + 3)
+        y -= 4
+
+    def draw_bullet(text):
+        nonlocal y
+        bullet_indent = margin_x + 20
+        max_width = width - bullet_indent - margin_x
+
+        wrapped_lines = wrap_text(text, max_width, "Helvetica", 10)
+
+        for i, line in enumerate(wrapped_lines):
+            if y < 1 * inch:
+                new_page()
+
+            p.setFont("Helvetica", 10)
+
+            if i == 0:
+                p.drawString(margin_x + 10, y, "•")
+
+            p.drawString(bullet_indent, y, line)
+            y -= line_spacing
+
+    # ---- PARSE MARKDOWN ----
+    for line in markdown_text.split("\n"):
+        stripped = line.strip()
+
+        if not stripped:
+            y -= 4
+            continue
+
+        # NAME (big header)
+        if stripped.startswith("# "):
+            draw_line(stripped.replace("# ", ""), "Helvetica-Bold", 16)
+            y -= 6
+
+        # SECTION HEADERS
+        elif stripped.startswith("## "):
+            draw_section(stripped.replace("## ", ""))
+
+        # SUBHEADERS (project titles)
+        elif stripped.startswith("### "):
+            draw_line(stripped.replace("### ", ""), "Helvetica-Bold", 11)
+
+        # BULLETS
+        elif stripped.startswith("- "):
+            draw_bullet(stripped[2:])
+
+        # NORMAL TEXT
+        else:
+            clean = stripped.replace("**", "")
+            draw_line(clean, "Helvetica", 10)
+
+    # ---- FINALIZE ----
+    p.save()
+    buffer.seek(0)
 
     username = row["username"] or "local"
     filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
-        "Cache-Control": "no-store",
-    }
-    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers=headers)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.get("/resumes")
