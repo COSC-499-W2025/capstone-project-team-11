@@ -500,27 +500,49 @@ function App() {
               borderRadius: '14px',
             }}
           >
-            <div>
-              <h1
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: '1.15rem',
-                  fontWeight: 700,
-                  color: '#f1f5f9',
-                  letterSpacing: '-0.02em',
+                  width: '66px',
+                  height: '66px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.92)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                GitHired
-              </h1>
-              <p
-                style={{
-                  margin: '0.15rem 0 0',
-                  fontSize: '0.8rem',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                Project analysis & portfolio generation toolkit
-              </p>
+                <img
+                  src={APP_LOGO_SRC}
+                  alt="GitHired logo"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </div>
+              <div>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: '1.15rem',
+                    fontWeight: 700,
+                    color: '#f1f5f9',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  GitHired
+                </h1>
+                <p
+                  style={{
+                    margin: '0.15rem 0 0',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Project analysis & portfolio generation toolkit
+                </p>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <motion.button
@@ -586,25 +608,6 @@ function App() {
               >
                 Privacy Settings
               </motion.button>
-              <div
-                style={{
-                  width: '66px',
-                  height: '66px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.92)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <img
-                  src={APP_LOGO_SRC}
-                  alt="GitHired logo"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
-              </div>
             </div>
           </motion.header>
 
@@ -709,7 +712,7 @@ function App() {
               <InfoPanel title="About">
                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   This desktop app analyzes code repositories and transforms data into
-                  contributor-focused outputs — rankings, summaries, resumes, and portfolios.
+                  contributor-focused outputs, rankings, summaries, resumes, and portfolios.
                 </p>
               </InfoPanel>
 
