@@ -601,6 +601,7 @@ def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str
     """Infer contributor roles for a project from per-file activity in all scans."""
     if not project_name:
         return {"contributors": [], "summary": {}}
+    blacklist = {"githubclassroombot", "unknown", "n/a", "none"}
 
     rows = conn.execute(
         """
@@ -622,6 +623,8 @@ def _compute_project_contributor_roles(conn: Any, project_name: str) -> Dict[str
     contributors_data: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         contributor_name = row["contributor_name"]
+        if not contributor_name or contributor_name.strip().lower() in blacklist:
+            continue
         file_path = row["file_path"] or ""
 
         if contributor_name not in contributors_data:
@@ -972,7 +975,11 @@ def get_project(project_id: int):
                 scan_ids,
             ).fetchall()
 
-            contributors = [row["name"] for row in contributor_rows]
+            blacklist = {"githubclassroombot", "unknown", "n/a", "none"}
+            contributors = [
+                row["name"] for row in contributor_rows
+                if row["name"] and row["name"].strip().lower() not in blacklist
+            ]
 
         skill_rows = conn.execute(
             """
