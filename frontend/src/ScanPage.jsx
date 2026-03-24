@@ -34,7 +34,6 @@ function formatElapsedTime(totalSeconds) {
 function ScanPage({ onBack }) {
   const [scanPath, setScanPath] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [llmSummary, setLlmSummary] = useState(false);
   const [recentProjects, setRecentProjects] = useState([]);
   const [scanNotice, setScanNotice] = useState('');
@@ -132,16 +131,6 @@ function ScanPage({ onBack }) {
       return;
     }
     setScanPhase(match === 'All Scans Complete!' ? 'Scan Complete!' : match);
-  };
-
-  const handleDrop = (event) => {
-    event.preventDefault();
-    setIsDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file && file.path) {
-      setScanPath(file.path);
-      setScanNotice('');
-    }
   };
 
   const handleBrowse = async () => {
@@ -359,20 +348,20 @@ function ScanPage({ onBack }) {
 
       <div className="scan-layout">
         <section className="scan-panel">
-          <div
-            className={`scan-dropzone ${isDragging ? 'is-dragging' : ''}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-          >
-            <p>Drag and drop a project folder or .zip</p>
-            <p className="scan-path">{scanPath || 'No project selected yet.'}</p>
+          <div className="scan-dropzone">
+            <input
+              type="text"
+              className="scan-path-input"
+              value={scanPath}
+              onChange={(event) => { setScanPath(event.target.value); setScanNotice(''); }}
+              placeholder="No project selected yet. Paste or type a path, or use the button below."
+            />
             <button type="button" className="secondary" onClick={handleBrowse}>
-              Choose Folder or Zip
+              Browse Projects
             </button>
+            <p className="scan-path-hint">
+              On Windows, zipped folders must be scanned by pasting their path above (the browse button can only select unzipped folders).
+            </p>
           </div>
 
           <div className="scan-controls">
