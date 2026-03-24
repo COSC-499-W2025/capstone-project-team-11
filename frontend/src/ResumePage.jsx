@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { showModal } from "./modal.js";
 
@@ -32,6 +32,21 @@ function ResumePage({ onBack }) {
     },
   ]);
   const [openIndex, setOpenIndex] = useState(0);
+
+  const measureRef = useRef(null);
+
+  const exceedsOnePage = () => {
+    if (!measureRef.current) return false;
+
+    const height = measureRef.current.scrollHeight;
+
+    const onePageHeight = 1123;
+
+    // BIG safety buffer to match PDF differences
+    const safetyBuffer = 140;
+
+    return height > (onePageHeight - safetyBuffer);
+  };
 
   const createEmptyEducation = () => ({
     school: "",
@@ -108,6 +123,21 @@ function ResumePage({ onBack }) {
         setIsLoadingUserProjects(false);
       });
   }, [username, allProjects]);
+
+  useEffect(() => {
+    if (!resumeContent) return;
+
+    const timeout = setTimeout(() => {
+      if (exceedsOnePage()) {
+        window.alert("Failed to generate resume: exceeds 1 page.");
+        setResumeContent("");
+        setEditContent("");
+        setResumeId(null);
+      }
+    }, 150); // allow full render + fonts
+
+    return () => clearTimeout(timeout);
+  }, [resumeContent]);
 
   const toggleExclude = (id) => {
     setExcludedProjectIds((prev) => (
@@ -214,8 +244,24 @@ function ResumePage({ onBack }) {
       const res = await fetch(`http://127.0.0.1:8000/resume/${resume_id}`);
       if (!res.ok) throw new Error("Failed to retrieve generated resume.");
       const { content } = await res.json();
-      setResumeContent(content);
-      setEditContent(content);
+
+      // remove the Generated (UTC) line
+      const cleanedContent = content.replace(/^Generated \(UTC\):.*$/gm, "").trim();
+
+      // TEMP render into hidden container first
+      setResumeContent(cleanedContent);
+      setEditContent(cleanedContent);
+
+      // wait for render, then validate BEFORE allowing it
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      if (exceedsOnePage()) {
+        window.alert("Failed to generate resume: exceeds 1 page.");
+        setResumeContent("");
+        setEditContent("");
+        setResumeId(null);
+        return;
+      }
       setIsEditing(false);
       fetchHistory(username.trim() || "local");
     } catch (err) {
@@ -352,6 +398,8 @@ function ResumePage({ onBack }) {
   .resume-markdown em { color: var(--text-muted); font-style: italic; }
   .resume-markdown hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
   .resume-markdown code { font-family: 'DM Mono', monospace; font-size: 0.82rem; background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem; border-radius: 4px; color: var(--accent-green); }
+  .resume-markdown li { word-break: break-word; overflow-wrap: anywhere; }
+  .resume-markdown { word-break: break-word; overflow-wrap: break-word; }
 `}</style>
       <header className="app-header">
         <h1>Generate Resume</h1>
@@ -867,12 +915,31 @@ function ResumePage({ onBack }) {
                     lineHeight: 1.7,
                   }}
                 >
-                  <ReactMarkdown>{resumeContent}</ReactMarkdown>
+                  <div className="resume-markdown">
+                    <ReactMarkdown>{resumeContent}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </section>
+      </div>
+      <div
+        ref={measureRef}
+        style={{
+          position: "absolute",
+          visibility: "hidden",
+          zIndex: -1,
+          width: "794px",
+          padding: "48px 56px",
+          boxSizing: "border-box",
+          lineHeight: 1.7,
+          fontSize: "0.88rem",
+        }}
+      >
+        <div className="resume-markdown">
+          <ReactMarkdown>{resumeContent}</ReactMarkdown>
+        </div>
       </div>
     </div>
   );
