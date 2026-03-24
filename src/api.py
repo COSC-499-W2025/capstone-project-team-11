@@ -2009,6 +2009,960 @@ def get_web_showcase(
         "projects": projects_payload,
     }
 
+# Web Portfolio HTML export
+# A self-contained and interactive snapshot of the portfolio, embedded with all necessary data and assets)
+@web_router.get("/{portfolio_id}/export-html")
+def export_web_portfolio_html(portfolio_id: int):
+    """Generate a self-contained HTML export of the web portfolio."""
+    import base64
+
+    row = _load_portfolio_row_or_404(portfolio_id)
+    username = row["username"]
+    display_name = row["display_name"] or username
+    portfolio_name = row["portfolio_name"] or "Portfolio"
+    included_ids = json.loads(row["included_project_ids"] or "[]")
+    featured_ids = set(json.loads(row["featured_project_ids"] or "[]"))
+    created_at = row["created_at"] or ""
+    created_label = created_at[:10] if created_at else ""
+
+    # Retrieve per-project detail (same as GET /projects/{id})
+    project_details = {}
+    project_rows_ordered = []
+    if included_ids:
+        with get_connection() as conn:
+            placeholders = ",".join("?" for _ in included_ids)
+            p_rows = conn.execute(
+                f"SELECT id, name, custom_name, repo_url, thumbnail_path FROM projects WHERE id IN ({placeholders})",
+                included_ids,
+            ).fetchall()
+        id_to_row = {r["id"]: dict(r) for r in p_rows}
+        project_rows_ordered = [id_to_row[pid] for pid in included_ids if pid in id_to_row]
+
+    for p in project_rows_ordered:
+        pid = p["id"]
+        try:
+            detail = get_project(pid)
+        except Exception:
+            detail = {}
+        project_details[pid] = detail
+
+    # Encode thumbnails as base64 data URIs
+    def encode_thumbnail(thumbnail_path):
+        if not thumbnail_path or not os.path.isfile(thumbnail_path):
+            return None
+        try:
+            mt = mimetypes.guess_type(thumbnail_path)[0] or "image/png"
+            with open(thumbnail_path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode("ascii")
+            return f"data:{mt};base64,{b64}"
+        except Exception:
+            return None
+
+    # Build project data payload for the HTML template
+    projects_for_export = []
+    for p in project_rows_ordered:
+        pid = p["id"]
+        name = p["custom_name"] or p["name"]
+        detail = project_details.get(pid, {})
+        thumb_path = p["thumbnail_path"]
+        thumb_data_uri = encode_thumbnail(thumb_path)
+        is_featured = pid in featured_ids
+
+        git = detail.get("git_metrics") or {}
+        llm_summary = (detail.get("llm_summary") or {}).get("text") or None
+        languages = detail.get("languages") or []
+        frameworks = detail.get("frameworks") or []
+        skills = detail.get("skills") or []
+        contributors = detail.get("contributors") or []
+        files_summary = detail.get("files_summary") or {}
+        evidence = detail.get("evidence") or []
+        rank_score = detail.get("rank_score")
+
+        all_roles = (detail.get("contributor_roles") or {}).get("contributors") or []
+        user_role = next((c for c in all_roles if (c.get("name") or "").lower() == username.lower()), None)
+
+        total_commits = git.get("total_commits")
+        duration_days = git.get("duration_days")
+        project_start = (str(git.get("project_start") or "")[:10]) or None
+        project_end = (str(git.get("project_end") or "")[:10]) or None
+        lines_added_per_author = git.get("lines_added_per_author") or {}
+        lines_removed_per_author = git.get("lines_removed_per_author") or {}
+        commits_per_author = git.get("commits_per_author") or {}
+        lines_added = lines_added_per_author.get(username)
+        lines_removed = lines_removed_per_author.get(username)
+        total_lines_added = sum(v or 0 for v in lines_added_per_author.values()) or None
+        user_commits = commits_per_author.get(username)
+        all_authors = sorted(commits_per_author.items(), key=lambda x: -(x[1] or 0))
+        user_rank = next((i for i, (n, _) in enumerate(all_authors) if n.lower() == username.lower()), -1)
+        commit_pct = f"{(user_commits / total_commits * 100):.1f}" if total_commits and user_commits is not None else None
+        avg_commits_per_week = f"{(user_commits / max(1, (duration_days or 1) / 7)):.1f}" if duration_days and user_commits is not None else None
+
+        breakdown = (user_role or {}).get("contribution_breakdown") or {}
+        breakdown_entries = sorted([(k, v) for k, v in breakdown.items() if v > 0], key=lambda x: -x[1])
+        ext_entries = sorted(
+            [(ext, cnt) for ext, cnt in (files_summary.get("extensions") or {}).items() if ext],
+            key=lambda x: -x[1]
+        )[:6]
+
+        repo_url = p.get("repo_url") or (detail.get("project") or {}).get("repo_url") or None
+
+        projects_for_export.append({
+            "id": pid,
+            "name": name,
+            "is_featured": is_featured,
+            "is_collaborative": len(contributors) > 1,
+            "thumb": thumb_data_uri,
+            "repo_url": repo_url,
+            "llm_summary": llm_summary,
+            "languages": languages,
+            "frameworks": frameworks,
+            "skills": skills,
+            "contributors": contributors,
+            "ext_entries": ext_entries,
+            "evidence": evidence,
+            "total_commits": total_commits,
+            "total_lines_added": total_lines_added,
+            "total_files": files_summary.get("total_files") or 0,
+            "duration_days": duration_days,
+            "project_start": project_start,
+            "project_end": project_end,
+            "user_commits": user_commits,
+            "commit_pct": commit_pct,
+            "avg_commits_per_week": avg_commits_per_week,
+            "lines_added": lines_added,
+            "lines_removed": lines_removed,
+            "user_rank": user_rank,
+            "all_authors_count": len(all_authors),
+            "rank_score": rank_score,
+            "user_role": user_role,
+            "breakdown_entries": breakdown_entries,
+        })
+
+    # Retrieve heatmap data for each project (both user-scope and project-scope)
+    heatmap_user = {}
+    heatmap_project = {}
+    for p in project_rows_ordered:
+        pid = p["id"]
+        for scope, store in (("user", heatmap_user), ("project", heatmap_project)):
+            try:
+                hdata = get_web_project_heatmap(
+                    portfolio_id=portfolio_id,
+                    project_id=pid,
+                    granularity="week",
+                    metric="contrib_files",
+                    view_scope=scope,
+                )
+                store[pid] = hdata
+            except Exception:
+                store[pid] = {"cells": [], "max_value": 0}
+
+    header_summary = f"{len(projects_for_export)} projects | Generated on {created_label}"
+
+    # Build skills timeline data
+    MAX_TIMELINE_SKILLS = 10
+    skill_entries = []
+    for p in project_rows_ordered:
+        pid = p["id"]
+        detail = project_details.get(pid, {})
+        git = detail.get("git_metrics") or {}
+        start_raw = git.get("project_start") or (detail.get("project") or {}).get("created_at") or None
+        date_str = str(start_raw)[:10] if start_raw else None
+        if not date_str or len(date_str) < 10:
+            continue
+        skills_list = detail.get("skills") or []
+        name = (p.get("custom_name") or p.get("name") or "")
+        for skill in skills_list:
+            if skill:
+                skill_entries.append({"skill": skill, "projectId": pid, "projectName": name, "date": date_str})
+
+    skill_project_counts: dict = {}
+    for e in skill_entries:
+        skill_project_counts.setdefault(e["skill"], set()).add(e["projectId"])
+    top_skills = sorted(skill_project_counts.keys(), key=lambda s: (-len(skill_project_counts[s]), s))[:MAX_TIMELINE_SKILLS]
+    top_skill_set = set(top_skills)
+    filtered_entries = [e for e in skill_entries if e["skill"] in top_skill_set]
+    all_dates = [e["date"] for e in filtered_entries]
+    min_date_str = min(all_dates) if all_dates else None
+    max_date_str = max(all_dates) if all_dates else None
+
+    skills_timeline_rows = []
+    for skill in top_skills:
+        dots = sorted([e for e in filtered_entries if e["skill"] == skill], key=lambda e: e["date"])
+        skills_timeline_rows.append({"skill": skill, "dots": [{"projectName": d["projectName"], "date": d["date"]} for d in dots]})
+    if skills_timeline_rows:
+        skills_timeline_rows.sort(key=lambda r: r["dots"][0]["date"])
+
+    # Escape helper for inserting into HTML
+    def h(val):
+        if val is None:
+            return ""
+        return str(val).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    def js_str(val):
+        """JSON-encode a Python value for safe inline JS embedding."""
+        return json.dumps(val)
+
+    # Build Featured Projects HTML
+    def build_project_card_html(proj, extra_class=""):
+        name = h(proj["name"])
+        pid = proj["id"]
+        thumb = proj["thumb"]
+        summary = h(proj["llm_summary"]) if proj["llm_summary"] else "No summary available."
+        thumb_html = (
+            f'<img src="{thumb}" alt="{name} thumbnail" />'
+            if thumb
+            else '<span class="project-card-no-thumb">No thumbnail</span>'
+        )
+        return f"""
+        <div class="project-card-16-9 {extra_class}" onclick="openModal({pid})" style="cursor:pointer">
+          <div class="project-card-header">
+            <span class="project-card-name">{name}</span>
+          </div>
+          <div class="project-card-image">{thumb_html}</div>
+          <div class="project-card-footer">
+            <p class="project-card-summary">{summary}</p>
+          </div>
+        </div>"""
+
+    featured_cards_html = "".join(
+        build_project_card_html(p, "featured")
+        for p in projects_for_export if p["is_featured"]
+    ) or '<p class="tile-placeholder-text" style="margin:0">No featured projects.</p>'
+
+    all_cards_html = "".join(
+        build_project_card_html(p, "all-projects")
+        for p in projects_for_export
+    )
+
+    # Build heatmap HTML for each project (first included project shown by default)
+    def build_heatmap_html_for_project(proj, scope="user"):
+        pid = proj["id"]
+        hdata = (heatmap_user if scope == "user" else heatmap_project).get(pid, {})
+        cells = hdata.get("cells") or []
+        max_val = hdata.get("max_value") or 1
+        range_start = hdata.get("range_start") or ""
+        range_end = hdata.get("range_end") or ""
+
+        # Build weekly heatmap entries
+        from datetime import timedelta
+        import datetime as _dt
+
+        def parse_iso(s):
+            try:
+                y, m, d = int(s[:4]), int(s[5:7]), int(s[8:10])
+                return _dt.date(y, m, d)
+            except Exception:
+                return None
+
+        def start_of_week_monday(d):
+            return d - _dt.timedelta(days=(d.weekday()))
+
+        values_by_week = {c["period"]: c["value"] for c in cells if c.get("period")}
+        sorted_periods = sorted(values_by_week.keys())
+        first_cell = parse_iso(sorted_periods[0]) if sorted_periods else None
+        last_cell = parse_iso(sorted_periods[-1]) if sorted_periods else None
+        start_date = parse_iso(range_start) or first_cell
+        end_date = parse_iso(range_end) or last_cell
+        if not start_date or not end_date:
+            return '<p class="tile-placeholder-text">No heatmap data available for this project.</p>'
+
+        week_entries = []
+        cursor = start_of_week_monday(start_date)
+        end_week = start_of_week_monday(end_date)
+        while cursor <= end_week:
+            iso = cursor.isoformat()
+            week_entries.append({"period": iso, "value": values_by_week.get(iso, 0)})
+            cursor += _dt.timedelta(days=7)
+
+        if not week_entries:
+            return '<p class="tile-placeholder-text">No heatmap data available for this project.</p>'
+
+        total_val = sum(e["value"] for e in week_entries)
+        active_weeks = sum(1 for e in week_entries if e["value"] > 0)
+        consistency_pct = round(active_weeks / len(week_entries) * 100) if week_entries else 0
+        avg_active = round((total_val / active_weeks) * 10) / 10 if active_weeks > 0 else 0
+
+        def cell_color(value, mx):
+            if not value or value <= 0 or mx <= 0:
+                return "rgba(241, 245, 249, 0.08)"
+            ratio = min(1, value / mx)
+            alpha = 0.22 + (ratio * 0.78)
+            return f"rgba(74, 222, 128, {alpha:.3f})"
+
+        def fmt_week(iso):
+            d = parse_iso(iso)
+            if not d:
+                return iso
+            return d.strftime("%b %-d") if os.name != "nt" else d.strftime("%b %d").lstrip("0") or d.strftime("%b %d")
+
+        cells_html = "".join(
+            f'<span class="heatmap-cell heatmap-cell--week" '
+            f'title="Week of {e["period"]}: {e["value"]} commit(s)" '
+            f'style="background-color:{cell_color(e["value"], max_val)}"></span>'
+            for e in week_entries
+        )
+        labels_html = "".join(
+            f'<span class="heatmap-week-label">{h(fmt_week(e["period"])) if i % 6 == 0 or i == len(week_entries) - 1 else ""}</span>'
+            for i, e in enumerate(week_entries)
+        )
+        legend1 = cell_color(1, max_val)
+        legend2 = cell_color(max(1, max_val // 2), max_val)
+        legend3 = cell_color(max_val, max_val)
+
+        # Format ISO date for display
+        def safe_fmt(iso):
+            d = parse_iso(iso)
+            if not d:
+                return iso
+            return d.strftime("%b %d")
+
+        return f"""
+        <div class="heatmap-summary-grid">
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Total</span><span class="heatmap-stat-value">{total_val} commit(s)</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Active Weeks</span><span class="heatmap-stat-value">{active_weeks}/{len(week_entries)}</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Consistency</span><span class="heatmap-stat-value">{consistency_pct}%</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Peak Week</span><span class="heatmap-stat-value">{max_val} commit(s)</span></div>
+        </div>
+        <div class="heatmap-scroll-wrap" aria-label="Project contribution heatmap">
+          <div class="heatmap-scroll-content">
+            <div class="project-heatmap-grid">{cells_html}</div>
+            <div class="project-heatmap-weeks" aria-hidden="true">{labels_html}</div>
+          </div>
+        </div>
+        <div class="heatmap-legend" aria-hidden="true">
+          <span class="heatmap-legend-text">Less</span>
+          <span class="heatmap-legend-swatch" style="background-color:{legend1}"></span>
+          <span class="heatmap-legend-swatch" style="background-color:{legend2}"></span>
+          <span class="heatmap-legend-swatch" style="background-color:{legend3}"></span>
+          <span class="heatmap-legend-text">More</span>
+        </div>
+        <div class="heatmap-meta">
+          <span>{h(proj["name"])}</span>
+          <span>Duration: {h(safe_fmt(range_start)) if range_start else "N/A"} - {h(safe_fmt(range_end)) if range_end else "N/A"}</span>
+          <span>Avg active week: {avg_active} commit(s)</span>
+        </div>"""
+
+    # Build heatmap sections per project (one set per scope, JS toggles between them)
+    heatmap_panels_html = ""
+    for i, proj in enumerate(projects_for_export):
+        pid = proj["id"]
+        display = "block" if i == 0 else "none"
+        # user-scope panels (default visible)
+        inner_user = build_heatmap_html_for_project(proj, scope="user")
+        heatmap_panels_html += f'<div id="heatmap-user-{pid}" class="heatmap-panel" style="display:{display}">{inner_user}</div>\n'
+        # project-scope panels (hidden by default)
+        inner_proj = build_heatmap_html_for_project(proj, scope="project")
+        heatmap_panels_html += f'<div id="heatmap-project-{pid}" class="heatmap-panel" style="display:none">{inner_proj}</div>\n'
+
+    heatmap_selector_options = "".join(
+        f'<option value="{p["id"]}">{h(p["name"])}</option>'
+        for p in projects_for_export
+    )
+
+    # Build Skills Timeline SVG
+    DOT_R = 5
+    ROW_H = 28
+    AXIS_H = 20
+    CHART_W = 600
+    ROW_COLORS = [
+        "rgba(74,222,128,0.85)", "rgba(52,211,153,0.85)", "rgba(34,197,94,0.85)",
+        "rgba(16,185,129,0.85)", "rgba(5,150,105,0.85)", "rgba(74,222,128,0.65)",
+        "rgba(52,211,153,0.65)", "rgba(34,197,94,0.65)", "rgba(16,185,129,0.65)",
+        "rgba(5,150,105,0.65)",
+    ]
+
+    skills_timeline_html = '<p class="tile-placeholder-text">No skill or date data available.</p>'
+    if skills_timeline_rows and min_date_str and max_date_str:
+        import datetime as _dt2
+
+        def parse_iso2(s):
+            try:
+                return _dt2.date(int(s[:4]), int(s[5:7]), int(s[8:10]))
+            except Exception:
+                return None
+
+        min_d = parse_iso2(min_date_str)
+        today = _dt2.date.today()
+        max_d = today
+        span_days = max((max_d - min_d).days, 1)
+
+        def date_to_x(d):
+            return ((d - min_d).days / span_days) * CHART_W
+
+        svg_h = len(skills_timeline_rows) * ROW_H + AXIS_H
+        tick_count = 4
+        ticks = []
+        for i in range(tick_count + 1):
+            td = min_d + _dt2.timedelta(days=int(span_days * i / tick_count))
+            x = date_to_x(td)
+            label = td.strftime("%b '%y")
+            ticks.append((x, label))
+
+        label_col_html = "".join(
+            f'<div class="skills-timeline-label" style="height:{ROW_H}px;background:{"rgba(255,255,255,0.015)" if ri % 2 == 0 else "transparent"}">{h(row["skill"])}</div>'
+            for ri, row in enumerate(skills_timeline_rows)
+        )
+
+        svg_rows = ""
+        for ri, row in enumerate(skills_timeline_rows):
+            cy = ri * ROW_H + ROW_H // 2
+            color = ROW_COLORS[ri % len(ROW_COLORS)]
+            row_bg = f'<rect x="0" y="{ri * ROW_H}" width="{CHART_W}" height="{ROW_H}" fill="{"rgba(255,255,255,0.015)" if ri % 2 == 0 else "transparent"}" />'
+            track = f'<line x1="0" y1="{cy}" x2="{CHART_W}" y2="{cy}" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3" />'
+            dots = ""
+            for dot in row["dots"]:
+                d = parse_iso2(dot["date"])
+                if not d:
+                    continue
+                cx = date_to_x(d)
+                label_text = h(f'{dot["projectName"]} | {d.strftime("%b %Y")}')
+                dots += f'<circle cx="{cx:.1f}" cy="{cy}" r="{DOT_R}" fill="{color}" stroke="rgba(0,0,0,0.3)" stroke-width="1"><title>{label_text}</title></circle>'
+            svg_rows += row_bg + track + dots
+
+        axis_labels = "".join(
+            f'<text x="{x:.1f}" y="{len(skills_timeline_rows) * ROW_H + 14}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.35)" font-family="inherit">{h(label)}</text>'
+            for x, label in ticks
+        )
+
+        skills_timeline_html = f"""
+        <div class="skills-timeline-wrap">
+          <div class="skills-timeline-body">
+            <div class="skills-timeline-labels" style="height:{len(skills_timeline_rows) * ROW_H}px">{label_col_html}</div>
+            <div class="skills-timeline-chart" style="flex:1 1 0;min-width:0;overflow:visible">
+              <svg width="100%" viewBox="0 0 {CHART_W} {svg_h}" style="display:block;overflow:visible">
+                {svg_rows}{axis_labels}
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="heatmap-summary-grid" style="margin-top:0.65rem">
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Number of Skills Detected</span><span class="heatmap-stat-value">{len(skills_timeline_rows)}</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Span</span><span class="heatmap-stat-value">{round(span_days / 30)}mo</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Earliest Skill</span><span class="heatmap-stat-value">{min_d.strftime("%b %Y") if min_d else "-"}</span></div>
+          <div class="heatmap-stat"><span class="heatmap-stat-label">Projects with Skills</span><span class="heatmap-stat-value">{len(projects_for_export)}</span></div>
+        </div>"""
+
+    # Build project modal data as a JS object
+    modal_data_js = js_str({str(p["id"]): p for p in projects_for_export})
+
+    def build_modal_js():
+        """Returns the vanilla JS for modal open/close and heatmap switching."""
+        return r"""
+const MODAL_DATA = """ + modal_data_js + r""";
+
+function fmt(n) { return n != null ? Number(n).toLocaleString() : null; }
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function chip(text, count) {
+  return `<span class="detail-chip">${escHtml(text)}${count != null ? `<span class="chip-count">×${count}</span>` : ''}</span>`;
+}
+
+function metricTile(value, label) {
+  return `<div class="metric-tile"><span class="metric-tile-value">${escHtml(String(value))}</span><span class="metric-tile-label">${escHtml(label)}</span></div>`;
+}
+
+function openModal(pid) {
+  const p = MODAL_DATA[String(pid)];
+  if (!p) return;
+  const name = escHtml(p.name || '(unnamed)');
+  const collab = p.is_collaborative ? 'Collaborative' : 'Individual';
+
+  let html = `<div class="detail-card-header" style="margin-bottom:1rem">
+    <div>
+      <span class="panel-eyebrow">Project · ${collab}</span>
+      <h3 style="margin:0">${name}</h3>`;
+  if (p.project_start || p.project_end) {
+    html += `<span class="modal-date-range">${escHtml(p.project_start || '?')} → ${escHtml(p.project_end || 'present')}</span>`;
+  }
+  html += `</div><button type="button" class="hero-action-button" onclick="closeModal()">✕ Close</button></div>`;
+
+  // Thumbnail
+  if (p.thumb) {
+    html += `<div style="position:relative;width:100%;aspect-ratio:16/9;margin-bottom:1rem;overflow:hidden">
+      <img src="${p.thumb}" alt="${name} thumbnail" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" />
+    </div>`;
+  }
+
+  // LLM Summary
+  if (p.llm_summary) {
+    html += `<div class="modal-section"><span class="panel-eyebrow">About</span><p class="modal-section-body">${escHtml(p.llm_summary)}</p></div>`;
+  }
+
+  // Languages & Frameworks
+  const langs = (p.languages || []).concat(p.frameworks || []);
+  const exts = p.ext_entries || [];
+  if (langs.length || exts.length) {
+    html += `<div class="detail-grid modal-grid-row">`;
+    if (langs.length) {
+      html += `<article class="detail-card"><div class="detail-card-header"><span class="panel-eyebrow">Languages &amp; Frameworks</span></div><div class="chip-cloud">${langs.map(l => chip(l)).join('')}</div></article>`;
+    }
+    if (exts.length) {
+      html += `<article class="detail-card"><div class="detail-card-header"><span class="panel-eyebrow">File Breakdown</span></div><div class="chip-cloud">${exts.map(([ext,cnt]) => chip(ext, cnt)).join('')}</div></article>`;
+    }
+    html += `</div>`;
+  }
+
+  // Skills
+  if ((p.skills || []).length) {
+    html += `<article class="detail-card modal-full-row"><div class="detail-card-header"><span class="panel-eyebrow">Skills</span></div><div class="chip-cloud">${p.skills.map(s => chip(s)).join('')}</div></article>`;
+  }
+
+  // Project Metrics
+  const hasProjMetrics = p.total_commits != null || p.total_lines_added != null || p.total_files > 0 || p.duration_days != null;
+  if (hasProjMetrics) {
+    html += `<span class="modal-tiles-heading">Project Metrics</span><div class="modal-metric-tiles">`;
+    if (p.total_commits != null) html += metricTile(fmt(p.total_commits), 'Total Commits');
+    if (p.total_lines_added != null) html += metricTile(fmt(p.total_lines_added), 'Lines of Code');
+    if (p.total_files > 0) html += metricTile(fmt(p.total_files), 'Files');
+    if (p.duration_days != null) html += metricTile(fmt(p.duration_days), 'Days Active');
+    html += `</div>`;
+  }
+
+  // User Metrics
+  const displayName = """ + js_str(display_name) + r""";
+  const hasUserMetrics = p.user_commits != null || p.lines_added != null || p.lines_removed != null || p.user_rank >= 0 || p.rank_score != null;
+  if (hasUserMetrics) {
+    html += `<span class="modal-tiles-heading">${escHtml(displayName)}'s Metrics</span><div class="modal-metric-tiles modal-metric-tiles--2x2">`;
+    if (p.user_commits != null) {
+      html += `<div class="metric-tile metric-tile--multi">
+        <div class="metric-col"><span class="metric-col-value">${fmt(p.user_commits)}</span><span class="metric-col-label">Total</span><span class="metric-col-sub">commits</span></div>`;
+      if (p.commit_pct != null) html += `<div class="metric-col"><span class="metric-col-value">${escHtml(p.commit_pct)}%</span><span class="metric-col-label">Share</span><span class="metric-col-sub">of project</span></div>`;
+      if (p.avg_commits_per_week != null) html += `<div class="metric-col"><span class="metric-col-value">${escHtml(p.avg_commits_per_week)}</span><span class="metric-col-label">Avg</span><span class="metric-col-sub">per week</span></div>`;
+      html += `</div>`;
+    }
+    if (p.lines_added != null || p.lines_removed != null) {
+      html += `<div class="metric-tile metric-tile--multi">
+        <div class="metric-col"><span class="metric-col-value metric-col-value--added">+${fmt(p.lines_added ?? 0)}</span><span class="metric-col-label">Added</span><span class="metric-col-sub">lines</span></div>
+        <div class="metric-col"><span class="metric-col-value metric-col-value--removed">-${fmt(p.lines_removed ?? 0)}</span><span class="metric-col-label">Removed</span><span class="metric-col-sub">lines</span></div>
+      </div>`;
+    }
+    if (p.user_rank >= 0 && p.all_authors_count > 1) {
+      html += metricTile(`#${p.user_rank + 1}`, `Contributor Rank of ${p.all_authors_count}`);
+    }
+    if (p.rank_score != null) {
+      html += metricTile(`${Math.round(p.rank_score * 100)}/100`, 'Rank Score');
+    }
+    html += `</div>`;
+  }
+
+  // User Role
+  const role = p.user_role;
+  if (role) {
+    html += `<div class="modal-section"><span class="panel-eyebrow">${escHtml(displayName)}'s Role</span>
+      <p class="modal-section-body modal-section-body--primary">${escHtml(role.primary_role)}${role.role_description ? ` - ${escHtml(role.role_description)}` : ''}</p>
+      <p class="modal-section-body">Confidence: ${Math.round((role.confidence || 0) * 100)}%</p>`;
+    if ((role.secondary_roles || []).length) {
+      html += `<p class="modal-section-body" style="color:var(--text-secondary)">Also: ${role.secondary_roles.map(escHtml).join(', ')}</p>`;
+    }
+    if ((p.breakdown_entries || []).length) {
+      html += `<div class="chip-cloud modal-chip-cloud-gap">${p.breakdown_entries.map(([cat, pct]) => `<span class="detail-chip">${escHtml(cat)}<span class="chip-count">${Math.round(pct)}%</span></span>`).join('')}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Evidence
+  if ((p.evidence || []).length) {
+    html += `<div class="modal-section"><span class="panel-eyebrow">Evidence of Success</span><div class="modal-evidence-list">`;
+    for (const ev of p.evidence) {
+      html += `<div class="modal-evidence-item">
+        <p class="modal-section-body modal-section-body--primary"><span class="modal-evidence-type">${escHtml(ev.type)}</span>${ev.description ? ` - ${escHtml(ev.description)}` : ''}</p>
+        ${ev.value ? `<p class="modal-section-body">${escHtml(ev.value)}</p>` : ''}
+        ${ev.url ? `<a class="modal-section-body modal-evidence-link" href="${escHtml(ev.url)}" target="_blank" rel="noreferrer">${escHtml(ev.source || ev.url)}</a>` : ''}
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Actions
+  html += `<div class="modal-actions">`;
+  if (p.repo_url) {
+    html += `<a class="hero-action-button" href="${escHtml(p.repo_url)}" target="_blank" rel="noreferrer">Open Repository</a>`;
+  }
+  html += `<button type="button" class="hero-action-button" onclick="closeModal()">Close</button></div>`;
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('project-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('project-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+var _heatmapScope = 'user';
+var _heatmapPid = null;
+
+function switchHeatmap(pid) {
+  _heatmapPid = pid;
+  document.querySelectorAll('[id^="heatmap-user-"],[id^="heatmap-project-"]').forEach(el => el.style.display = 'none');
+  const panel = document.getElementById('heatmap-' + _heatmapScope + '-' + pid);
+  if (panel) panel.style.display = 'block';
+}
+
+function setHeatmapScope(scope) {
+  _heatmapScope = scope;
+  // Update button active states
+  document.getElementById('scope-btn-user').classList.toggle('scope-btn--active', scope === 'user');
+  document.getElementById('scope-btn-project').classList.toggle('scope-btn--active', scope === 'project');
+  // Show the correct panel for the currently selected project
+  const select = document.querySelector('.heatmap-toolbar select');
+  const pid = _heatmapPid || (select ? select.value : null);
+  if (pid) switchHeatmap(pid);
+}
+
+// Project search
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('project-search');
+  if (!searchInput) return;
+  searchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#all-projects-grid .project-card-16-9').forEach(function(card) {
+      const name = (card.querySelector('.project-card-name') || {}).textContent || '';
+      card.style.display = name.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+});
+"""
+
+    js_code = build_modal_js()
+
+    # Build the full HTML document
+    safe_portfolio_name = (portfolio_name or "portfolio").replace('"', '').replace("'", "")
+    html_doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{h(display_name)} - Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+/* ----- Variables ----- */
+:root {{
+  --bg-surface:     rgba(255,255,255,0.04);
+  --bg-surface-md:  rgba(255,255,255,0.07);
+  --bg-surface-hi:  rgba(255,255,255,0.10);
+  --border:         rgba(255,255,255,0.08);
+  --border-md:      rgba(255,255,255,0.13);
+  --text-primary:   #f1f5f9;
+  --text-secondary: rgba(241,245,249,0.55);
+  --text-muted:     rgba(241,245,249,0.32);
+  --accent-green:   #4ade80;
+  --accent-cyan:    #22d3ee;
+  --accent-red:     #f87171;
+  --radius-sm:      8px;
+  --radius-md:      12px;
+  --radius-lg:      16px;
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md:      0 6px 20px rgba(0,0,0,0.4);
+  --shadow-lg:      0 12px 40px rgba(0,0,0,0.5);
+}}
+
+/* ----- Reset & Base ----- */
+*, *::before, *::after {{ box-sizing: border-box; }}
+html {{ scroll-behavior: smooth; }}
+body {{
+  font-family: 'DM Sans','Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  margin: 0;
+  padding: 1.75rem;
+  background: radial-gradient(circle at center,#0a5948,#08271f 80%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}}
+h1,h2,h3,h4,h5 {{ color: var(--text-primary); letter-spacing: -0.02em; }}
+p {{ color: var(--text-secondary); line-height: 1.6; }}
+a {{ color: var(--accent-cyan); }}
+::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+::-webkit-scrollbar-track {{ background: transparent; }}
+::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.12); border-radius: 99px; }}
+input, select {{
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  outline: none;
+}}
+select option {{ background: #1a2535; color: var(--text-primary); }}
+button {{
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg,var(--accent-green),var(--accent-cyan));
+  color: #0f172a;
+  cursor: pointer;
+  margin: 0.2rem;
+  box-shadow: 0 2px 12px rgba(74,222,128,0.2);
+  transition: transform 0.15s ease,box-shadow 0.15s ease,opacity 0.15s ease;
+  letter-spacing: 0.01em;
+}}
+button:hover {{ transform: translateY(-1px); box-shadow: 0 6px 20px rgba(74,222,128,0.3); opacity: 0.92; }}
+button:active {{ transform: translateY(0); }}
+
+/* ----- Layout ----- */
+.page-shell {{ max-width: 76rem; margin: 0 auto; text-align: center; }}
+.portfolio-page {{ display: flex; flex-direction: column; gap: 1.5rem; text-align: left; }}
+.portfolio-dashboard {{ display: grid; gap: 1.5rem; }}
+
+/* ----- Portfolio header & tiles ----- */
+.portfolio-header {{
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 2rem;
+  box-shadow: var(--shadow-sm);
+}}
+.portfolio-dashboard-name {{ font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0 0 0.5rem; letter-spacing: -0.02em; }}
+.portfolio-header-summary {{ margin: 0; font-size: 0.88rem; color: var(--text-secondary); }}
+
+.portfolio-tile {{
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.2rem;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+  max-width: 100%;
+}}
+.tile-heading {{ margin: 0 0 0.8rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-muted); }}
+.tile-placeholder-text {{ color: var(--text-muted); font-size: 0.88rem; margin: 0 0 0.5rem; }}
+
+/* ----- Hero action button ----- */
+.hero-action-button {{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.65rem;
+  padding: 0.55rem 1rem;
+  background: var(--bg-surface-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: none;
+  transition: background 0.15s ease,border-color 0.15s ease,transform 0.15s ease;
+}}
+.hero-action-button:hover {{ background: var(--bg-surface-hi); border-color: var(--border-md); transform: translateY(-1px); box-shadow: none; }}
+
+/* ----- Heatmap ----- */
+.heatmap-toolbar {{ display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.7rem; }}
+.portfolio-form-label {{ display: flex; flex-direction: column; gap: 0.4rem; font-weight: 600; font-size: 0.88rem; color: var(--text-secondary); }}
+
+.heatmap-panel {{ min-height: 188px; background: linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; max-width: 100%; overflow: hidden; }}
+.heatmap-scroll-wrap {{ overflow-x: auto; overflow-y: hidden; max-width: 100%; }}
+.heatmap-scroll-content {{ width: max-content; min-width: 100%; }}
+
+.heatmap-summary-grid {{ display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0.45rem; margin-bottom: 0.65rem; }}
+.heatmap-stat {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.4rem 0.48rem; display: grid; gap: 0.15rem; }}
+.heatmap-stat-label {{ font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }}
+.heatmap-stat-value {{ font-size: 0.78rem; color: var(--text-primary); font-weight: 700; line-height: 1.1; }}
+
+.project-heatmap-grid {{ display: grid; grid-template-rows: 18px; grid-auto-flow: column; grid-auto-columns: 26px; gap: 4px; overflow: visible; padding: 0.2rem; }}
+.heatmap-cell {{ width: 26px; height: 18px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.06); background: rgba(241,245,249,0.08); }}
+.heatmap-cell--week {{ border-radius: 3px; }}
+.project-heatmap-weeks {{ display: grid; grid-template-rows: 16px; grid-auto-flow: column; grid-auto-columns: 26px; gap: 4px; overflow: visible; margin-top: 0.42rem; padding: 0 0.2rem; }}
+.heatmap-week-label {{ font-size: 0.62rem; line-height: 1; color: var(--text-muted); white-space: nowrap; }}
+
+.heatmap-legend {{ display: flex; align-items: center; gap: 0.35rem; margin-top: 0.45rem; }}
+.heatmap-legend-swatch {{ width: 14px; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.08); }}
+.heatmap-legend-text {{ font-size: 0.68rem; color: var(--text-muted); }}
+.heatmap-meta {{ display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.7rem; font-size: 0.78rem; color: var(--text-secondary); }}
+
+.heatmap-scope-toggle {{ display: flex; border: 1px solid var(--border-md); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; align-self: flex-end; }}
+.scope-btn {{ font-family: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.38rem 0.85rem; border: none; border-radius: 0; background: transparent; color: var(--text-secondary); cursor: pointer; margin: 0; box-shadow: none; transition: background 0.15s,color 0.15s; letter-spacing: 0.01em; }}
+.scope-btn + .scope-btn {{ border-left: 1px solid var(--border-md); }}
+.scope-btn--active {{ background: var(--bg-surface-hi); color: var(--text-primary); }}
+.scope-btn:hover:not(.scope-btn--active) {{ background: var(--bg-surface-md); color: var(--text-primary); }}
+
+/* ----- Skills timeline ----- */
+.skills-timeline-wrap {{ display: flex; flex-direction: column; gap: 0; }}
+.skills-timeline-body {{ display: flex; align-items: flex-start; background: linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius: 8px; border: 1px solid rgba(255,255,255,0.07); padding: 0.5rem 0.75rem 0.5rem 0.5rem; overflow: hidden; }}
+.skills-timeline-labels {{ flex-shrink: 0; display: flex; flex-direction: column; padding-right: 0.5rem; }}
+.skills-timeline-label {{ display: flex; align-items: center; font-size: 11px; color: rgba(255,255,255,0.65); white-space: nowrap; padding: 0 6px 0 2px; user-select: none; }}
+.skills-timeline-chart {{ flex: 1 1 0; min-width: 0; overflow: visible; }}
+
+/* ----- Project cards ----- */
+.featured-card-container {{ display: flex; flex-direction: row; justify-content: center; gap: 0.9rem; margin-top: 0.8rem; }}
+.all-projects-card-container {{ display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.9rem; margin-top: 0.8rem; }}
+.all-projects-header {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.5rem; }}
+.all-projects-search {{ display: flex; gap: 0.5rem; align-items: center; }}
+.all-projects-search input {{ width: 180px; }}
+
+.project-card-16-9 {{ display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface-md); overflow: hidden; cursor: pointer; transition: transform 0.18s ease,box-shadow 0.18s ease,border-color 0.18s ease; }}
+.project-card-16-9.featured {{ flex: 0 0 calc((100% - 1.8rem) / 3); }}
+.project-card-16-9.all-projects {{ flex: 0 0 calc((100% - 2.7rem) / 4); }}
+.project-card-16-9:hover {{ transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-md); }}
+.project-card-header {{ display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.6rem 0.45rem 0.7rem; background: var(--bg-surface-hi); border-bottom: 1px solid var(--border); min-height: 2rem; gap: 0.4rem; }}
+.project-card-name {{ font-weight: 700; font-size: 0.82rem; color: var(--text-primary); line-height: 1.25; word-break: break-word; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.project-card-image {{ position: relative; width: 100%; aspect-ratio: 16/9; background: var(--bg-surface-md); overflow: hidden; flex-shrink: 0; }}
+.project-card-image img {{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }}
+.project-card-no-thumb {{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.04em; opacity: 0.5; }}
+.project-card-footer {{ padding: 0.4rem 0.7rem 0.5rem; background: var(--bg-surface-md); border-top: 1px solid var(--border); min-height: 2.2rem; }}
+.project-card-summary {{ font-size: 0.72rem; color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }}
+
+/* ----- Modal ----- */
+.modal-overlay {{ position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 9999; }}
+.modal-overlay::before {{ content: ""; position: absolute; inset: 0; background: radial-gradient(circle at center,rgba(74,222,128,0.08),transparent 60%); pointer-events: none; }}
+.modal-card {{ width: 720px; max-width: 95vw; max-height: 85vh; overflow-y: auto; background: radial-gradient(circle at center,#0a5948,#08271f 80%); border: 1px solid rgba(74,222,128,0.18); border-radius: var(--radius-lg); padding: 1.3rem; box-shadow: var(--shadow-lg); position: relative; text-align: left; }}
+.modal-actions {{ display: flex; justify-content: flex-end; gap: 0.5rem; }}
+
+.panel-eyebrow {{ display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }}
+.modal-section {{ padding: 1rem; border-radius: var(--radius-md); background: linear-gradient(135deg,rgba(74,222,128,0.06),rgba(34,211,238,0.06)),rgba(255,255,255,0.03); border: 1px solid rgba(74,222,128,0.12); margin-bottom: 0.9rem; }}
+.modal-section .panel-eyebrow {{ display: block; margin-bottom: 0.5rem; }}
+.modal-section-body {{ margin: 0.25rem 0 0; font-size: 0.84rem; color: var(--text-primary); line-height: 1.55; }}
+.modal-section-body--primary {{ color: var(--text-primary); }}
+.modal-date-range {{ display: block; margin-top: 0.2rem; font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.02em; }}
+.modal-grid-row, .modal-full-row {{ margin-bottom: 0.9rem; }}
+.modal-grid-row .detail-card, .modal-full-row.detail-card {{ background: linear-gradient(135deg,rgba(74,222,128,0.06),rgba(34,211,238,0.06)),rgba(255,255,255,0.03); border-color: rgba(74,222,128,0.12); border-radius: var(--radius-md); }}
+
+.modal-tiles-heading {{ display: block; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.9rem; margin-bottom: 0.5rem; }}
+.modal-metric-tiles {{ display: grid; grid-template-columns: repeat(4,1fr); gap: 0.6rem; margin-bottom: 0.9rem; }}
+.modal-metric-tiles--2x2 {{ grid-template-columns: repeat(2,1fr); grid-auto-rows: 1fr; }}
+
+.metric-tile {{ display: flex; flex-direction: column; align-items: center; justify-content: center; align-self: stretch; padding: 1rem; border-radius: var(--radius-md); background: linear-gradient(135deg,rgba(74,222,128,0.06),rgba(34,211,238,0.06)),rgba(255,255,255,0.03); border: 1px solid rgba(74,222,128,0.12); text-align: center; gap: 0.25rem; }}
+.metric-tile-value {{ font-size: 1.15rem; font-weight: 700; color: var(--accent-green); line-height: 1.1; }}
+.metric-tile-label {{ font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); margin-top: 0.2rem; }}
+.metric-tile--multi {{ flex-direction: row; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }}
+.metric-col {{ display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 0.75rem 0.4rem; gap: 0.1rem; border-right: 1px solid rgba(74,222,128,0.1); }}
+.metric-col:last-child {{ border-right: none; }}
+.metric-col-value {{ font-size: 1.15rem; font-weight: 700; color: var(--accent-green); line-height: 1.1; }}
+.metric-col-value--added {{ color: var(--accent-green); }}
+.metric-col-value--removed {{ color: var(--accent-red); }}
+.metric-col-label {{ font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); margin-top: 0.2rem; }}
+.metric-col-sub {{ font-size: 0.68rem; color: var(--text-primary); opacity: 0.7; }}
+
+.chip-cloud {{ display: flex; flex-wrap: wrap; gap: 0.55rem; }}
+.detail-chip {{ display: inline-flex; align-items: center; padding: 0.45rem 0.72rem; border-radius: 999px; background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.16); color: var(--text-primary); font-size: 0.82rem; }}
+.chip-count {{ margin-left: 0.3rem; opacity: 0.55; font-size: 0.78rem; }}
+.modal-chip-cloud-gap {{ margin-top: 0.5rem; }}
+
+.detail-card {{ background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem; }}
+.detail-card-header {{ display: flex; justify-content: space-between; align-items: start; gap: 0.8rem; margin-bottom: 0.85rem; }}
+.detail-grid {{ display: grid; grid-template-columns: minmax(0,1.35fr) minmax(280px,0.8fr); gap: 0.9rem; }}
+
+.modal-evidence-list {{ display: grid; gap: 0.6rem; margin-top: 0.5rem; }}
+.modal-evidence-item {{ padding: 1rem; border-radius: var(--radius-md); background: linear-gradient(135deg,rgba(74,222,128,0.06),rgba(34,211,238,0.06)),rgba(255,255,255,0.03); border: 1px solid rgba(74,222,128,0.12); }}
+.modal-evidence-type {{ font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }}
+.modal-evidence-link {{ color: var(--accent-green); text-decoration: none; display: block; }}
+.modal-evidence-link:hover {{ text-decoration: underline; }}
+
+/* ----- Responsive ----- */
+@media (max-width: 900px) {{
+  .project-card-16-9.featured {{ flex: 0 0 calc((100% - 0.9rem) / 2); }}
+  .project-card-16-9.all-projects {{ flex: 0 0 calc((100% - 0.9rem) / 2); }}
+  .heatmap-summary-grid {{ grid-template-columns: repeat(2,minmax(0,1fr)); }}
+}}
+@media (max-width: 540px) {{
+  .featured-card-container {{ flex-direction: column; }}
+  .all-projects-card-container {{ flex-direction: column; }}
+  .project-card-16-9.featured, .project-card-16-9.all-projects {{ flex: 1 1 auto; }}
+}}
+@media (max-width: 520px) {{
+  .modal-metric-tiles {{ grid-template-columns: repeat(2,1fr); }}
+}}
+</style>
+
+</head>
+<body>
+<div class="page-shell portfolio-page">
+  <div class="portfolio-dashboard">
+
+    <!-- Header tile -->
+    <section class="portfolio-header">
+      <p class="portfolio-dashboard-name">{h(display_name)}</p>
+      <p class="portfolio-header-summary">{h(header_summary)}</p>
+    </section>
+
+    <!-- Activity Heatmap -->
+    <section class="portfolio-tile">
+      <h3 class="tile-heading">Activity Heatmap</h3>
+      <div class="heatmap-toolbar">
+        <label class="portfolio-form-label" style="margin:0">
+          Project
+          <select onchange="switchHeatmap(this.value)">
+            {heatmap_selector_options}
+          </select>
+        </label>
+        <div class="heatmap-scope-toggle" id="heatmap-scope-toggle">
+          <button type="button" class="scope-btn scope-btn--active" id="scope-btn-user" onclick="setHeatmapScope('user')">{h(display_name)}</button>
+          <button type="button" class="scope-btn" id="scope-btn-project" onclick="setHeatmapScope('project')">Project-wide</button>
+        </div>
+      </div>
+      {heatmap_panels_html}
+    </section>
+
+    <!-- Skills Timeline -->
+    <section class="portfolio-tile">
+      <h3 class="tile-heading">Skills Timeline</h3>
+      {skills_timeline_html}
+    </section>
+
+    <!-- Featured Projects -->
+    <section class="portfolio-tile">
+      <h3 class="tile-heading">Featured Projects</h3>
+      <div class="featured-card-container">
+        {featured_cards_html}
+      </div>
+    </section>
+
+    <!-- All Projects -->
+    <section class="portfolio-tile">
+      <div class="all-projects-header">
+        <h3 class="tile-heading">All Projects</h3>
+        <div class="all-projects-search">
+          <input type="text" id="project-search" placeholder="Search projects..." />
+        </div>
+      </div>
+      <div class="all-projects-card-container" id="all-projects-grid">
+        {all_cards_html}
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- Project Detail Modal -->
+<div id="project-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()" role="dialog" aria-modal="true">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+{js_code}
+</script>
+</body>
+</html>"""
+
+    safe_filename = f"portfolio-{(display_name or 'export').replace(' ', '-')}.html"
+    from fastapi.responses import Response
+    return Response(
+        content=html_doc.encode("utf-8"),
+        media_type="text/html",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+    )
+
 
 @web_router.patch("/{portfolio_id}/customize")
 def patch_web_customize(portfolio_id: int, payload: WebPortfolioCustomizeRequest):

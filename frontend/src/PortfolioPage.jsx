@@ -1151,12 +1151,21 @@ function PortfolioPage({ onBack, showStars = true }) {
           <button
             type="button"
             onClick={() => {
-              setSaveModalName('');
+              setSaveModalName(portfolioIsSaved ? (portfolioMeta?.portfolio_name ?? '') : '');
               setSaveModalOpen(true);
             }}
           >
             Save Portfolio
           </button>
+          {portfolioIsSaved && (
+            <a
+              href={`${API_BASE_URL}/web/portfolio/${portfolioId}/export-html`}
+              download
+              style={{ textDecoration: 'none' }}
+            >
+              <button type="button">Export HTML</button>
+            </a>
+          )}
         </div>
 
         {/* Save Portfolio modal */}
@@ -1210,32 +1219,6 @@ function PortfolioPage({ onBack, showStars = true }) {
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
               <div className="heatmap-toolbar">
-                <div className="heatmap-view-toggle" role="group" aria-label="Heatmap view mode">
-                  <button
-                    type="button"
-                    className={`heatmap-view-btn${heatmapViewScope === 'project' ? ' active' : ''}`}
-                    onClick={async () => {
-                      setHeatmapViewScope('project');
-                      if (selectedHeatmapProject) {
-                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'project');
-                      }
-                    }}
-                  >
-                    Project View
-                  </button>
-                  <button
-                    type="button"
-                    className={`heatmap-view-btn${heatmapViewScope === 'user' ? ' active' : ''}`}
-                    onClick={async () => {
-                      setHeatmapViewScope('user');
-                      if (selectedHeatmapProject) {
-                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'user');
-                      }
-                    }}
-                  >
-                    Per User View
-                  </button>
-                </div>
                 <label className="portfolio-form-label" style={{ margin: 0 }}>
                   Project
                   <select
@@ -1260,6 +1243,32 @@ function PortfolioPage({ onBack, showStars = true }) {
                     })}
                   </select>
                 </label>
+                <div className="heatmap-scope-toggle" role="group" aria-label="Heatmap view mode">
+                  <button
+                    type="button"
+                    className={`scope-btn${heatmapViewScope === 'user' ? ' scope-btn--active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('user');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'user');
+                      }
+                    }}
+                  >
+                    {displayName}
+                  </button>
+                  <button
+                    type="button"
+                    className={`scope-btn${heatmapViewScope === 'project' ? ' scope-btn--active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('project');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'project');
+                      }
+                    }}
+                  >
+                    Project-wide
+                  </button>
+                </div>
               </div>
 
               <div className="heatmap-panel">
@@ -1644,6 +1653,13 @@ function PortfolioPage({ onBack, showStars = true }) {
                     <button type="button" className="secondary" onClick={() => { setRenamingPortfolioId(p.id); setRenameValue(p.portfolio_name); }}>
                       Rename
                     </button>
+                    <a
+                      href={`${API_BASE_URL}/web/portfolio/${p.id}/export-html`}
+                      download
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <button type="button">Export HTML</button>
+                    </a>
                     <button type="button" className="danger" onClick={() => handleDeletePortfolio(p.id, p.portfolio_name)}>
                       Delete
                     </button>
