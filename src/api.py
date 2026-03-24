@@ -4,7 +4,7 @@ import os
 import sys
 import re
 import sqlite3
-from io import StringIO
+from io import BytesIO, StringIO
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import subprocess
@@ -53,6 +53,11 @@ try:
     from weasyprint import HTML  # type: ignore
 except Exception:
     HTML = None
+
+try:
+    from pypdf import PdfReader  # type: ignore
+except Exception:
+    PdfReader = None
 
 
 app = FastAPI(title="MDA API")
@@ -381,6 +386,55 @@ def _render_resume_pdf_with_reportlab(markdown_text: str) -> bytes:
 
     doc.build(story)
     return buf.getvalue()
+
+
+def _count_pdf_pages(pdf_bytes: bytes) -> int:
+    if PdfReader is not None:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        return len(reader.pages)
+
+    # Fallback for environments where pypdf is unavailable.
+    page_tree_counts = [
+        int(match)
+        for match in re.findall(rb"/Count\s+(\d+)\s+/Kids\s*\[.*?\]\s*/Type\s*/Pages\b", pdf_bytes, re.DOTALL)
+    ]
+    if page_tree_counts:
+        return max(page_tree_counts)
+
+    page_markers = len(re.findall(rb"/Type\s*/Page\b", pdf_bytes))
+    return max(page_markers, 1)
+
+
+def _build_resume_pdf_payload(resume_id: int) -> Dict[str, Any]:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
+            (resume_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Resume not found")
+
+    resume_path = row["resume_path"]
+    if not resume_path or not os.path.isfile(resume_path):
+        raise HTTPException(status_code=404, detail="Resume file not found")
+
+    with open(resume_path, "r", encoding="utf-8") as fh:
+        markdown_text = fh.read()
+
+    if HTML is not None:
+        pdf_bytes = HTML(string=_resume_pdf_html(markdown_text)).write_pdf()
+    else:
+        pdf_bytes = _render_resume_pdf_with_reportlab(markdown_text)
+
+    username = row["username"] or "local"
+    filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
+    page_count = _count_pdf_pages(pdf_bytes)
+
+    return {
+        "filename": filename,
+        "page_count": page_count,
+        "pdf_bytes": pdf_bytes,
+    }
 
 
 def _load_portfolio_row_or_404(portfolio_id: int) -> Any:
@@ -1174,35 +1228,24 @@ def get_resume(resume_id: int):
     return _resume_payload(row)
 
 
+@app.get("/resume/{resume_id}/pdf/info")
+def get_resume_pdf_info(resume_id: int):
+    payload = _build_resume_pdf_payload(resume_id)
+    return {
+        "filename": payload["filename"],
+        "page_count": payload["page_count"],
+        "is_multi_page": payload["page_count"] > 1,
+    }
+
+
 @app.get("/resume/{resume_id}/pdf")
 def get_resume_pdf(resume_id: int):
-    with get_connection() as conn:
-        row = conn.execute(
-            "SELECT id, username, resume_path, metadata_json, generated_at FROM resumes WHERE id = ?",
-            (resume_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Resume not found")
-
-    resume_path = row["resume_path"]
-    if not resume_path or not os.path.isfile(resume_path):
-        raise HTTPException(status_code=404, detail="Resume file not found")
-
-    with open(resume_path, "r", encoding="utf-8") as fh:
-        markdown_text = fh.read()
-
-    if HTML is not None:
-        pdf_bytes = HTML(string=_resume_pdf_html(markdown_text)).write_pdf()
-    else:
-        pdf_bytes = _render_resume_pdf_with_reportlab(markdown_text)
-
-    username = row["username"] or "local"
-    filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
+    payload = _build_resume_pdf_payload(resume_id)
     headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Disposition": f'attachment; filename="{payload["filename"]}"',
         "Cache-Control": "no-store",
     }
-    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers=headers)
+    return StreamingResponse(iter([payload["pdf_bytes"]]), media_type="application/pdf", headers=headers)
 
 
 @app.get("/resumes")

@@ -567,6 +567,48 @@ class TestAPI(unittest.TestCase):
         self.assertIn("attachment; filename=", resp.headers.get("content-disposition", ""))
         self.assertEqual(resp.content, b"%PDF-1.4 test")
 
+    def test_resume_pdf_info_returns_page_count(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+        resume_path = os.path.join(resume_dir, "resume_alice.md")
+        with open(resume_path, "w", encoding="utf-8") as f:
+            f.write("# Alice Example\n\n## Summary\nBuilt robust APIs.\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        with patch.object(api_mod, "_build_resume_pdf_payload", return_value={
+            "filename": "resume_alice_1.pdf",
+            "page_count": 2,
+            "pdf_bytes": b"%PDF-1.4 test",
+        }):
+            resp = self.client.get(f"/resume/{resume_id}/pdf/info")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {
+            "filename": "resume_alice_1.pdf",
+            "page_count": 2,
+            "is_multi_page": True,
+        })
+
+    def test_count_pdf_pages_fallback_uses_pages_count_object(self):
+        pdf_bytes = (
+            b"%PDF-1.4\n"
+            b"4 0 obj\n<< /Type /Page >>\nendobj\n"
+            b"6 0 obj\n<< /Type /Page >>\nendobj\n"
+            b"9 0 obj\n<< /Count 2 /Kids [ 4 0 R 6 0 R ] /Type /Pages >>\nendobj\n"
+        )
+
+        with patch.object(api_mod, "PdfReader", None):
+            self.assertEqual(api_mod._count_pdf_pages(pdf_bytes), 2)
+
     def test_resume_pdf_missing_file_returns_404(self):
         missing_path = os.path.join(self.tmpdir.name, "resumes", "missing_resume.md")
         with db_mod.get_connection() as conn:
@@ -1104,4 +1146,3 @@ class TestAPI(unittest.TestCase):
 
         self.assertEqual(updated["value"], "200 users")
         self.assertEqual(updated["source"], "Updated Source")
-
