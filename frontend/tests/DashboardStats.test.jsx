@@ -75,7 +75,7 @@ describe('Dashboard Stats', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /GitHired/i })).toBeInTheDocument();
     }, { timeout: 3000 });
   });
 });

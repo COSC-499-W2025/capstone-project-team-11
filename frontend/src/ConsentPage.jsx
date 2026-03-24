@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { API_BASE_URL } from './api';
 
+const APP_LOGO_SRC = '/logo.png';
+
 const DATA_ACCESS_ITEMS = [
   {
     heading: 'File System Access',
@@ -130,10 +132,12 @@ export default function ConsentPage({ initialConsent = {}, onConsented }) {
         {/* Header */}
         <div className="consent-header-card">
           <div className="consent-header-row">
-            <div className="consent-logo">M</div>
+            <div className="consent-logo">
+              <img src={APP_LOGO_SRC} alt="GitHired logo" className="consent-logo-image" />
+            </div>
             <div>
               <h1 className="consent-header-title">Privacy &amp; Data Consent</h1>
-              <p className="consent-header-subtitle">Capstone MDA</p>
+              <p className="consent-header-subtitle">GitHired</p>
             </div>
           </div>
           <p className="consent-header-body">
