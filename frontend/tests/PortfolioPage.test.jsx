@@ -206,7 +206,9 @@ describe('PortfolioPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Generate Web Portfolio/i }));
     await screen.findByText(/Activity Heatmap/i);
 
-    fireEvent.click(screen.getByRole('button', { name: /Per User View/i }));
+    // Switch to project-wide scope, then back to user scope
+    fireEvent.click(screen.getByRole('button', { name: /Project-wide/i }));
+    fireEvent.click(screen.getByRole('button', { name: /alice/i }));
     expect(await screen.findAllByText(/commit\(s\)/i)).not.toHaveLength(0);
 
     const userHeatmapCall = getSpy.mock.calls.find(([url, config]) =>
