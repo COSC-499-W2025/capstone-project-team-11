@@ -7,7 +7,6 @@ import {
   BriefcaseIcon,
   ChartBarIcon,
   CircleStackIcon,
-  SwatchIcon,
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
@@ -21,6 +20,7 @@ import ThemeSettingsPage from './ThemeSettingsPage.jsx';
 import { API_BASE_URL } from './api';
 
 const THEME_STORAGE_KEY = 'capstone-theme';
+const APP_LOGO_SRC = '/logo.png';
 
 const MENU_ITEMS = [
   {
@@ -58,12 +58,6 @@ const MENU_ITEMS = [
     detail: 'Inspect stored data, remove projects, or clear database contents.',
     icon: CircleStackIcon,
     accent: '#fbbf24',
-  },
-  {
-    title: 'Theme Settings',
-    detail: 'Choose the color theme for the app and personalize your experience.',
-    icon: SwatchIcon,
-    accent: '#22d3ee',
   },
 ];
 
@@ -334,7 +328,6 @@ function App() {
       'View/Manage Scanned Projects': 'projects',
       'Manage Database': 'database',
       'Generate Portfolio': 'portfolio',
-      'Theme Settings': 'theme',
     };
     if (routes[title]) {
       navigateTo(routes[title]);
@@ -517,7 +510,7 @@ function App() {
                   letterSpacing: '-0.02em',
                 }}
               >
-                Capstone MDA
+                GitHired
               </h1>
               <p
                 style={{
@@ -562,6 +555,23 @@ function App() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => navigateTo('theme')}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'rgba(241,245,249,0.5)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  boxShadow: 'none',
+                }}
+              >
+                Theme Settings
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setConsentGranted(false)}
                 style={{
                   padding: '0.4rem 0.75rem',
@@ -578,19 +588,22 @@ function App() {
               </motion.button>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '66px',
+                  height: '66px',
                   borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
+                  background: 'rgba(255, 255, 255, 0.92)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '4px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.1rem',
-                  fontWeight: 700,
-                  color: '#0f172a',
                 }}
               >
-                M
+                <img
+                  src={APP_LOGO_SRC}
+                  alt="GitHired logo"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
               </div>
             </div>
           </motion.header>

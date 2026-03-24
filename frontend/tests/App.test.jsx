@@ -27,7 +27,7 @@ describe('App Component', () => {
   it('renders main menu after consent is granted', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /GitHired/i })).toBeInTheDocument();
     expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
@@ -48,7 +48,7 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
@@ -60,7 +60,7 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
@@ -72,14 +72,14 @@ describe('App Component', () => {
 
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /GitHired/i })).toBeInTheDocument();
     expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
   it('navigates to Scan Project page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Scan Project/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -90,7 +90,7 @@ describe('App Component', () => {
   it('navigates to Resume page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -105,7 +105,7 @@ describe('App Component', () => {
   it('navigates to Rank Projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -118,7 +118,7 @@ describe('App Component', () => {
   it('navigates to scanned projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(
       screen.getByRole('button', { name: /View\/Manage Scanned Projects/i })
@@ -134,7 +134,7 @@ describe('App Component', () => {
   it('navigates to database maintenance page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Manage Database/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
