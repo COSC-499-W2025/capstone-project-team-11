@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ResumePage from '../src/ResumePage.jsx';
+import * as modal from '../src/modal.js';
 
 const mockMountFetches = () =>
   vi.spyOn(global, 'fetch')
@@ -116,6 +117,10 @@ describe('ResumePage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 1, is_multi_page: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         blob: async () => new Blob(['pdf-bytes'], { type: 'application/pdf' }),
         headers: new Headers({
           'Content-Disposition': 'attachment; filename="resume_alice_42.pdf"',
@@ -129,6 +134,7 @@ describe('ResumePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /\.pdf/i }));
 
     await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/resume/42/pdf/info');
       expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/resume/42/pdf');
       expect(URL.createObjectURL).toHaveBeenCalled();
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:resume-pdf');
@@ -136,6 +142,53 @@ describe('ResumePage', () => {
 
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  it('shows a warning before exporting a multi-page pdf and stops when cancelled', async () => {
+    const showModalSpy = vi.spyOn(modal, 'showModal').mockResolvedValue(false);
+
+    vi.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 42,
+          username: 'alice',
+          resume_path: '/tmp/resume.md',
+          content: '# Alice Resume\n- Built key features',
+          generated_at: '2026-03-07',
+          metadata: {},
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 3, is_multi_page: true }),
+      });
+
+    render(<ResumePage />);
+    fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
+    expect(await screen.findByText(/Generated Resume/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /\.pdf/i }));
+
+    await waitFor(() => {
+      expect(showModalSpy).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'warning',
+        title: 'Resume Exceeds One Page',
+        message: expect.stringContaining('3 pages long'),
+      }));
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/resume/42/pdf/info');
+    expect(global.fetch).not.toHaveBeenCalledWith('http://127.0.0.1:8000/resume/42/pdf');
   });
 
   it('select all and deselect all update the resume project checkboxes', async () => {

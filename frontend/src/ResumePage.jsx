@@ -308,6 +308,27 @@ function ResumePage({ onBack }) {
     }
 
     try {
+      const infoResponse = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf/info`);
+      if (!infoResponse.ok) {
+        const { detail } = await infoResponse.json().catch(() => ({}));
+        throw new Error(detail || "Failed to inspect PDF export.");
+      }
+
+      const pdfInfo = await infoResponse.json();
+      if (pdfInfo.page_count > 1) {
+        const confirmed = await showModal({
+          type: "warning",
+          title: "Resume Exceeds One Page",
+          message: `This exported PDF is ${pdfInfo.page_count} pages long. Continue exporting, or go back and edit your resume first.`,
+          confirmText: "Continue Exporting",
+          cancelText: "Go Back and Edit",
+        });
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
       const response = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf`);
       if (!response.ok) {
         const { detail } = await response.json().catch(() => ({}));
