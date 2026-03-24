@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from markdown import markdown as render_markdown_html
 from project_evidence import add_evidence, delete_evidence, update_evidence, validate_evidence_type
 from pydantic import BaseModel, Field
 import contextlib
@@ -48,11 +47,6 @@ from scan import (
 )
 from inspect_db import inspect_connection
 from generate_portfolio import build_portfolio
-
-try:
-    from weasyprint import HTML  # type: ignore
-except Exception:
-    HTML = None
 
 try:
     from pypdf import PdfReader  # type: ignore
@@ -236,94 +230,6 @@ def _safe_pdf_filename(value: str) -> str:
     return cleaned.strip("_.") or "resume"
 
 
-def _resume_pdf_html(markdown_text: str) -> str:
-    body_html = render_markdown_html(markdown_text or "", extensions=["extra", "sane_lists"])
-    return f"""<!doctype html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
-  <style>
-    @page {{
-      size: letter;
-      margin: 0.75in;
-    }}
-
-    html, body {{
-      margin: 0;
-      padding: 0;
-      color: #0f172a;
-      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-      font-size: 10.5pt;
-      line-height: 1.45;
-    }}
-
-    .resume {{
-      width: 100%;
-    }}
-
-    h1 {{
-      margin: 0 0 0.22in;
-      font-size: 25pt;
-      line-height: 1.15;
-      font-weight: 700;
-      letter-spacing: 0.01em;
-      color: #111827;
-    }}
-
-    h2 {{
-      margin: 0.2in 0 0.09in;
-      padding-bottom: 0.05in;
-      border-bottom: 1px solid #cbd5e1;
-      font-size: 10.8pt;
-      line-height: 1.2;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #334155;
-      font-weight: 700;
-    }}
-
-    h3 {{
-      margin: 0.14in 0 0.05in;
-      font-size: 10.8pt;
-      font-weight: 700;
-      color: #1f2937;
-    }}
-
-    p {{
-      margin: 0 0 0.08in;
-    }}
-
-    ul {{
-      margin: 0.04in 0 0.1in 0.2in;
-      padding: 0;
-    }}
-
-    li {{
-      margin: 0 0 0.055in;
-      padding-left: 0.01in;
-    }}
-
-    strong {{
-      font-weight: 700;
-      color: #111827;
-    }}
-
-    p > strong:first-child:last-child {{
-      display: block;
-      margin-top: 0.03in;
-      margin-bottom: 0.03in;
-      font-size: 10.8pt;
-    }}
-  </style>
-</head>
-<body>
-  <main class=\"resume\">{body_html}</main>
-</body>
-</html>
-"""
-
-
 def _render_resume_pdf_with_reportlab(markdown_text: str) -> bytes:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import ParagraphStyle
@@ -421,10 +327,7 @@ def _build_resume_pdf_payload(resume_id: int) -> Dict[str, Any]:
     with open(resume_path, "r", encoding="utf-8") as fh:
         markdown_text = fh.read()
 
-    if HTML is not None:
-        pdf_bytes = HTML(string=_resume_pdf_html(markdown_text)).write_pdf()
-    else:
-        pdf_bytes = _render_resume_pdf_with_reportlab(markdown_text)
+    pdf_bytes = _render_resume_pdf_with_reportlab(markdown_text)
 
     username = row["username"] or "local"
     filename = _safe_pdf_filename(f"resume_{username}_{resume_id}.pdf")
