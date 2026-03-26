@@ -67,6 +67,14 @@ describe('App Component', () => {
     expect(await screen.findByText(/✗/)).toBeInTheDocument();
   });
 
+  it('falls back to consent screen when config API request fails on load', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Config unavailable')));
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /Privacy & Data Consent/i })).toBeInTheDocument();
+  });
+
   it('renders main menu directly when hash is set', async () => {
     window.location.hash = '#/main-menu';
 
