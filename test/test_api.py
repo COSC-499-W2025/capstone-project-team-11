@@ -325,6 +325,61 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp_list.status_code, 200)
         self.assertTrue(isinstance(resp_list.json(), list))
 
+    def test_projects_upload_handles_non_zip_file_path(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+        non_zip_path = os.path.join(self.tmpdir.name, "notes.txt")
+        with open(non_zip_path, "w", encoding="utf-8") as fh:
+            fh.write("plain text")
+
+        resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": non_zip_path, "recursive_choice": False, "save_to_db": True},
+        )
+
+        self.assertIn(resp.status_code, [200, 201])
+        self.assertNotEqual(resp.status_code, 500)
+        self.assertTrue(isinstance(resp.json(), dict))
+
+    def test_projects_upload_requires_privacy_consent(self):
+        project_dir = os.path.join(self.tmpdir.name, "project_without_consent")
+        os.makedirs(project_dir, exist_ok=True)
+        with open(os.path.join(project_dir, "main.py"), "w", encoding="utf-8") as fh:
+            fh.write("print('hello')\n")
+
+        resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": project_dir, "recursive_choice": False, "save_to_db": True},
+        )
+
+        self.assertIn(resp.status_code, [400, 403])
+        self.assertIn("consent", str(resp.json().get("detail", "")).lower())
+
+    def test_projects_upload_handles_duplicate_file_entries(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+        zip_path = os.path.join(self.tmpdir.name, "duplicate_entries.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("demo/main.py", "print('same content')\n")
+            zf.writestr("demo/main.py", "print('same content')\n")
+
+        upload_resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": zip_path, "recursive_choice": True, "save_to_db": True},
+        )
+        self.assertEqual(upload_resp.status_code, 201)
+
+        projects_resp = self.client.get("/projects")
+        self.assertEqual(projects_resp.status_code, 200)
+        project_name = os.path.basename(zip_path)
+        project_row = next((p for p in projects_resp.json() if p.get("name") == project_name), None)
+        self.assertIsNotNone(project_row)
+
+        detail_resp = self.client.get(f"/projects/{project_row['id']}")
+        self.assertEqual(detail_resp.status_code, 200)
+        files_summary = detail_resp.json().get("files_summary", {})
+        self.assertTrue(isinstance(files_summary, dict))
+        self.assertTrue("total_files" in files_summary)
+        self.assertGreaterEqual(files_summary.get("total_files", 0), 1)
+
     def test_scan_plan_reports_projects_and_existing_contributors(self):
         self.client.post("/privacy-consent", json={"data_consent": True})
 
