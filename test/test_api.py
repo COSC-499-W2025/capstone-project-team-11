@@ -558,8 +558,7 @@ class TestAPI(unittest.TestCase):
             ).fetchone()["id"]
             conn.commit()
 
-        with patch.object(api_mod, "HTML") as html_mock:
-            html_mock.return_value.write_pdf.return_value = b"%PDF-1.4 test"
+        with patch.object(api_mod, "_render_resume_pdf_with_reportlab", return_value=b"%PDF-1.4 test"):
             resp = self.client.get(f"/resume/{resume_id}/pdf")
 
         self.assertEqual(resp.status_code, 200)
