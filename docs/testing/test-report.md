@@ -301,26 +301,26 @@ Validates the shared modal utility. Tests confirm the modal renders with the cor
  
 ## 6. Test Data
  
- The system was tested using structured datasets created to satisfy the project requirements and simulate realistic usage scenarios.
+ The system can be tested using these structured datasets created to satisfy the project requirements and simulate realistic usage scenarios. Scan the incremental set first then the multi-project.
 
 ### Incremental Project Dataset
 
-Two zipped datasets representing the same collaborative project at different points in time were created:
+Two folders representing the same collaborative coding project at different points in time are provided to satisfy Requirement 33:
 
-- `test-data-snapshot-1.zip` – earlier version of the project
+- `test-data-snapshot-1.zip` – earlier version of the capstone project
 - `test-data-snapshot-2.zip` – later version with additional and modified files
 
-These datasets demonstrate project evolution over time.
+Scanning both datasets into the system and comparing results exercises incremental update handling, duplicate file detection across scans, and timeline accuracy. When scanning either snapshot, use `tannerdyck` as the contributor name to see meaningful per-user metrics.
 
 ---
 
 ### Multi-Project Dataset
 
-A zipped dataset containing multiple project types was created:
+A dataset containing multiple project types is provided to satisfy Requirement 34:
 
 - `test-data-multi.zip`
 
-This dataset includes both individual and collaborative projects, as well as Git and non-Git projects, to validate system behaviour across different project types.
+This dataset exercises project classification (individual vs. collaborative), contributor extraction from git history, non-git project handling, language and skill detection across multiple codebases, and project ranking with mixed contribution levels. When scanning BilletBlaze, Firebreak, Hangman, and UBCForums, use `tannerdyck` as the contributor name to see individual contribution data extracted from git history. HangmanNoGit has no git history so contributor assignment is prompted manually during the scan (use tannerdyck).
 
 ---
 
