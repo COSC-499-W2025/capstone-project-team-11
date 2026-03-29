@@ -265,17 +265,20 @@ function ScanPage({ onBack }) {
   };
 
   const startScan = async () => {
-    if (!scanPath) {
+    const trimmedPath = scanPath.trim();
+    if (!trimmedPath) {
       setScanNotice('Select a project folder or zip file to scan.');
       return;
     }
 
+    setScanPath(trimmedPath);
     resetScanState();
     setScanNotice('');
+    setIsScanning(true);
 
     try {
       const planResponse = await axios.post(`${API_BASE_URL}/projects/scan-plan`, {
-        project_path: scanPath,
+        project_path: trimmedPath,
         llm_summary: llmSummary,
       });
 
@@ -288,6 +291,7 @@ function ScanPage({ onBack }) {
       setExistingContributors(Array.isArray(plan.existing_contributors) ? plan.existing_contributors : []);
 
       if (nonGitProjects.length > 0) {
+        setIsScanning(false);
         setAssignmentQueue(nonGitProjects);
         setAssignmentIndex(0);
         return;
@@ -297,6 +301,7 @@ function ScanPage({ onBack }) {
     } catch (err) {
       const message = err?.response?.data?.detail || err.message;
       setScanNotice(`Failed to prepare scan: ${message}`);
+      setIsScanning(false);
     }
   };
 
@@ -321,7 +326,7 @@ function ScanPage({ onBack }) {
 
     const nextAssignments = {
       ...manualAssignments,
-      [assignmentProject.project_path]: deduped,
+      [assignmentProject.project_name]: deduped,
     };
 
     setManualAssignments(nextAssignments);
