@@ -1,6 +1,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [Weeks 11–12 (Mar 16 – Mar 29, 2026)](#semester-2--weeks-1112-personal-log-march-16th--march-29th-2026)
 - [Week 10 (Mar 9 – Mar 15, 2026)](#semester-2--week-10-personal-log-march-9th--march-15th-2026)
 - [Week 9 (Mar 2 – Mar 8, 2026)](#semester-2--week-9-personal-log-march-2nd--march-8th-2026)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
@@ -577,4 +578,66 @@ Overall, this week significantly improved frontend maintainability, UI consisten
 - Refine `.txt` and `.pdf` export formatting to improve output fidelity and layout consistency  
 - Clean up and reorganize frontend repository structure (including `/config` folder) to improve maintainability  
 - Enforce single-page resume constraints to maintain professional formatting standards  
-- Continue strengthening frontend-to-backend integration and expanding integration test coverage  
+- Continue strengthening frontend-to-backend integration and expanding integration test coverage
+---
+
+# Semester 2 – Weeks 11–12 Personal Log (March 16th – March 29th, 2026)
+
+During Weeks 11–12, my primary focus was refining and stabilizing the resume generation workflow as we prepared for Milestone 3 delivery. I concentrated on improving the end-to-end resume lifecycle, including enabling resume deletion, enhancing the PDF rendering pipeline, and expanding resume content support.
+
+A key improvement during this phase was enforcing consistent PDF generation by removing the WeasyPrint dependency and standardizing on a ReportLab-only rendering approach. This reduced dependency complexity and improved cross-environment reliability. I also strengthened multi-format export handling and validated rendering stability across edge cases.
+
+On the frontend, I supported enhancements to the resume experience by integrating an education section with collapsible UI behavior and ensuring resume deletion was properly handled through both backend endpoints and the trashcan interface. These updates helped complete the resume lifecycle from generation to modification to removal.
+
+In addition to implementation work, I authored the Milestone 3 Test Report documentation, outlining our unit, integration, and manual testing strategies and clearly mapping test coverage to milestone requirements. I also participated in the Week 11 peer testing demo session and contributed to the development and delivery of the Milestone 3 presentation in Week 12.
+
+Overall, these weeks focused on polishing the resume generation pipeline, strengthening export reliability, and ensuring the system was stable, well-documented, and presentation-ready.
+
+<img width="1061" height="647" alt="Image" src="https://github.com/user-attachments/assets/5bf0ef6c-231c-4dae-9c0d-e4c762abbf13" />
+
+## Coding Tasks
+
+- Edge-case backend tests and frontend config fallback improvements (PR #501)
+- WeasyPrint removal and ReportLab-only PDF enforcement (PR #500)
+- Blacklist bot contributors in scanned projects view (PR #498)
+- Collapsible education entries in resume generation UI (PR #492)
+- ReportLab PDF export and project selection integration (PR #484)
+- Resume delete endpoint and trashcan UI (PR #472)  
+
+## Testing & Documentation
+
+- Team log with Tanner
+- Added new tests relating to resume workflow/deletion
+- Strengthened backend edge-case coverage (PR #501)
+- Verified frontend fallback behavior when config or consent endpoints fail  
+- Confirmed PDF rendering stability after WeasyPrint removal  
+- Manually validated resume generation flows including:
+  - LLM summary gating via consent flags  
+  - Multi-format downloads (.md / .txt / .pdf)  
+  - Resume history retrieval and filtering  
+
+- Authored and structured the **Milestone 3 Test Report documentation**, including:
+  - Description of testing strategy (unit, integration, and manual testing)
+  - Explanation of backend TestClient-based integration tests
+  - Frontend Vitest + Testing Library coverage overview
+  - Edge-case validation scenarios
+  - Evidence of milestone requirement coverage
+ 
+- Added links to required test data folders.
+
+## Reviewing / Collaboration Tasks
+
+- Participated in final milestone coordination discussions
+- Participated in structured peer testing demo session (Week 11)
+- Co-developed Milestone 3 presentation slideshow
+- Presented Milestone 3 demo to class (Week 12)
+- Assisted with merge conflict resolution and branch cleanup before presentation
+
+<img width="1016" height="300" alt="Image" src="https://github.com/user-attachments/assets/562c7122-db58-44ee-9485-11a4a3e5f17c" />
+
+## Plans Going Forward
+
+- Final project wrap-up before Milestone 3 submission deadline  
+- Conduct project voting  
+- Complete remaining formatting refinements for .txt and .pdf resume exports  
+- Perform final repository cleanup and documentation pass 
