@@ -10,6 +10,8 @@ The repository currently includes three primary surfaces:
 - A Python CLI for interactive scanning and project management
 - A FastAPI backend for scanning, ranking, resume generation, portfolio generation, and database operations
 
+Demo video: [GitHired Demo Video](https://www.youtube.com/watch?v=5s0q4hgcc_E)
+
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Current Feature Set](#current-feature-set)
@@ -258,6 +260,7 @@ npm test
 The backend suite covers scanning, DB behavior, ranking, summaries, API routes, resume generation, portfolio generation, contributor logic, and supporting utilities. The frontend suite covers the Electron/React app pages and dashboard flows with Vitest.
 
 ## Documentation
+- Demo video: https://www.youtube.com/watch?v=5s0q4hgcc_E
 - API documentation: `docs/api/api.md`
 - Architecture: `docs/architecture/`
 - Data flow diagrams: `docs/dfd/`
