@@ -86,6 +86,41 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
+          {/* ---------------- RESUMES ---------------- */}
+          <Section
+            title="Resumes"
+            expanded={expanded.resumes}
+            onToggle={() => toggle("resumes")}
+          >
+            <Table
+              columns={["ID", "Username", "Path", "Generated"]}
+              rows={data.resumes?.map(r => [
+                r.id,
+                r.username,
+                r.resume_path,
+                r.generated_at
+              ])}
+            />
+          </Section>
+
+          {/* ---------------- PORTFOLIOS ---------------- */}
+          <Section
+            title="Portfolios"
+            expanded={expanded.portfolios}
+            onToggle={() => toggle("portfolios")}
+          >
+            <Table
+              columns={["ID", "Username", "Name", "Display Name", "Created"]}
+              rows={data.portfolios?.map(p => [
+                p.id,
+                p.username,
+                p.portfolio_name,
+                p.display_name || "-",
+                p.created_at
+              ])}
+            />
+          </Section>
+
           {/* ---------------- SCANS ---------------- */}
           <Section title="Recent Scans" expanded={expanded.scans} onToggle={() => toggle("scans")}>
             <Table
