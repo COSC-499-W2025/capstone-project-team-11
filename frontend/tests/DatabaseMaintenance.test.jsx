@@ -32,10 +32,17 @@ describe("DatabaseMaintenance", () => {
 
     render(<DatabaseMaintenance onBack={() => {}} />);
 
-    // updated title
+    // page loads
     expect(await screen.findByText(/Database Management/i)).toBeInTheDocument();
 
-    // project data should appear (expanded by default)
+    // expand Projects section (now collapsed by default)
+    const sectionButton = await screen.findByRole("button", {
+      name: /Projects/i,
+    });
+
+    fireEvent.click(sectionButton);
+
+    // now data should appear
     expect(await screen.findByText(/demo_project/i)).toBeInTheDocument();
   });
 
@@ -73,10 +80,14 @@ describe("DatabaseMaintenance", () => {
 
     render(<DatabaseMaintenance onBack={() => {}} />);
 
-    // wait for row to appear
-    expect(await screen.findByText(/demo_project/i)).toBeInTheDocument();
+    const sectionButton = await screen.findByRole("button", {
+      name: /Projects/i,
+    });
 
-    const sectionButton = screen.getByRole("button", { name: /Projects/i });
+    // expand
+    fireEvent.click(sectionButton);
+
+    expect(await screen.findByText(/demo_project/i)).toBeInTheDocument();
 
     // collapse
     fireEvent.click(sectionButton);
@@ -118,7 +129,7 @@ describe("DatabaseMaintenance", () => {
       data: { message: "Database cleared" },
     });
 
-    // simulate user clicking "Yes"
+    // simulate user confirming
     showModal.mockResolvedValueOnce(true);
 
     render(<DatabaseMaintenance onBack={() => {}} />);

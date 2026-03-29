@@ -6,9 +6,7 @@ import { showModal } from "./modal";
 function DatabaseMaintenance({ onBack }) {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState({
-    projects: true,
-  });
+  const [expanded, setExpanded] = useState({});
 
   useEffect(() => {
     inspectDatabase();
