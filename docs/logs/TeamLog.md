@@ -3,6 +3,7 @@
 ## Weekly Navigation
 
 ### Term 2 (Milestone #3)
+- [Team #11 – T2 Weeks 11 & 12 Team Log (March 16 – March 29)](#team-11--t2-weeks-11--12-team-log-march-16--march-29)
 - [Team #11 – T2 Week 10 Team Log (March 9 – March 15)](#team-11--t2-week-10-team-log-march-9--march-15)
 - [Team #11 – T2 Week 9 Team Log (March 2 – March 8)](#team-11-t2-week-9-team-log-march-2-march-8)
 
@@ -2514,8 +2515,11 @@ During Weeks 11 and 12, testing focused on final validation, ensuring stability,
 - Scanning workflow and progress feedback  
 - UI consistency and interaction behavior  
 
-Backend: `pytest -q` — all tests pass  
+Backend: `pytest -q` — all tests pass
+<img width="1707" height="794" alt="backend-tests-passing" src="https://github.com/user-attachments/assets/4a14c999-acdd-412c-af3a-86af31fbf2cb" />
+
 Frontend: `npm test` — all tests pass  
+<img width="719" height="506" alt="frontend-tests-passing" src="https://github.com/user-attachments/assets/bee47a7c-d278-4260-b87c-403c3d54f46c" />
 
 ---
 
