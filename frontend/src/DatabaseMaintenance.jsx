@@ -63,7 +63,7 @@ function DatabaseMaintenance({ onBack }) {
   return (
     <div className="page-shell database-page">
       <header className="app-header">
-        <h1>Database Manager</h1>
+        <h1>Database Management</h1>
         <p>Overview of your scanned projects and activity.</p>
       </header>
 

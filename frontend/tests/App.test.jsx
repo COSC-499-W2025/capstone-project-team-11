@@ -141,7 +141,7 @@ describe('App Component', () => {
 
     expect(window.location.hash).toBe('#/database');
     expect(await screen.findByRole('heading', { name: /Database Management/i })).toBeInTheDocument();
-    expect(await screen.findByText(/No tables found in database\./i)).toBeInTheDocument();
+    expect(await screen.findByText(/No data/i)).toBeInTheDocument();
   });
 
 });
