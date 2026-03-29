@@ -689,3 +689,4 @@ This week I worked on improving the usability of several core features in the sy
 - Minor UI adjustments were made while refining the scan progress interface to ensure the layout remained clear and responsive (PR #480).
 
 <img width="888" height="698" alt="Screenshot 2026-03-29 at 1 47 40 PM" src="https://github.com/user-attachments/assets/3c584e95-8eef-444c-84fa-bb3a1e60d189" />
+
