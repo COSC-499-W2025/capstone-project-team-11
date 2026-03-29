@@ -73,8 +73,8 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} details`}>
       <div
-        className="modal-card"
-        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
+        className="modal-card modal-card--project"
+        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', textAlign: 'left' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
