@@ -141,7 +141,9 @@ describe('App Component', () => {
 
     expect(window.location.hash).toBe('#/database');
     expect(await screen.findByRole('heading', { name: /Database Management/i })).toBeInTheDocument();
-    expect(await screen.findByText(/No tables found in database\./i)).toBeInTheDocument();
+    const projectsToggle = await screen.findByRole('button', { name: /Projects/i }); 
+    fireEvent.click(projectsToggle);
+    expect(await screen.findByText(/No data/i)).toBeInTheDocument();
   });
 
 });
