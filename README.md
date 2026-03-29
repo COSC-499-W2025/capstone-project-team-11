@@ -264,3 +264,11 @@ The backend suite covers scanning, DB behavior, ranking, summaries, API routes, 
 - Project proposal: `docs/proposal/`
 - Team contract: `docs/contract/`
 - Work breakdown artifact: `docs/WBS CAPSTONE.webp`
+
+## Team Members
+- [Daniel Sokic](https://github.com/danielsokic)
+- [Travis Frank](https://github.com/travis-frank)
+- [Tanner Dyck](https://github.com/TannerDyck)
+- [Jaxson Kahl](https://github.com/jaxsonkahl)
+- [Priyanshu Chugh](https://github.com/priyanshupc04)
+- [Tyler Cummings](https://github.com/TylerC-3042)
