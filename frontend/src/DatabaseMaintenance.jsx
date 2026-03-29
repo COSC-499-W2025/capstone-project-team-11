@@ -49,16 +49,6 @@ function DatabaseMaintenance({ onBack }) {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // -------------------------
-  // Stats (NO FILES)
-  // -------------------------
-  const stats = {
-    projects: data.projects?.length || 0,
-    scans: data.recent_scans?.length || 0,
-    contributors: data.contributors?.length || 0,
-    languages: data.languages?.length || 0,
-  };
-
   if (loading) return <p style={{ padding: 20 }}>Loading database...</p>;
 
   return (
@@ -112,9 +102,8 @@ function DatabaseMaintenance({ onBack }) {
           {/* ---------------- CONTRIBUTORS ---------------- */}
           <Section title="Contributors" expanded={expanded.contributors} onToggle={() => toggle("contributors")}>
             <Table
-              columns={["ID", "Name"]}
+              columns={["Name"]}
               rows={data.contributors?.map(c => [
-                c.id,
                 c.name
               ])}
             />
