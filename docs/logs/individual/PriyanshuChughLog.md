@@ -2,6 +2,7 @@
 ## Weekly Navigation
 
 ### Semester 2
+- [T2 Week 11–12 (Mar 16th – Mar 29th)](#t2-week-1112-personal-logs-mar-16th---mar-29th)
 - [T2 Week 10](#t2-week-10-march-9th---march-15th-2026)
 - [Week 9 (Mar 2 – Mar 8, 2026)](#t2-week-9-march-2nd---march-8th)
 - [Weeks 6–8 (Feb 9 – Mar 1, 2026)](#semester-2--weeks-68-personal-log-february-9th--march-1st-2026)
@@ -686,5 +687,83 @@ One issue I ran into this week was around the new edit flow for scanned projects
 - Help with additional UI testing and bug fixes before milestone handoff
 - Review remaining open PRs and support merge cleanup where needed
 
+# T2 Week 11–12 Personal Logs (Mar 16th - Mar 29th)
 
+<img width="1262" height="628" alt="Screenshot 2026-03-29 at 3 37 05 PM" src="https://github.com/user-attachments/assets/f06f7a56-13c7-4e29-b8ec-f14e534a0805" />
+
+
+### Overview
+
+This week I focused on improving core functionality in the Scanned Projects workflow, especially around evidence management, project editing, and fixing reliability issues. A large portion of my work involved building out the full evidence pipeline (add, edit, delete, display) and ensuring it integrates properly with the backend.
+
+I also worked on fixing bugs related to project deletion and restoring broken API endpoints caused by merge conflicts. In addition, I improved usability in resume and portfolio generation and finalized both Level 0 and Level 1 DFD diagrams for Milestone 3 to accurately represent the system.
+
+---
+
+### Coding Tasks
+
+- Made the LLM summary editable from the Scanned Projects page so users can modify generated summaries and save changes ([PR #471](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/471))
+
+- Implemented full evidence management (add, view, delete) with backend endpoints and frontend UI integration ([PR #478](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/478))
+
+- Improved the evidence system by:
+  - Moving evidence into its own dedicated tab  
+  - Adding edit functionality using a PATCH endpoint  
+  - Making evidence links clickable and easier to read  
+  - Updating tests to reflect the new structure ([PR #483](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/483))
+
+- Fixed a project deletion bug causing 500 errors by replacing unsafe SQL queries and removing problematic cleanup logic ([PR #476](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/476))
+
+- Restored missing evidence API endpoints (POST/DELETE) after a merge conflict and fixed payload mismatches causing backend errors ([PR #485](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/485))
+
+- Added Select All / Deselect All functionality to resume and portfolio project selection to improve usability ([PR #491](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/491))
+
+- Created and finalized Level 1 and Level 0 DFD diagrams for Milestone 3 ([PR #507](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/507), [PR #508](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/508))
+
+---
+
+### Testing and Debugging
+
+- Tested full evidence workflow:
+  - Adding, editing, and deleting evidence  
+  - Verifying persistence after refresh  
+  - Ensuring UI and backend stay in sync  
+
+- Verified project deletion across multiple scenarios:
+  - No edits  
+  - Name change  
+  - Thumbnail added  
+  - Name + thumbnail (previous failing case)
+
+- Confirmed restored endpoints fixed 404 and 500 errors when interacting with evidence
+
+- Tested Select All / Deselect All functionality on both Resume and Portfolio pages
+
+- Ran frontend (`npm test`) and backend (`pytest`) tests to ensure no regressions
+
+---
+
+### Reviewing and Collaboration
+
+- Daniel’s Add delete endpoint and trashcan UI to resume gen ([PR #472](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/472))  
+- Travis’s Support education entries in resume generation ([PR #492](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/492))  
+- Daniel’s Updated menu with scan data ([PR #479](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/479))  
+- Tanner’s Frontend portfolio generation (Part 1) ([PR #481](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/481))  
+- Daniel’s Moved logo ([PR #499](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/499))  
+- Travis’s Edge-case backend tests and frontend fallback ([PR #501](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/501))  
+- Travis’s Updated api.md ([PR #502](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/502))  
+
+- Reviewed PRs locally by pulling branches, running tests, and validating flows like resume generation, dashboard updates, and portfolio persistence
+
+- Provided feedback on API consistency, UI improvements, and edge cases (e.g., API base URL usage, sorting behavior, and error handling)
+
+---
+
+### Issues / Blockers
+
+- Encountered merge conflict issues where evidence endpoints were removed, causing 404 errors in the frontend
+
+- Faced database constraint issues during project deletion due to foreign key dependencies and unsafe SQL queries
+
+- Some additional iteration was needed to ensure frontend and backend behavior stayed aligned, especially for evidence editing and updates
 
