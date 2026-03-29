@@ -265,6 +265,25 @@ def inspect_database_json(db_path: str = None):
         })
     result['skills_exercised'] = skills_rows
 
+    # ---------------- RESUMES ----------------
+    resume_rows = q("""
+        SELECT id, username, resume_path, generated_at
+        FROM resumes
+        ORDER BY generated_at DESC
+    """)
+
+    result['resumes'] = [dict(r) for r in resume_rows]
+
+
+    # ---------------- PORTFOLIOS ----------------
+    portfolio_rows = q("""
+        SELECT id, username, portfolio_name, display_name, created_at
+        FROM portfolios
+        ORDER BY created_at DESC
+    """)
+
+    result['portfolios'] = [dict(p) for p in portfolio_rows]
+
     conn.close()
     return result
 
