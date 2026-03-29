@@ -1,6 +1,7 @@
 # Weekly Logs Navigation
 
 ## Term 2
+- [T2 Week 11–12 (Mar 16th – Mar 29th)](#t2-week-1112-personal-logs-mar-16th---mar-29th)
 - [T2 Week 10 (Mar 9th – Mar 15th)](#t2-week-10-personal-logs-mar-9th---15th)
 - [T2 Week 9 (Mar 2nd – Mar 8th)](#t2-week-9-personal-logs-mar-2nd---8th)
 - [T2 Week 6/8 (Feb 9th - Mar 1st)](#t2-week-68-personal-logs-feb-9th---mar-1st)
@@ -635,3 +636,57 @@ This week I worked on improving both the project scanning workflow and the user 
 - Minor UI adjustments were needed while refining the dashboard layout to ensure contributor information remained clear and readable (PR #456).
   
 <img width="844" height="629" alt="Screenshot 2026-03-15 at 5 54 59 PM" src="https://github.com/user-attachments/assets/f69f6aec-3322-46fd-ac18-df2f3d34af5f" />
+
+# T2 Week 11–12 Personal Logs (Mar 16th - Mar 29th)
+
+<img width="950" height="550" alt="Screenshot 2026-03-29 at 1 44 41 PM" src="https://github.com/user-attachments/assets/c1993b13-678e-4d81-80cd-226bc4acdea7" />
+
+### Overview
+
+This week I worked on improving the usability of several core features in the system while also finalizing documentation for Milestone 3. The work focused on enhancing the scan progress interface so users receive clearer feedback during long-running scans, implementing a safeguard for resume PDF exports, and updating project documentation to reflect the final implementation. These updates improved the overall user experience of the application and ensured the repository documentation accurately represents the completed system.
+
+### Coding Tasks
+
+- Improved the scan progress UI to provide clearer visual feedback during active scans, including a visible scan status banner and elapsed scan timer (PR #480).
+- Added progress bar animations and live activity indicators to make long-running scans feel more responsive and informative for users (PR #480).
+- Reorganized scan detail layout and added a completion banner displaying summary statistics when scans finish (PR #480).
+- Implemented a resume PDF export preflight check that detects when a resume exceeds one page before downloading (PR #497).
+- Added a backend endpoint that returns resume PDF metadata including filename and page count to support the export validation flow (PR #497).
+- Updated the frontend resume export workflow to display a warning modal when a resume is longer than one page and allow users to either edit the resume or continue exporting (PR #497).
+- Expanded the FastAPI documentation (`api.md`) to reflect the full set of backend endpoints and reorganized the documentation into clearer sections such as Projects, Rankings, Resumes, Portfolios, and Web Dashboard (PR #502).
+- Finalized and updated the project README to reflect the completed architecture, usage instructions, team information, and final project demo for Milestone 3 (PR #509).
+
+### Testing and Debugging
+
+- Tested the updated scan progress interface to ensure the elapsed timer updates correctly and progress indicators display during active scans (PR #480).
+- Verified that scan completion banners display accurate summary statistics after scans finish (PR #480).
+- Tested resume export functionality for both single-page and multi-page resumes to confirm the warning modal appears only when appropriate (PR #497).
+- Verified that cancelling the export after the warning modal prevents the PDF from downloading (PR #497).
+- Ran frontend and backend tests to ensure UI updates and backend refactoring did not introduce regressions (PR #480, PR #497).
+
+### Reviewing and Collaboration
+
+- Pri's Fix project deletion bug PR #476
+- Pri's Add project deletion and evidence display/delete with full test coverage PR #478
+- Daniel's Updated menu with scan data PR #479
+- Travis's ReportLab PDF export and project selection for resume generator PR #484
+- Pri's fix: restore project evidence endpoints PR #485
+- Tanner's Frontend portfolio generation: Web portfolio permanence (Part 2) PR #486
+- Tyler's Added newly designed modal for windows.alerts PR #488
+- Daniel's Fixed missing }; from merge conflict fix PR #493
+- Daniel's Updated UI to be less monochrome, added themes, new icons, and transitions across the app PR #494
+- Tanner's Frontend portfolio generation: Web portfolio permanence (Part 3) PR #495
+- Travis's Remove WeasyPrint and enforce ReportLab-only PDF rendering PR #500
+- Daniel's Fixed portfolio card theme bug PR #503
+- Tyler's Fixing up database maintenance PR #505
+- Pri's milestone 3 level 1 dfd PR #507
+- Pri's dfd level 0 for milestone 3 PR #508
+
+### Issues / Blockers
+
+- No major blockers occurred during this development period.
+- Some additional testing was required to verify that the resume export warning logic correctly handles both single-page and multi-page resumes (PR #497).
+- Minor UI adjustments were made while refining the scan progress interface to ensure the layout remained clear and responsive (PR #480).
+
+<img width="888" height="698" alt="Screenshot 2026-03-29 at 1 47 40 PM" src="https://github.com/user-attachments/assets/3c584e95-8eef-444c-84fa-bb3a1e60d189" />
+
