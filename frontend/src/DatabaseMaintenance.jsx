@@ -69,7 +69,7 @@ function DatabaseMaintenance({ onBack }) {
   return (
     <div className="page-shell database-page" style={{ overflowX: "hidden" }}>
       <header className="app-header">
-        <h1>Database Dashboard</h1>
+        <h1>Database Manager</h1>
         <p>Overview of your scanned projects and activity.</p>
       </header>
 
