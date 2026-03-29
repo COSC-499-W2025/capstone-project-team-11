@@ -6,6 +6,7 @@
 - [T2 Weeks 6–8](#t2--weeks-6-7-and-8-february-9th---march-1st)
 - [T2 Week 9](#t2-week-9-march-2nd---march-8th)
 - [T2 Week 10](#t2-week-10-march-9th---march-15th)
+- [T2 Week 11-12](#t2-week-11--12-march-16th---march-29th)
 
 # Week 3 Personal Log (15th-21st of September)
 
@@ -570,3 +571,106 @@ No issues or blockers.
 ## Plans for Week 11
 - Add activity heatmap and more functionality to the portfolio
 - Prep and fix bugs for peer testing
+
+## T2 Week 11-12 (March 16th - March 29th)
+
+<img width="794" height="456" alt="image" src="https://github.com/user-attachments/assets/49db2567-889e-46d9-a817-1d2889a73419" />
+
+
+## Overview:
+This week, I focused on enhancing the portfolio page by implementing a detailed project contribution heatmap. The work included both backend and frontend development, allowing users to visualize weekly commit activity for individual projects or per user. This provides accurate metrics, improves UI responsiveness, and enables toggling between project and user views while ensuring consistent data handling and layout stability. Additionally, I made more edits to the the User Interface by introducing more themes and tried to make the colours less monochrome for users. Alongside that, I added the logo to the header of the app to finalize our UI/UX design.
+
+## Reflection:
+This week the team worked pretty well together to complete tasks for peer testing and to get feedback from the session. We communicated and got our goals done in a respectful and professional manner. PRs were made and reviewed in a timely fashion and the team worked really hard to get things done these past two weeks. After the presentation we all met up together to plan who would do what in the final week and people have stuck to their word and have gotten everything done. 
+
+## Coding Tasks:
+Added Project Heatmap [PR 469](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/469)
+  - Generated weekly heatmap cells with contribution counts, date ranges, and aggregated metrics.
+	- Uses Git commit history from git_metrics_json as the primary data source, with a fallback to database scan timestamps and created_at.
+	- Normalizes contributions to ISO week format (Monday start) for consistent visualization.
+	- Provides metrics such as weekly commits and contribution files via a file_contributors query.
+	- Added a project selector dropdown to switch between project heatmaps.
+	- Implemented a 7-row heatmap grid (Mon–Sun) with auto-width weekly columns.
+	- Contribution intensity is displayed via opacity scaling (0–100%).
+	- Displays additional metadata including project duration, peak contribution week, total contributions, active weeks, consistency percentage, and 4-week trend.
+
+
+Updated Heatmap [PR 473](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/473)
+  - Added toggle between Project View and Per User View
+	- Introduced a shared horizontal scroll container for aligned heatmap cells and date labels
+	- Fixed layout issues to prevent heatmap stretching
+	- Added view_scope query parameter to heatmap endpoint
+	- Updated both project and per-user heatmaps to return commit counts
+
+Updated menu with scan data [PR #479](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/479)
+  - Added new aggregation endpoints:
+		- GET /outputs
+		- GET /stats/dashboard
+	- Implemented aggregation logic for:
+		- Total outputs (resumes + portfolios)
+		- Latest generated output timestamp
+		- Project and contributor statistics
+	- Replaced simple count-only cards with contextual insights
+	- Added relative-time formatting (e.g., “latest activity”)
+	- Consolidated multiple API calls into a single /stats/dashboard request
+	- Cards now display meaningful summaries instead of raw numbers
+	- Outputs card includes breakdown (resumes vs portfolios)
+
+Updated UI to be less monochrome, added themes, new icons, and transitions across the app [PR #494](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/494)
+  - Added Heroicons imports.
+  - Updated menu button rendering to use the new icon components.
+  - Created ThemeSettingsPage.jsx with four selectable theme presets:
+    - Evergreen
+    - Harbor
+    - Violet Night
+    - Sunset
+  - Introduced layered background gradients and accent orbs for richer visuals.
+  - Improved text, border, and panel contrast across the app.
+  - Added @heroicons/react dependency in package.json.
+  - Updated package-lock.json.
+
+
+## Tests and Debugging:
+
+`PortfolioPage.test.jsx`
+	
+  - Used mock API calls to simulate project and per-user heatmap data without needing the real backend.
+	- Tested that the project heatmap loads by default:
+		- Checked the API was called with view_scope=project.
+		- Confirmed the heatmap and metrics appeared on the page.
+	- Tested switching to per-user heatmap:
+		- Clicked the “Per User View” button.
+		- Checked the API was called with view_scope=user.
+		- Confirmed commit data showed correctly in the heatmap.
+	- Tested the shared scroll layout:
+		- Made sure the scroll container exists.
+		- Verified it wraps both the heatmap grid and week labels.
+
+`DashboardStats.test.jsx`
+
+	- Fetches and displays dashboard stats on mount
+	- Displays latest project and contributor info
+	- Displays outputs breakdown
+	- Handles fetch errors without crashing
+
+
+`test_api.py`
+
+	- Validates that /outputs correctly aggregates resume and portfolio counts and returns the latest
+	- Ensures /stats/dashboard returns the correct structure and aggregated data for projects, contributors, and outputs.
+
+  ## Reviews and Collaboration
+  - Tanner's Frontend portfolio generation: Expanded project card metrics [PR 468](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/468)
+  - Travis' Add delete endpoint and trashcan UI to resume gen [PR #472](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/472)
+  - Pri's Add select all / deselect all for project selection in resume and portfolio [PR #491](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/491)
+  - Travis' Support education entries in resume generation with collapsible UI [PR #492](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/492)
+  - Jaxson's Added multi-page warning before resume PDF export [PR #497](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/497)
+  - Travis' Blacklist bot contributors from scanned projects page [PR #498](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/498)
+  - Travis' Testing report and external test data documentation [PR #504](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/504)
+
+## Issues and blockers
+No issues or blockers.
+
+## Plans going forward
+- Project voting
+- Bundle application (potentially)
