@@ -7,7 +7,7 @@ function DatabaseMaintenance({ onBack }) {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState({
-    projects: true, // default open
+    projects: true,
   });
 
   useEffect(() => {
@@ -16,16 +16,10 @@ function DatabaseMaintenance({ onBack }) {
 
   const groupSkills = (skillsData = []) => {
     const map = {};
-
     skillsData.forEach(({ skill, project }) => {
-      if (!map[skill]) {
-        map[skill] = new Set();
-      }
-      if (project) {
-        map[skill].add(project);
-      }
+      if (!map[skill]) map[skill] = new Set();
+      if (project) map[skill].add(project);
     });
-
     return map;
   };
 
@@ -67,7 +61,7 @@ function DatabaseMaintenance({ onBack }) {
   if (loading) return <p style={{ padding: 20 }}>Loading database...</p>;
 
   return (
-    <div className="page-shell database-page" style={{ overflowX: "hidden" }}>
+    <div className="page-shell database-page">
       <header className="app-header">
         <h1>Database Manager</h1>
         <p>Overview of your scanned projects and activity.</p>
@@ -88,7 +82,7 @@ function DatabaseMaintenance({ onBack }) {
 
         {/* RIGHT PANEL */}
         <section className="scan-log-panel" style={{ minWidth: 0 }}>
-          {/* ---------------- PROJECTS ---------------- */}
+          
           <Section title="Projects" expanded={expanded.projects} onToggle={() => toggle("projects")}>
             <Table
               columns={["Name", "Scans", "Files", "Skills"]}
@@ -101,12 +95,7 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
-          {/* ---------------- RESUMES ---------------- */}
-          <Section
-            title="Resumes"
-            expanded={expanded.resumes}
-            onToggle={() => toggle("resumes")}
-          >
+          <Section title="Resumes" expanded={expanded.resumes} onToggle={() => toggle("resumes")}>
             <Table
               columns={["ID", "Username", "Path", "Generated"]}
               rows={data.resumes?.map(r => [
@@ -118,12 +107,7 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
-          {/* ---------------- PORTFOLIOS ---------------- */}
-          <Section
-            title="Portfolios"
-            expanded={expanded.portfolios}
-            onToggle={() => toggle("portfolios")}
-          >
+          <Section title="Portfolios" expanded={expanded.portfolios} onToggle={() => toggle("portfolios")}>
             <Table
               columns={["ID", "Username", "Name", "Display Name", "Created"]}
               rows={data.portfolios?.map(p => [
@@ -136,7 +120,6 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
-          {/* ---------------- SCANS ---------------- */}
           <Section title="Recent Scans" expanded={expanded.scans} onToggle={() => toggle("scans")}>
             <Table
               columns={["ID", "Project", "Date", "Notes"]}
@@ -149,17 +132,13 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
-          {/* ---------------- CONTRIBUTORS ---------------- */}
           <Section title="Contributors" expanded={expanded.contributors} onToggle={() => toggle("contributors")}>
             <Table
               columns={["Name"]}
-              rows={data.contributors?.map(c => [
-                c.name
-              ])}
+              rows={data.contributors?.map(c => [c.name])}
             />
           </Section>
 
-          {/* ---------------- LANGUAGES ---------------- */}
           <Section title="Languages" expanded={expanded.languages} onToggle={() => toggle("languages")}>
             <Table
               columns={["Language", "File Count"]}
@@ -170,7 +149,6 @@ function DatabaseMaintenance({ onBack }) {
             />
           </Section>
 
-          {/* ---------------- PROJECT SUMMARIES ---------------- */}
           <Section title="Project Summaries" expanded={expanded.project_summaries} onToggle={() => toggle("project_summaries")}>
             <Table
               columns={["Project", "Summary"]}
@@ -179,14 +157,9 @@ function DatabaseMaintenance({ onBack }) {
                 p.summary
               ])}
             />
-          </Section>    
+          </Section>
 
-          {/* ---------------- SKILLS TIMELINE ---------------- */}
-          <Section
-            title="Skills"
-            expanded={expanded.skills}
-            onToggle={() => toggle("skills")}
-          >
+          <Section title="Skills" expanded={expanded.skills} onToggle={() => toggle("skills")}>
             <Table
               columns={["Skill", "Projects"]}
               rows={Object.entries(groupSkills(data.skills_exercised)).map(
@@ -205,7 +178,7 @@ function DatabaseMaintenance({ onBack }) {
 }
 
 /* -------------------------
-   Reusable Section Component
+   Section Component (UPDATED STYLE)
 ------------------------- */
 function Section({ title, expanded, onToggle, children }) {
   return (
@@ -218,12 +191,15 @@ function Section({ title, expanded, onToggle, children }) {
         overflow: "hidden",
       }}
     >
-      <button onClick={onToggle} style={toggleStyle}>
-        {expanded ? "▼" : "▶"} {title}
+      <button onClick={onToggle} style={toggleStyle(expanded)}>
+        <span>{title}</span>
+        <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+          {expanded ? "▾" : "▸"}
+        </span>
       </button>
 
       {expanded && (
-        <div style={{ marginTop: 10, width: "100%" }}>
+        <div style={{ marginTop: 10 }}>
           {children}
         </div>
       )}
@@ -232,7 +208,7 @@ function Section({ title, expanded, onToggle, children }) {
 }
 
 /* -------------------------
-   Reusable Table Component
+   Table Component
 ------------------------- */
 function Table({ columns = [], rows = [] }) {
   if (!rows || rows.length === 0) return <p>No data</p>;
@@ -272,17 +248,26 @@ function Table({ columns = [], rows = [] }) {
 }
 
 /* -------------------------
-   Styles
+   NEW THEMED DROPDOWN STYLE
 ------------------------- */
-const toggleStyle = {
+const toggleStyle = () => ({
   width: "100%",
   textAlign: "left",
-  fontWeight: 700,
-  background: "#edf6e6",
-  color: "#2a4e2a",
-  border: "1px solid #d7e4cf",
-  padding: "6px 10px",
-  borderRadius: 6,
-};
+  fontWeight: 600,
+  padding: "0.7rem 0.8rem",
+  borderRadius: "var(--radius-sm)",
+  cursor: "pointer",
+
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+
+  background: "rgba(74, 222, 128, 0.08)",
+  color: "var(--text-secondary)",
+  border: "1px solid rgba(74, 222, 128, 0.25)",
+  boxShadow: "0 0 0 1px rgba(74, 222, 128, 0.2)",
+
+  transition: "all 0.18s ease",
+});
 
 export default DatabaseMaintenance;
