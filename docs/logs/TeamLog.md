@@ -2360,3 +2360,180 @@ Another major success this week was frontend consistency. The app now has a much
 ## Kanban Board
 
 <img width="981" height="625" alt="Screenshot 2026-03-15 at 6 01 59 PM" src="https://github.com/user-attachments/assets/72ce5fff-bf33-496c-a71a-9d0bb996a5f1" />
+
+---
+# Team #11 – T2 Weeks 11 & 12 Team Log (March 16 – March 29)
+
+Team Members --> GitHub Username
+
+- Daniel Sokic --> danielsokic  
+- Jaxson Kahl --> jaxsonkahl  
+- Priyanshu Chugh --> priyanshupc04  
+- Tanner Dyck --> TannerDyck  
+- Travis Frank --> travis-frank  
+- Tyler Cummings --> TylerC-3042  
+
+---
+
+## Overview
+
+Weeks 11 and 12 focused on finalizing the Milestone 3 deliverables, stabilizing the application, and preparing for project demonstration and submission. The team shifted from large feature development toward refinement, usability improvements, and ensuring the system was cohesive, testable, and presentation-ready.
+
+A major portion of work during these weeks involved polishing the resume and portfolio workflows, improving UI/UX consistency, and addressing edge cases identified through testing and peer feedback. Several enhancements were made to ensure the application behaves reliably across full end-to-end flows, including resume generation, project selection, portfolio persistence, and scanning workflows.
+
+The frontend continued to evolve with improved visual consistency, additional UI components, and smoother interactions. Backend functionality was refined to support these improvements, including better handling of evidence, project selection, and configuration endpoints.
+
+In Week 11, the team participated in a **peer testing session**, where other groups interacted with the application and provided feedback on usability and functionality. In Week 12, the team delivered the **Milestone 3 presentation**, showcasing the system’s full capabilities, architecture, and user workflows.
+
+Alongside development and presentation work, the team also completed all required **Milestone 3 documentation deliverables**, ensuring the project is well-documented and maintainable for future developers.
+
+Overall, these weeks marked the transition from a feature-complete system to a polished, stable, and well-documented final product.
+
+---
+
+## Completed Work By Member
+
+### Travis
+- PR #500 – Removed WeasyPrint and enforced ReportLab-only PDF rendering  
+- PR #498 – Blacklisted bot contributors from scanned projects page  
+- PR #492 – Support education entries in resume generation with collapsible UI  
+- PR #484 – ReportLab PDF export and project selection for resume generator  
+- PR #472 – Add delete endpoint and trashcan UI to resume gen  
+- PR #504 – Testing report and external test data documentation  
+- Wrote the **Test Report / Test Guide**  
+- Team Log
+
+---
+
+### Jaxson
+- PR #502 – Updated `api.md`  
+- PR #497 – Added multi-page warning before resume PDF export  
+- PR #480 – Improved UI/UX for Scanning Progress  
+- PR #509 – README.md Final Update  
+- Updated **README and Installation Guide**  
+
+---
+
+### Priyanshu
+- PR #491 – Add select all / deselect all for project selection in resume and portfolio  
+- PR #485 – Fix: restore project evidence endpoints  
+- PR #483 – Evidence enhancements  
+- PR #478 – Add project deletion and evidence display/delete with full test coverage  
+- PR #476 – Fix project deletion bug  
+- PR #471 – Make project LLM summary editable from scanned projects view  
+- PR #508 – DFD Level 0 for Milestone 3  
+- PR #507 – Milestone 3 Level 1 DFD  
+- Updated **DFD Level 0 and Level 1 diagrams**
+
+---
+
+### Tanner
+- PR #495 – Frontend portfolio generation: Web portfolio permanence (Part 3)  
+- PR #489 – End of T2 Week 11 (Development --> main merge)  
+- PR #486 – Frontend portfolio generation: Web portfolio permanence (Part 2)  
+- PR #481 – Frontend portfolio generation: Web portfolio persistence (Part 1)  
+- PR #475 – Frontend portfolio generation: Skills timeline implementation  
+- PR #474 – Frontend privacy settings & Connection test rework  
+- PR #468 – Frontend portfolio generation: Expanded project card metrics  
+- Co-created **Video Demo**
+- Team Log
+
+---
+
+### Daniel
+- PR #499 – Moved logo  
+- PR #494 – Updated UI to be less monochrome, added themes, new icons, and transitions across the app  
+- PR #479 – Updated menu with scan data  
+- PR #473 – Updated Heatmap  
+- PR #469 – Added project Heatmap  
+- PR #503 – Fixed portfolio card theme bug  
+- Co-created **Video Demo**
+
+---
+
+### Tyler
+- PR #488 – Added newly designed modal for windows.alerts  
+- PR #505 – Fixing up database maintenance  
+- Updated **System Architecture Diagram**  
+- Compiled **Known Bugs List**
+
+---
+
+### All Members
+- Participated in **Peer Testing Session (Week 11)**  
+- Delivered **Milestone 3 Presentation (Week 12)**  
+- Collaborated on final project polish and testing  
+- Ensured all required documentation and deliverables were completed  
+- Continued coordination through GitHub, Discord, and in-class meetings  
+
+---
+
+## Milestone 3 Documentation Coverage
+
+All required documentation components were updated/completed and organized through the repository README for accessibility and clarity.
+
+### System Architecture & Data Flow Diagrams
+- System Architecture Diagram
+- DFD Level 0 
+- DFD Level 1 
+
+### Installation Guide
+- Step-by-step setup for:
+  - Backend (FastAPI)
+  - Frontend (Electron + React)
+  - Database initialization
+- Includes environment setup and dependencies
+
+### Test Report
+- Overview of testing strategies:
+  - Unit testing (frontend + backend)
+  - Integration testing (API + database)
+- Lists key test files and frameworks:
+  - `pytest`
+  - `Vitest` / `@testing-library/react`
+- Explains how tests ensure correctness and prevent regressions
+
+### Known Bugs List
+- Documents known edge cases and limitations
+- Provides clear descriptions of when features may not behave as expected
+
+---
+
+## Testing Report
+
+All unit and integration tests continue to pass successfully.
+
+During Weeks 11 and 12, testing focused on final validation, ensuring stability, and verifying that no regressions were introduced during final refinements.
+
+### Testing Focus Areas
+
+- Resume generation and export (MD, TXT, PDF)  
+- Portfolio generation and persistence  
+- Project selection workflows  
+- Evidence management and editing  
+- Scanning workflow and progress feedback  
+- UI consistency and interaction behavior  
+
+Backend: `pytest -q` — all tests pass  
+Frontend: `npm test` — all tests pass  
+
+---
+
+## Reflection
+
+Weeks 11 and 12 focused on bringing the project to completion and ensuring it met both functional and presentation standards. The team successfully transitioned from feature development to refinement, improving usability, consistency, and overall system stability.
+
+The peer testing session provided valuable insight into how new users interact with the system and helped identify minor usability improvements. The Milestone 3 presentation demonstrated that the system is cohesive, feature-complete, and capable of supporting its intended workflows.
+
+Additionally, simplifying certain components, such as consolidating PDF generation into a single approach, improved maintainability and reduced potential points of failure.
+
+Overall, the team delivered a polished, reliable, and well-documented final product.
+
+---
+
+## Plans Moving Forward
+
+- Final project wrap-up and submission  
+- Address any final feedback from instructors  
+- Complete project voting and evaluation process  
+- Reflect on potential future improvements  
