@@ -14,6 +14,21 @@ function DatabaseMaintenance({ onBack }) {
     inspectDatabase();
   }, []);
 
+  const groupSkills = (skillsData = []) => {
+    const map = {};
+
+    skillsData.forEach(({ skill, project }) => {
+      if (!map[skill]) {
+        map[skill] = new Set();
+      }
+      if (project) {
+        map[skill].add(project);
+      }
+    });
+
+    return map;
+  };
+
   const inspectDatabase = async () => {
     setLoading(true);
     try {
@@ -52,7 +67,7 @@ function DatabaseMaintenance({ onBack }) {
   if (loading) return <p style={{ padding: 20 }}>Loading database...</p>;
 
   return (
-    <div className="page-shell database-page">
+    <div className="page-shell database-page" style={{ overflowX: "hidden" }}>
       <header className="app-header">
         <h1>Database Dashboard</h1>
         <p>Overview of your scanned projects and activity.</p>
@@ -72,7 +87,7 @@ function DatabaseMaintenance({ onBack }) {
         </section>
 
         {/* RIGHT PANEL */}
-        <section className="scan-log-panel">
+        <section className="scan-log-panel" style={{ minWidth: 0 }}>
           {/* ---------------- PROJECTS ---------------- */}
           <Section title="Projects" expanded={expanded.projects} onToggle={() => toggle("projects")}>
             <Table
@@ -164,17 +179,22 @@ function DatabaseMaintenance({ onBack }) {
                 p.summary
               ])}
             />
-          </Section>
+          </Section>    
 
           {/* ---------------- SKILLS TIMELINE ---------------- */}
-          <Section title="Skills Exercised" expanded={expanded.skills} onToggle={() => toggle("skills")}>
+          <Section
+            title="Skills"
+            expanded={expanded.skills}
+            onToggle={() => toggle("skills")}
+          >
             <Table
-              columns={["Skill", "Date", "Project"]}
-              rows={data.skills_exercised?.map(s => [
-                s.skill,
-                s.datetime,
-                s.project
-              ])}
+              columns={["Skill", "Projects"]}
+              rows={Object.entries(groupSkills(data.skills_exercised)).map(
+                ([skill, projects]) => [
+                  skill,
+                  Array.from(projects).join(", ")
+                ]
+              )}
             />
           </Section>
 
@@ -189,11 +209,24 @@ function DatabaseMaintenance({ onBack }) {
 ------------------------- */
 function Section({ title, expanded, onToggle, children }) {
   return (
-    <div className="summary-card" style={{ marginTop: 20 }}>
+    <div
+      className="summary-card"
+      style={{
+        marginTop: 20,
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+      }}
+    >
       <button onClick={onToggle} style={toggleStyle}>
         {expanded ? "▼" : "▶"} {title}
       </button>
-      {expanded && <div style={{ marginTop: 10 }}>{children}</div>}
+
+      {expanded && (
+        <div style={{ marginTop: 10, width: "100%" }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -205,26 +238,36 @@ function Table({ columns = [], rows = [] }) {
   if (!rows || rows.length === 0) return <p>No data</p>;
 
   return (
-    <table className="rank-table">
-      <thead>
-        <tr>
-          {columns.map(col => <th key={col}>{col}</th>)}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {row.map((cell, j) => (
-              <td key={j}>
-                {typeof cell === "string" && cell.length > 80
-                  ? cell.substring(0, 80) + "..."
-                  : cell}
-              </td>
-            ))}
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "auto",
+        overflowY: "hidden",
+      }}
+    >
+      <table
+        className="rank-table"
+        style={{
+          minWidth: "max-content",
+        }}
+      >
+        <thead>
+          <tr>
+            {columns.map(col => <th key={col}>{col}</th>)}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {row.map((cell, j) => (
+                <td key={j}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
