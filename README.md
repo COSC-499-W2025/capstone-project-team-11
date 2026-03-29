@@ -58,6 +58,8 @@ Scans can target a single project, a directory that contains multiple projects, 
 - `frontend/`: Electron + React desktop app with pages for consent, scanning, scanned projects, ranking, resumes, portfolios, and database maintenance
 - `test/`: backend test suite
 - `docs/`: API docs, architecture diagrams, DFDs, proposal, contract, and other project artifacts
+- `docs/testing/test-report.md`: testing report
+- `docs/test data/test-data.txt`: test data sample file
 - `init_db.sql`: base SQLite schema
 - `Dockerfile`: backend image definition
 - `docker-compose.yml`: local CLI, API, test, and Ollama services
@@ -258,6 +260,11 @@ npm test
 ```
 
 The backend suite covers scanning, DB behavior, ranking, summaries, API routes, resume generation, portfolio generation, contributor logic, and supporting utilities. The frontend suite covers the Electron/React app pages and dashboard flows with Vitest.
+
+Additional testing artifacts:
+
+- Testing report: `docs/testing/test-report.md`
+- Test data: `docs/test data/test-data.txt`
 
 ## Documentation
 - Demo video: https://www.youtube.com/watch?v=5s0q4hgcc_E
