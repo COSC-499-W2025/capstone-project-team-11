@@ -11,6 +11,32 @@ const mockMountFetches = () =>
     .mockResolvedValueOnce({ ok: true, json: async () => [] })
     .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
+const mockBaseSelectableState = () =>
+  vi.spyOn(global, 'fetch').mockImplementation((url) => {
+    const requestUrl = String(url);
+
+    if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+      return Promise.resolve({ ok: true, json: async () => ['alice'] });
+    }
+    if (requestUrl === 'http://127.0.0.1:8000/config') {
+      return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+    }
+    if (requestUrl === 'http://127.0.0.1:8000/projects') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+      });
+    }
+    if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }
+    if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+      return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+    }
+
+    return Promise.resolve({ ok: false, json: async () => ({}) });
+  });
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -19,7 +45,7 @@ describe('ResumePage', () => {
   it('renders contributor select and generate button', async () => {
     mockMountFetches();
     render(<ResumePage />);
-    expect(screen.getByText(/Select Contributor/i)).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Generate Resume/i })).toBeInTheDocument();
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/contributors');
@@ -27,37 +53,83 @@ describe('ResumePage', () => {
   });
 
   it('shows generating state when generate is clicked', async () => {
-    mockMountFetches();
-    vi.spyOn(global, 'fetch').mockReturnValue(new Promise(() => {}));
+    const pendingGenerate = new Promise(() => {});
+    mockBaseSelectableState().mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl === 'http://127.0.0.1:8000/resume/generate') return pendingGenerate;
+      if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+        return Promise.resolve({ ok: true, json: async () => ['alice'] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/config') {
+        return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+        return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
     render(<ResumePage />);
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findByLabelText(/Project 1/i);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     expect(await screen.findByRole('button', { name: /Generating/i })).toBeDisabled();
   });
 
   it('shows resume content when API calls succeed', async () => {
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: 42,
-          username: 'alice',
-          resume_path: '/tmp/resume.md',
-          content: '# Alice Resume\n- Built key features',
-          generated_at: '2026-03-07',
-          metadata: {},
-        }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+        return Promise.resolve({ ok: true, json: async () => ['alice'] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/config') {
+        return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+        return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/generate') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: 42,
+            username: 'alice',
+            resume_path: '/tmp/resume.md',
+            content: '# Alice Resume\n- Built key features',
+            generated_at: '2026-03-07',
+            metadata: {},
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     render(<ResumePage />);
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findByLabelText(/Project 1/i);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
 
     expect(await screen.findByText(/Generated Resume/i)).toBeInTheDocument();
@@ -73,14 +145,35 @@ describe('ResumePage', () => {
   });
 
   it('shows error message when API call fails', async () => {
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockRejectedValueOnce(new Error('Network failure'));
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+        return Promise.resolve({ ok: true, json: async () => ['alice'] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/config') {
+        return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+        return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/generate') {
+        return Promise.reject(new Error('Network failure'));
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     render(<ResumePage />);
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findByLabelText(/Project 1/i);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
 
     await waitFor(() => {
@@ -94,40 +187,66 @@ describe('ResumePage', () => {
     URL.createObjectURL = vi.fn(() => 'blob:resume-pdf');
     URL.revokeObjectURL = vi.fn();
 
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: 42,
-          username: 'alice',
-          resume_path: '/tmp/resume.md',
-          content: '# Alice Resume\n- Built key features',
-          generated_at: '2026-03-07',
-          metadata: {},
-        }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 1, is_multi_page: false }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        blob: async () => new Blob(['pdf-bytes'], { type: 'application/pdf' }),
-        headers: new Headers({
-          'Content-Disposition': 'attachment; filename="resume_alice_42.pdf"',
-        }),
-      });
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+        return Promise.resolve({ ok: true, json: async () => ['alice'] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/config') {
+        return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+        return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/generate') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: 42,
+            username: 'alice',
+            resume_path: '/tmp/resume.md',
+            content: '# Alice Resume\n- Built key features',
+            generated_at: '2026-03-07',
+            metadata: {},
+          }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42/pdf/info') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 1, is_multi_page: false }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42/pdf') {
+        return Promise.resolve({
+          ok: true,
+          blob: async () => new Blob(['pdf-bytes'], { type: 'application/pdf' }),
+          headers: new Headers({
+            'Content-Disposition': 'attachment; filename="resume_alice_42.pdf"',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     render(<ResumePage />);
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findByLabelText(/Project 1/i);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     expect(await screen.findByText(/Generated Resume/i)).toBeInTheDocument();
 
@@ -147,33 +266,57 @@ describe('ResumePage', () => {
   it('shows a warning before exporting a multi-page pdf and stops when cancelled', async () => {
     const showModalSpy = vi.spyOn(modal, 'showModal').mockResolvedValue(false);
 
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: 42,
-          username: 'alice',
-          resume_path: '/tmp/resume.md',
-          content: '# Alice Resume\n- Built key features',
-          generated_at: '2026-03-07',
-          metadata: {},
-        }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 3, is_multi_page: true }),
-      });
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl === 'http://127.0.0.1:8000/contributors') {
+        return Promise.resolve({ ok: true, json: async () => ['alice'] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/config') {
+        return Promise.resolve({ ok: true, json: async () => ({ llm_resume_consent: true }) });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ id: 1, name: 'project-1', custom_name: 'Project 1' }],
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resumes' || requestUrl === 'http://127.0.0.1:8000/resumes?username=alice') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=alice') {
+        return Promise.resolve({ ok: true, json: async () => [{ project: 'project-1' }] });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/generate') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ resume_id: 42, resume_path: '/tmp/resume.md', generated_at: '2026-03-07' }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: 42,
+            username: 'alice',
+            resume_path: '/tmp/resume.md',
+            content: '# Alice Resume\n- Built key features',
+            generated_at: '2026-03-07',
+            metadata: {},
+          }),
+        });
+      }
+      if (requestUrl === 'http://127.0.0.1:8000/resume/42/pdf/info') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ filename: 'resume_alice_42.pdf', page_count: 3, is_multi_page: true }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     render(<ResumePage />);
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'alice' } });
+    await screen.findByLabelText(/Project 1/i);
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     expect(await screen.findByText(/Generated Resume/i)).toBeInTheDocument();
 
