@@ -2062,7 +2062,7 @@ def scan_with_clean_output(
             result_data = _scan_single_project_phases(
                 scan_target,
                 progress,
-                manual_contributors=manual_contributors_by_path.get(os.path.abspath(scan_target)),
+                manual_contributors=manual_contributors_by_path.get(os.path.basename(os.path.abspath(scan_target))),
                 prompt_for_manual_contributors=prompt_for_manual_contributors,
                 progress_callback=progress_callback,
             )
@@ -2171,7 +2171,7 @@ def scan_with_clean_output(
                     proj_result = _scan_single_project_phases(
                         repo_root,
                         progress,
-                        manual_contributors=manual_contributors_by_path.get(os.path.abspath(repo_root)),
+                        manual_contributors=manual_contributors_by_path.get(os.path.basename(os.path.abspath(repo_root))),
                         prompt_for_manual_contributors=prompt_for_manual_contributors,
                         progress_callback=progress_callback,
                     )
