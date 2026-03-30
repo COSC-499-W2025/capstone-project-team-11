@@ -99,6 +99,7 @@ def analyze_repo(path: str) -> Dict:
     files_changed_per_author = defaultdict(set)
     activity_counts_per_category = Counter()
     commits_per_week = Counter()
+    commits_per_week_per_author: dict = {}
 
     current_author = None
     current_date = None
@@ -138,6 +139,9 @@ def analyze_repo(path: str) -> Dict:
 
                 week_key = f"{dt.isocalendar()[0]}-W{dt.isocalendar()[1]:02d}"
                 commits_per_week[week_key] += 1
+                if current_author not in commits_per_week_per_author:
+                    commits_per_week_per_author[current_author] = Counter()
+                commits_per_week_per_author[current_author][week_key] += 1
                 in_commit = False
             continue
 
@@ -181,6 +185,7 @@ def analyze_repo(path: str) -> Dict:
         'lines_removed_per_author': dict(lines_removed_per_author),
         'activity_counts_per_category': dict(activity_counts_per_category),
         'commits_per_week': dict(commits_per_week),
+        'commits_per_week_per_author': {a: dict(w) for a, w in commits_per_week_per_author.items()},
         'files_changed_per_author': {a: sorted(list(f)) for a, f in files_changed_per_author.items()},
     }
 

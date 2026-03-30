@@ -332,7 +332,7 @@ def _bullets_from_project_summary(summary_text: str, project_name: str, max_line
 
 
 
-def render_markdown(agg, generated_ts=None, llm_summary: str = None):
+def render_markdown(agg, generated_ts=None, llm_summary: str = None, education=None):
     username = agg['username']
     # generated_ts should be an ISO-like UTC timestamp string; if not provided, create one
     if generated_ts:
@@ -366,6 +366,53 @@ def render_markdown(agg, generated_ts=None, llm_summary: str = None):
     md.append('')
     md.append(summary)
     md.append('')
+
+    education_entries = [item for item in (education or []) if isinstance(item, dict)]
+    education_entries = sorted(
+        education_entries,
+        key=lambda x: x.get("end", ""),
+        reverse=True,
+    )
+    if education_entries:
+        md.append('')
+        md.append('## Education')
+        md.append('')
+
+        for edu in education_entries:
+            school = str(edu.get("school", "") or "").strip()
+            degree = str(edu.get("degree", "") or "").strip()
+            field = str(edu.get("field", "") or "").strip()
+            start = str(edu.get("start", "") or "").strip()
+            end = str(edu.get("end", "") or "").strip()
+            gpa = str(edu.get("gpa", "") or "").strip()
+
+            if not any([school, degree, field, start, end, gpa]):
+                continue
+
+            degree_field = " ".join(filter(None, [degree, field])).strip()
+
+            details = []
+
+            if degree_field:
+                details.append(degree_field)
+
+            if start or end:
+                details.append(f"{start} - {end}")
+
+            if gpa:
+                details.append(f"GPA: {gpa}")
+
+            if school or details:
+                line = f"**{school}**" if school else ""
+
+                if details:
+                    if line:
+                        line += f"  \n  {', '.join(details)}"
+                    else:
+                        line += ', '.join(details)
+
+                md.append(f"- {line}")
+                md.append('')
 
     md.append('## Technical Skills')
     md.append('')

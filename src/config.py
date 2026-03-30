@@ -29,7 +29,7 @@ def normalize_file_type(file_type):
 
 # Generates a path to a hidden .mda (Mining Digital Artifacts) directory and config.json file in the user's home directory (directory/file are not created here)
 def config_path():
-    home = os.path.expanduser("~")
+    home = os.environ.get("HOME") or os.path.expanduser("~")
     return os.path.join(home, ".mda", "config.json")
 
 # Handles logic around loading a config file from the user's local machine

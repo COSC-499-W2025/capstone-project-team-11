@@ -4,138 +4,41 @@ import { API_BASE_URL } from "./api";
 import { showModal } from "./modal";
 
 function DatabaseMaintenance({ onBack }) {
-  const [tables, setTables] = useState({});
-  const [expanded, setExpanded] = useState({});
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [content, setContent] = useState(null);
+  const [expanded, setExpanded] = useState({});
 
   useEffect(() => {
     inspectDatabase();
   }, []);
 
+  const groupSkills = (skillsData = []) => {
+    const map = {};
+    skillsData.forEach(({ skill, project }) => {
+      if (!map[skill]) map[skill] = new Set();
+      if (project) map[skill].add(project);
+    });
+    return map;
+  };
+
   const inspectDatabase = async () => {
     setLoading(true);
-    setContent(null);
-
     try {
       const res = await axios.get(`${API_BASE_URL}/database/inspect`);
-      const data = res.data;
-      const tablesObj = {};
-
-      if (data.recent_scans) {
-        tablesObj.recent_scans = {
-          columns: ["id", "project", "scanned_at", "notes"],
-          rows: data.recent_scans.map(s => [s.id, s.project, s.scanned_at, s.notes]),
-          row_count: data.recent_scans.length
-        };
-      }
-
-      if (data.projects) {
-        tablesObj.projects = {
-          columns: ["id", "name", "repo_url", "scan_count", "file_count", "skills", "summary_text"],
-          rows: data.projects.map(p => [
-            p.id,
-            p.name,
-            p.repo_url,
-            p.scan_count,
-            p.file_count,
-            p.skills.join(", "),
-            p.summary_text
-          ]),
-          row_count: data.projects.length
-        };
-      }
-
-      if (data.project_summaries) {
-        tablesObj.project_summaries = {
-          columns: ["project", "summary"],
-          rows: data.project_summaries.map(p => [p.project, p.summary || "<none>"]),
-          row_count: data.project_summaries.length
-        };
-      }
-
-      if (data.files) {
-        tablesObj.files = {
-          columns: ["id", "file_name", "file_extension", "file_size", "modified_at", "file_path", "scan_id"],
-          rows: data.files.map(f => [f.id, f.file_name, f.file_extension, f.file_size, f.modified_at, f.file_path, f.scan_id]),
-          row_count: data.files.length
-        };
-      }
-
-      if (data.contributors) {
-        tablesObj.contributors = {
-          columns: ["id", "name", "sample_files"],
-          rows: data.contributors.map(c => [
-            c.id,
-            c.name,
-            c.sample_files.map(sf => sf.file_name).join(", ")
-          ]),
-          row_count: data.contributors.length
-        };
-      }
-
-      if (data.languages) {
-        tablesObj.languages = {
-          columns: ["name", "file_count"],
-          rows: data.languages.map(l => [l.name, l.file_count]),
-          row_count: data.languages.length
-        };
-      }
-
-      if (data.thumbnails) {
-        tablesObj.thumbnails = {
-          columns: ["project_id", "project_name", "thumbnail_path", "status"],
-          rows: data.thumbnails.map(t => [t.project_id, t.project_name, t.thumbnail_path, t.status]),
-          row_count: data.thumbnails.length
-        };
-      }
-
-      if (data.skills_exercised) {
-        tablesObj.skills_exercised = {
-          columns: ["skill", "datetime", "project"],
-          rows: data.skills_exercised.map(s => [s.skill, s.datetime, s.project]),
-          row_count: data.skills_exercised.length
-        };
-      }
-
-      if (data.project_skills) {
-        tablesObj.project_skills = {
-          columns: ["project_id", "skill"],
-          rows: data.project_skills.map(ps => [ps.project_id, ps.skill]),
-          row_count: data.project_skills.length
-        };
-      }
-
-      if (data.file_contributors) {
-        tablesObj.file_contributors = {
-          columns: ["file_id", "contributor_id"],
-          rows: data.file_contributors.map(fc => [fc.file_id, fc.contributor_id]),
-          row_count: data.file_contributors.length
-        };
-      }
-
-      setTables(tablesObj);
+      setData(res.data);
     } catch (err) {
       console.error(err);
-      setContent(<p className="error-text">Failed to inspect database.</p>);
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleTable = (name) => {
-    setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
   const clearDatabase = async () => {
     const confirmed = await showModal({
       type: "danger",
       title: "Clear Database",
-      message: `
-        Are you sure you want to delete all database data?<br/>
-        <strong>This action cannot be undone.</strong>
-      `,
-      confirmText: "Yes, Clear Database",
+      message: `Are you sure you want to delete all database data?<br/><strong>This cannot be undone.</strong>`,
+      confirmText: "Yes, Clear",
       cancelText: "Cancel",
     });
 
@@ -149,79 +52,220 @@ function DatabaseMaintenance({ onBack }) {
     }
   };
 
-  const renderTables = () => {
-    const tableNames = Object.keys(tables);
-    if (tableNames.length === 0) return <p>No tables found in database.</p>;
-
-    return tableNames.map(name => {
-      const table = tables[name];
-      const isOpen = expanded[name];
-      const displayColumns = table.columns.slice(0, 10);
-      const columnIndexes = displayColumns.map(col => table.columns.indexOf(col));
-
-      return (
-        <div key={name} className="summary-card">
-          <button
-            onClick={() => toggleTable(name)}
-            style={{ width: "100%", textAlign: "left", fontWeight: 700, background: "#edf6e6", color: "#2a4e2a", border: "1px solid #d7e4cf" }}
-          >
-            {isOpen ? "▼" : "▶"} {name} ({table.row_count})
-          </button>
-
-          {isOpen && (
-            <div className="rank-table-wrap" style={{ marginTop: 10 }}>
-              <table className="rank-table">
-                <thead>
-                  <tr>{displayColumns.map(col => <th key={col}>{col}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {table.rows.length === 0 ? (
-                    <tr><td colSpan={displayColumns.length}>No rows</td></tr>
-                  ) : (
-                    table.rows.map((row, i) => (
-                      <tr key={i}>
-                        {columnIndexes.map(index => {
-                          let value = row[index];
-                          if (typeof value === "string" && value.length > 60) {
-                            value = value.substring(0, 60) + "...";
-                          }
-                          return <td key={index}>{value ?? "NULL"}</td>;
-                        })}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      );
-    });
+  const toggle = (key) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  if (loading) return <p style={{ padding: 20 }}>Loading database...</p>;
 
   return (
     <div className="page-shell database-page">
       <header className="app-header">
         <h1>Database Management</h1>
-        <p>Inspect stored database tables, remove projects, or clear the database.</p>
+        <p>Overview of your scanned projects and activity.</p>
       </header>
 
       <div className="scan-layout">
+        {/* LEFT PANEL */}
         <section className="scan-panel">
           <h2>Database Tools</h2>
           <button onClick={inspectDatabase}>Refresh Database</button>
-          <button className="danger" onClick={clearDatabase}>Clear Database</button>
-          <button className="secondary" onClick={onBack}>Back to Main Menu</button>
+          <button className="danger" onClick={clearDatabase}>
+            Clear Database
+          </button>
+          <button className="secondary" onClick={onBack}>
+            Back to Main Menu
+          </button>
         </section>
 
-        <section className="scan-log-panel">
-          <h2>Database Tables</h2>
-          {loading ? <p>Loading database tables...</p> : renderTables()}
-          {content}
+        {/* RIGHT PANEL */}
+        <section className="scan-log-panel" style={{ minWidth: 0 }}>
+          
+          <Section title="Projects" expanded={expanded.projects} onToggle={() => toggle("projects")}>
+            <Table
+              columns={["Name", "Scans", "Files", "Skills"]}
+              rows={data.projects?.map(p => [
+                p.name,
+                p.scan_count,
+                p.file_count,
+                (p.skills || []).join(", ")
+              ])}
+            />
+          </Section>
+
+          <Section title="Resumes" expanded={expanded.resumes} onToggle={() => toggle("resumes")}>
+            <Table
+              columns={["ID", "Username", "Path", "Generated"]}
+              rows={data.resumes?.map(r => [
+                r.id,
+                r.username,
+                r.resume_path,
+                r.generated_at
+              ])}
+            />
+          </Section>
+
+          <Section title="Portfolios" expanded={expanded.portfolios} onToggle={() => toggle("portfolios")}>
+            <Table
+              columns={["ID", "Username", "Name", "Display Name", "Created"]}
+              rows={data.portfolios?.map(p => [
+                p.id,
+                p.username,
+                p.portfolio_name,
+                p.display_name || "-",
+                p.created_at
+              ])}
+            />
+          </Section>
+
+          <Section title="Recent Scans" expanded={expanded.scans} onToggle={() => toggle("scans")}>
+            <Table
+              columns={["ID", "Project", "Date", "Notes"]}
+              rows={data.recent_scans?.map(s => [
+                s.id,
+                s.project,
+                s.scanned_at,
+                s.notes || "-"
+              ])}
+            />
+          </Section>
+
+          <Section title="Contributors" expanded={expanded.contributors} onToggle={() => toggle("contributors")}>
+            <Table
+              columns={["Name"]}
+              rows={data.contributors?.map(c => [c.name])}
+            />
+          </Section>
+
+          <Section title="Languages" expanded={expanded.languages} onToggle={() => toggle("languages")}>
+            <Table
+              columns={["Language", "File Count"]}
+              rows={data.languages?.map(l => [
+                l.name,
+                l.file_count
+              ])}
+            />
+          </Section>
+
+          <Section title="Project Summaries" expanded={expanded.project_summaries} onToggle={() => toggle("project_summaries")}>
+            <Table
+              columns={["Project", "Summary"]}
+              rows={data.project_summaries?.map(p => [
+                p.project,
+                p.summary
+              ])}
+            />
+          </Section>
+
+          <Section title="Skills" expanded={expanded.skills} onToggle={() => toggle("skills")}>
+            <Table
+              columns={["Skill", "Projects"]}
+              rows={Object.entries(groupSkills(data.skills_exercised)).map(
+                ([skill, projects]) => [
+                  skill,
+                  Array.from(projects).join(", ")
+                ]
+              )}
+            />
+          </Section>
+
         </section>
       </div>
     </div>
   );
 }
+
+/* -------------------------
+   Section Component (UPDATED STYLE)
+------------------------- */
+function Section({ title, expanded, onToggle, children }) {
+  return (
+    <div
+      className="summary-card"
+      style={{
+        marginTop: 20,
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+      }}
+    >
+      <button onClick={onToggle} style={toggleStyle(expanded)}>
+        <span>{title}</span>
+        <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+          {expanded ? "▾" : "▸"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div style={{ marginTop: 10 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------
+   Table Component
+------------------------- */
+function Table({ columns = [], rows = [] }) {
+  if (!rows || rows.length === 0) return <p>No data</p>;
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "auto",
+        overflowY: "hidden",
+      }}
+    >
+      <table
+        className="rank-table"
+        style={{
+          minWidth: "max-content",
+        }}
+      >
+        <thead>
+          <tr>
+            {columns.map(col => <th key={col}>{col}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {row.map((cell, j) => (
+                <td key={j}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* -------------------------
+   NEW THEMED DROPDOWN STYLE
+------------------------- */
+const toggleStyle = () => ({
+  width: "100%",
+  textAlign: "left",
+  fontWeight: 600,
+  padding: "0.7rem 0.8rem",
+  borderRadius: "var(--radius-sm)",
+  cursor: "pointer",
+
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+
+  background: "rgba(74, 222, 128, 0.08)",
+  color: "var(--text-secondary)",
+  border: "1px solid rgba(74, 222, 128, 0.25)",
+  boxShadow: "0 0 0 1px rgba(74, 222, 128, 0.2)",
+
+  transition: "all 0.18s ease",
+});
 
 export default DatabaseMaintenance;

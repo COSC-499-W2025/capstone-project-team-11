@@ -73,8 +73,8 @@ function ProjectModal({ project, detail, username, displayName, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} details`}>
       <div
-        className="modal-card"
-        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', background: 'radial-gradient(circle at center, #0a5948, #08271f 80%)', border: '1px solid rgba(74,222,128,0.18)', textAlign: 'left' }}
+        className="modal-card modal-card--project"
+        style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', textAlign: 'left' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -807,6 +807,18 @@ function PortfolioPage({ onBack, showStars = true }) {
     );
   };
 
+  const handleSelectAllProjects = () => {
+    setExcludedProjectIds([]);
+  };
+
+  const handleDeselectAllProjects = () => {
+    setExcludedProjectIds(
+      userProjects
+        .map((project) => project.id ?? project.project_id)
+        .filter((projectId) => projectId != null)
+    );
+  };
+
   const loadProjectHeatmap = async (portfolioIdValue, project, viewScope = 'project') => {
     const projectId = project?.id ?? project?.project_id;
     if (!portfolioIdValue || !projectId) return;
@@ -1151,12 +1163,21 @@ function PortfolioPage({ onBack, showStars = true }) {
           <button
             type="button"
             onClick={() => {
-              setSaveModalName('');
+              setSaveModalName(portfolioIsSaved ? (portfolioMeta?.portfolio_name ?? '') : '');
               setSaveModalOpen(true);
             }}
           >
             Save Portfolio
           </button>
+          {portfolioIsSaved && (
+            <a
+              href={`${API_BASE_URL}/web/portfolio/${portfolioId}/export-html`}
+              download
+              style={{ textDecoration: 'none' }}
+            >
+              <button type="button">Export HTML</button>
+            </a>
+          )}
         </div>
 
         {/* Save Portfolio modal */}
@@ -1210,32 +1231,6 @@ function PortfolioPage({ onBack, showStars = true }) {
             <section className="portfolio-tile">
               <h3 className="tile-heading">Activity Heatmap</h3>
               <div className="heatmap-toolbar">
-                <div className="heatmap-view-toggle" role="group" aria-label="Heatmap view mode">
-                  <button
-                    type="button"
-                    className={`heatmap-view-btn${heatmapViewScope === 'project' ? ' active' : ''}`}
-                    onClick={async () => {
-                      setHeatmapViewScope('project');
-                      if (selectedHeatmapProject) {
-                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'project');
-                      }
-                    }}
-                  >
-                    Project View
-                  </button>
-                  <button
-                    type="button"
-                    className={`heatmap-view-btn${heatmapViewScope === 'user' ? ' active' : ''}`}
-                    onClick={async () => {
-                      setHeatmapViewScope('user');
-                      if (selectedHeatmapProject) {
-                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'user');
-                      }
-                    }}
-                  >
-                    Per User View
-                  </button>
-                </div>
                 <label className="portfolio-form-label" style={{ margin: 0 }}>
                   Project
                   <select
@@ -1260,6 +1255,32 @@ function PortfolioPage({ onBack, showStars = true }) {
                     })}
                   </select>
                 </label>
+                <div className="heatmap-scope-toggle" role="group" aria-label="Heatmap view mode">
+                  <button
+                    type="button"
+                    className={`scope-btn${heatmapViewScope === 'user' ? ' scope-btn--active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('user');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'user');
+                      }
+                    }}
+                  >
+                    {displayName}
+                  </button>
+                  <button
+                    type="button"
+                    className={`scope-btn${heatmapViewScope === 'project' ? ' scope-btn--active' : ''}`}
+                    onClick={async () => {
+                      setHeatmapViewScope('project');
+                      if (selectedHeatmapProject) {
+                        await loadProjectHeatmap(portfolioId, selectedHeatmapProject, 'project');
+                      }
+                    }}
+                  >
+                    Project-wide
+                  </button>
+                </div>
               </div>
 
               <div className="heatmap-panel">
@@ -1552,6 +1573,14 @@ function PortfolioPage({ onBack, showStars = true }) {
                   <p className="portfolio-hint">
                     Uncheck any projects you do NOT want included in your portfolio.
                   </p>
+                  <div className="flex flex-wrap gap-3" style={{ marginBottom: '0.75rem' }}>
+                    <button type="button" className="secondary" onClick={handleSelectAllProjects}>
+                      Select All
+                    </button>
+                    <button type="button" className="secondary" onClick={handleDeselectAllProjects}>
+                      Deselect All
+                    </button>
+                  </div>
                   {userProjects.map((project) => {
                     const id = project.id ?? project.project_id;
                     return (
@@ -1644,6 +1673,13 @@ function PortfolioPage({ onBack, showStars = true }) {
                     <button type="button" className="secondary" onClick={() => { setRenamingPortfolioId(p.id); setRenameValue(p.portfolio_name); }}>
                       Rename
                     </button>
+                    <a
+                      href={`${API_BASE_URL}/web/portfolio/${p.id}/export-html`}
+                      download
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <button type="button">Export HTML</button>
+                    </a>
                     <button type="button" className="danger" onClick={() => handleDeletePortfolio(p.id, p.portfolio_name)}>
                       Delete
                     </button>

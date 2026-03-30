@@ -43,6 +43,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "axios": "^1.13.6",
     "electron-squirrel-startup": "^1.0.1",
     "framer-motion": "^12.35.2",

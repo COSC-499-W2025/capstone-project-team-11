@@ -14,15 +14,43 @@ function ResumePage({ onBack }) {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [llmConsentGranted, setLlmConsentGranted] = useState(false);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [llmSummary, setLlmSummary] = useState(false);
+  const [, setShowConsentPanel] = useState(false);
   const [resumeHistory, setResumeHistory] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [allProjects, setAllProjects] = useState([]);
   const [userProjects, setUserProjects] = useState([]);
-  const [excludedProjectIds, setExcludedProjectIds] = useState([]);
+  const [includedProjectIds, setIncludedProjectIds] = useState([]);
   const [isLoadingUserProjects, setIsLoadingUserProjects] = useState(false);
+  const [isProjectsTransitioning, setIsProjectsTransitioning] = useState(false);
+  const [education, setEducation] = useState([
+    {
+      school: "",
+      degree: "",
+      field: "",
+      start: "",
+      end: "",
+      gpa: "",
+    },
+  ]);
+  const [openIndex, setOpenIndex] = useState(null);
 
-  const selectedUsername = username.trim() || "local";
+  const createEmptyEducation = () => ({
+    school: "",
+    degree: "",
+    field: "",
+    start: "",
+    end: "",
+    gpa: "",
+  });
+
+  const selectedUsername = username.trim();
+  const hasScannedProjects = allProjects.length > 0;
+  const isContributorSelected = selectedUsername.length > 0;
+  const isValidContributor = contributors.includes(selectedUsername);
+  const hasSelectedProjects = includedProjectIds.length > 0;
+  const canGenerate = isValidContributor && hasScannedProjects && hasSelectedProjects && !isLoading;
 
   useEffect(() => {
     fetch("http://127.0.0.1:8000/contributors")
@@ -37,6 +65,9 @@ function ResumePage({ onBack }) {
       })
       .catch(() => {
         setLlmConsentGranted(false);
+      })
+      .finally(() => {
+        setIsConfigLoaded(true);
       });
 
     fetch("http://127.0.0.1:8000/projects")
@@ -65,36 +96,109 @@ function ResumePage({ onBack }) {
   }, [username]);
 
   useEffect(() => {
+    let transitionTimer;
+    let isCancelled = false;
+
     if (!username.trim()) {
       setUserProjects([]);
-      setExcludedProjectIds([]);
+      setIncludedProjectIds([]);
       setIsLoadingUserProjects(false);
+      setIsProjectsTransitioning(false);
       return;
     }
 
     setIsLoadingUserProjects(true);
-    setExcludedProjectIds([]);
+    setIsProjectsTransitioning(true);
+    setUserProjects([]);
+    setIncludedProjectIds([]);
 
     fetch(`http://127.0.0.1:8000/rank-projects?mode=contributor&contributor_name=${encodeURIComponent(username.trim())}`)
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((ranked) => {
         const rankedNames = new Set((Array.isArray(ranked) ? ranked : []).map((item) => item.project));
-        setUserProjects(allProjects.filter((project) => rankedNames.has(project.name)));
+        const projects = allProjects.filter((project) => rankedNames.has(project.name));
+        const projectIds = projects
+          .map((project) => project.id ?? project.project_id)
+          .filter((projectId) => projectId != null);
+        transitionTimer = setTimeout(() => {
+          if (isCancelled) return;
+          setUserProjects(projects);
+          setIncludedProjectIds(projectIds);
+          setIsLoadingUserProjects(false);
+          setIsProjectsTransitioning(false);
+        }, 130);
       })
       .catch(() => {
-        setUserProjects([]);
-      })
-      .finally(() => {
-        setIsLoadingUserProjects(false);
+        if (isCancelled) return;
+        transitionTimer = setTimeout(() => {
+          if (isCancelled) return;
+          setUserProjects([]);
+          setIncludedProjectIds([]);
+          setIsLoadingUserProjects(false);
+          setIsProjectsTransitioning(false);
+        }, 130);
       });
+
+    return () => {
+      isCancelled = true;
+      if (transitionTimer) clearTimeout(transitionTimer);
+    };
   }, [username, allProjects]);
 
-  const toggleExclude = (id) => {
-    setExcludedProjectIds((prev) => (
+  const toggleInclude = (id) => {
+    setIncludedProjectIds((prev) => (
       prev.includes(id)
-        ? prev.filter((item) => item !== id)
+        ? prev.filter((projectId) => projectId !== id)
         : [...prev, id]
     ));
+  };
+
+  const handleEducationChange = (index, field, value) => {
+    setEducation((prev) => prev.map((item, i) => (
+      i === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const addEducation = () => {
+    const last = education[education.length - 1];
+
+    const isEmpty =
+      !last.school &&
+      !last.degree &&
+      !last.field;
+
+    if (isEmpty) return;
+
+    setEducation((prev) => {
+      const next = [...prev, createEmptyEducation()];
+      setOpenIndex(next.length - 1);
+      return next;
+    });
+  };
+
+  const removeEducation = (index) => {
+    setEducation((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setOpenIndex((current) => {
+        if (!next.length) return null;
+        if (current == null) return 0;
+        if (current === index) return Math.min(index, next.length - 1);
+        if (current > index) return current - 1;
+        return Math.min(current, next.length - 1);
+      });
+      return next;
+    });
+  };
+  const handleSelectAllProjects = () => {
+    setIncludedProjectIds(
+      userProjects
+        .map((project) => project.id ?? project.project_id)
+        .filter((projectId) => projectId != null)
+    );
+  };
+
+  const handleDeselectAllProjects = () => {
+    setIncludedProjectIds([]);
   };
 
   const loadResumeById = async (id) => {
@@ -115,9 +219,36 @@ function ResumePage({ onBack }) {
   const handleGenerateResume = async () => {
     setError(""); setResumeContent(""); setResumeId(null); setIsLoading(true);
 
-    const excludedProjectNames = excludedProjectIds
-      .map((id) => userProjects.find((p) => (p.id ?? p.project_id) === id)?.name)
+    if (!isValidContributor) {
+      setError("Please select a contributor.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!hasScannedProjects) {
+      setError("Please scan a project to generate a resume.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!hasSelectedProjects) {
+      setError("Select at least one project to include.");
+      setIsLoading(false);
+      return;
+    }
+
+    const excludedProjectNames = userProjects
+      .filter((project) => {
+        const projectId = project.id ?? project.project_id;
+        return projectId != null && !includedProjectIds.includes(projectId);
+      })
+      .map((project) => project.name)
       .filter(Boolean);
+    const cleanedEducation = education.filter((edu) =>
+      edu.school.trim() ||
+      edu.degree.trim() ||
+      edu.field.trim()
+    );
 
     try {
       const gen = await fetch("http://127.0.0.1:8000/resume/generate", {
@@ -128,6 +259,7 @@ function ResumePage({ onBack }) {
           save_to_db: true,
           llm_summary: llmSummary,
           excluded_project_names: excludedProjectNames,
+          education: cleanedEducation,
         }),
       });
       if (!gen.ok) {
@@ -143,7 +275,7 @@ function ResumePage({ onBack }) {
       setResumeContent(content);
       setEditContent(content);
       setIsEditing(false);
-      fetchHistory(username.trim() || "local");
+      fetchHistory(selectedUsername);
     } catch (err) {
       setError(err.message || "Unexpected error occurred.");
     } finally {
@@ -172,7 +304,6 @@ function ResumePage({ onBack }) {
   const handleDeleteResume = async (id, e) => {
     e.stopPropagation();
 
-    // Replace window.confirm with showModal
     const confirmed = await showModal({
       type: "danger",
       title: "Delete Resume",
@@ -211,7 +342,7 @@ function ResumePage({ onBack }) {
   const downloadResume = () => {
     const blob = new Blob([resumeContent], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement("a"), { href: url, download: `resume_${selectedUsername}.md` }).click();
+    Object.assign(document.createElement("a"), { href: url, download: `resume_${selectedUsername || "resume"}.md` }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -222,7 +353,7 @@ function ResumePage({ onBack }) {
       .replace(/^\s*[-*]\s+/gm, "");
     const blob = new Blob([plainText], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement("a"), { href: url, download: `resume_${selectedUsername}.txt` }).click();
+    Object.assign(document.createElement("a"), { href: url, download: `resume_${selectedUsername || "resume"}.txt` }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -234,6 +365,27 @@ function ResumePage({ onBack }) {
     }
 
     try {
+      const infoResponse = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf/info`);
+      if (!infoResponse.ok) {
+        const { detail } = await infoResponse.json().catch(() => ({}));
+        throw new Error(detail || "Failed to inspect PDF export.");
+      }
+
+      const pdfInfo = await infoResponse.json();
+      if (pdfInfo.page_count > 1) {
+        const confirmed = await showModal({
+          type: "warning",
+          title: "Resume Exceeds One Page",
+          message: `This exported PDF is ${pdfInfo.page_count} pages long. Continue exporting, or go back and edit your resume first.`,
+          confirmText: "Continue Exporting",
+          cancelText: "Go Back and Edit",
+        });
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
       const response = await fetch(`http://127.0.0.1:8000/resume/${resumeId}/pdf`);
       if (!response.ok) {
         const { detail } = await response.json().catch(() => ({}));
@@ -243,7 +395,7 @@ function ResumePage({ onBack }) {
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition") || "";
       const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-      const filename = filenameMatch?.[1] || `resume_${selectedUsername}.pdf`;
+      const filename = filenameMatch?.[1] || `resume_${selectedUsername || "resume"}.pdf`;
 
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -278,6 +430,22 @@ function ResumePage({ onBack }) {
   .resume-markdown em { color: var(--text-muted); font-style: italic; }
   .resume-markdown hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
   .resume-markdown code { font-family: 'DM Mono', monospace; font-size: 0.82rem; background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem; border-radius: 4px; color: var(--accent-green); }
+  .project-list-shell { transition: opacity 220ms ease, transform 220ms ease; }
+  .project-list-shell.is-loading { opacity: 0.62; transform: translateY(6px); }
+  .project-list-shell.is-ready { opacity: 1; transform: translateY(0); }
+  .project-skeleton-row {
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    background-size: 200% 100%;
+    animation: projectSkeletonPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes projectSkeletonPulse {
+    0% { background-position: 200% 0; opacity: 0.55; }
+    50% { opacity: 0.9; }
+    100% { background-position: -200% 0; opacity: 0.55; }
+  }
 `}</style>
       <header className="app-header">
         <h1>Generate Resume</h1>
@@ -317,7 +485,7 @@ function ResumePage({ onBack }) {
                   }}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="recent-title" style={{ margin: 0 }}>{item.username || "local"}</span>
+                    <span className="recent-title" style={{ margin: 0 }}>{item.username || "Unknown contributor"}</span>
                     <span
                       style={{
                         fontFamily: "DM Mono, monospace",
@@ -395,14 +563,21 @@ function ResumePage({ onBack }) {
                 setResumeId(null);
                 setEditContent("");
                 setIsEditing(false);
+                setError("");
               }}
                 className="w-full">
-                <option value="">No git username (local/guest)</option>
+                <option value="">Select contributor</option>
                 {contributors.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </label>
 
-            {username.trim() && (
+            {!hasScannedProjects && (
+              <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                Please scan a project to generate a resume.
+              </p>
+            )}
+
+            {isContributorSelected && hasScannedProjects && (
               <fieldset
                 style={{
                   border: "1px solid var(--border)",
@@ -412,63 +587,85 @@ function ResumePage({ onBack }) {
                 }}
               >
                 <legend style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, padding: "0 0.35rem" }}>
-                  Exclude Projects from Resume
+                  Projects to Include
                 </legend>
 
-                {isLoadingUserProjects && (
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
-                    Loading contributor projects...
-                  </p>
-                )}
+                <div className={`project-list-shell ${isLoadingUserProjects || isProjectsTransitioning ? "is-loading" : "is-ready"}`}>
+                  {isLoadingUserProjects && (
+                    <div className="grid gap-2" style={{ marginTop: "0.2rem" }}>
+                      {[0, 1, 2].map((row) => (
+                        <div key={`skeleton-${row}`} className="project-skeleton-row" />
+                      ))}
+                    </div>
+                  )}
 
-                {!isLoadingUserProjects && userProjects.length === 0 && (
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
-                    No ranked projects found for this contributor.
-                  </p>
-                )}
+                  {!isLoadingUserProjects && userProjects.length === 0 && (
+                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                      No ranked projects found for this contributor.
+                    </p>
+                  )}
 
-                {!isLoadingUserProjects && userProjects.length > 0 && (
-                  <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
-                    {userProjects.map((project) => {
-                      const projectId = project.id ?? project.project_id;
-                      if (projectId == null) return null;
-                      const label = project.custom_name || project.display_name || project.name;
-                      return (
-                        <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={!excludedProjectIds.includes(projectId)}
-                            onChange={() => toggleExclude(projectId)}
-                          />
-                          <span>{label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                  {!isLoadingUserProjects && userProjects.length > 0 && (
+                    <>
+                      <p style={{ margin: "0 0 0.5rem", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                        {includedProjectIds.length} selected
+                      </p>
+                      <div className="flex flex-wrap gap-3" style={{ marginBottom: "0.75rem" }}>
+                        <button type="button" className="secondary" onClick={handleSelectAllProjects}>
+                          Select All
+                        </button>
+                        <button type="button" className="secondary" onClick={handleDeselectAllProjects}>
+                          Deselect All
+                        </button>
+                      </div>
+                      <div className="grid gap-2" style={{ maxHeight: "180px", overflowY: "auto", paddingRight: "0.25rem" }}>
+                        {userProjects.map((project) => {
+                          const projectId = project.id ?? project.project_id;
+                          if (projectId == null) return null;
+                          const label = project.custom_name || project.display_name || project.name;
+                          return (
+                            <label key={projectId} className="toggle-row" style={{ margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={includedProjectIds.includes(projectId)}
+                                onChange={() => toggleInclude(projectId)}
+                              />
+                              <span>{label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {includedProjectIds.length === 0 && (
+                        <p style={{ margin: 0, color: "var(--accent-red)", fontSize: "0.82rem" }}>
+                          Select at least one project to include.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </fieldset>
             )}
 
             <label
               className="toggle-row"
               onClick={(event) => {
-                if (!llmConsentGranted) {
+                if (isConfigLoaded && !llmConsentGranted) {
                   event.preventDefault();
                   setShowConsentPanel(true);
                 }
               }}
-              style={{ cursor: llmConsentGranted ? "pointer" : "help" }}
+              style={{ cursor: isConfigLoaded && llmConsentGranted ? "pointer" : "not-allowed" }}
             >
               <input
                 type="checkbox"
-                checked={llmConsentGranted ? llmSummary : false}
-                disabled={!llmConsentGranted}
+                checked={isConfigLoaded && llmConsentGranted ? llmSummary : false}
+                disabled={!isConfigLoaded || !llmConsentGranted}
                 onChange={(event) => setLlmSummary(event.target.checked)}
-                style={{ cursor: llmConsentGranted ? "pointer" : "not-allowed" }}
+                style={{ cursor: isConfigLoaded && llmConsentGranted ? "pointer" : "not-allowed" }}
               />
               <span>
                 Include local Ollama LLM summary (runs on-device, no external data transfer).
-                {!llmConsentGranted && (
+                {isConfigLoaded && !llmConsentGranted && (
                   <span style={{ marginLeft: "0.4em", color: "rgba(251, 255, 0, 0.7)", fontSize: "0.85em" }}>
                    <br></br> Enable LLM resume consent in Privacy Settings to use this.
                   </span>
@@ -476,8 +673,183 @@ function ResumePage({ onBack }) {
               </span>
             </label>
 
+            <fieldset
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "0.8rem",
+                margin: 0,
+              }}
+            >
+              <legend style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600, padding: "0 0.35rem" }}>
+                Education
+              </legend>
+
+              <div className="grid gap-3">
+                {education.map((edu, index) => {
+                  const isOpen = openIndex === index;
+                  const getSummary = (entry) => {
+                    const parts = [];
+
+                    if (entry.school) parts.push(entry.school);
+
+                    const degreeField = [entry.degree, entry.field].filter(Boolean).join(" ");
+                    if (degreeField) parts.push(degreeField);
+
+                    if (entry.start || entry.end) {
+                      parts.push(`(${entry.start || ""}-${entry.end || ""})`);
+                    }
+
+                    return parts.join(" — ") || "New Education";
+                  };
+
+                  const summary = getSummary(edu);
+                  const displaySummary = summary;
+
+                  return (
+                    <div
+                      key={`edu-${index}`}
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        overflow: "hidden",
+                        background: "var(--bg-surface)",
+                        transition: "all 0.18s ease",
+                      }}
+                    >
+                      <div
+                        onClick={() => setOpenIndex(isOpen ? null : index)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setOpenIndex(isOpen ? null : index);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "0.6rem",
+                          padding: "0.7rem 0.8rem",
+                          cursor: "pointer",
+                          background: isOpen
+                            ? "rgba(74, 222, 128, 0.08)"
+                            : "var(--bg-surface-md)",
+                          boxShadow: isOpen
+                            ? "0 0 0 1px rgba(74, 222, 128, 0.2)"
+                            : "none",
+                          borderBottom: isOpen ? "1px solid var(--border)" : "none",
+                          transition: "all 0.18s ease",
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: "var(--text-secondary)",
+                            fontSize: "0.82rem",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={summary}
+                        >
+                          {displaySummary}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                          {education.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                removeEducation(index);
+                              }}
+                              style={{
+                                background: "rgba(248, 113, 113, 0.08)",
+                                border: "1px solid rgba(248, 113, 113, 0.2)",
+                                color: "rgba(248, 113, 113, 0.9)",
+                                cursor: "pointer",
+                                fontSize: "0.75rem",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                lineHeight: 1.2,
+                                whiteSpace: "nowrap",
+                                transition: "all 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(248,113,113,0.18)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "rgba(248,113,113,0.08)";
+                              }}
+                              title="Remove education entry"
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <span style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                            {isOpen ? "▾" : "▸"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isOpen && (
+                        <div className="grid gap-2" style={{ padding: "0.7rem" }}>
+                          <input
+                            type="text"
+                            placeholder="School or University"
+                            value={edu.school}
+                            onChange={(e) => handleEducationChange(index, "school", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Degree (e.g., BSc, MSc, Diploma)"
+                            value={edu.degree}
+                            onChange={(e) => handleEducationChange(index, "degree", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Field (e.g., Computer Science)"
+                            value={edu.field}
+                            onChange={(e) => handleEducationChange(index, "field", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Start (e.g., Sep 2022)"
+                            value={edu.start}
+                            onChange={(e) => handleEducationChange(index, "start", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="End (e.g., May 2026)"
+                            value={edu.end}
+                            onChange={(e) => handleEducationChange(index, "end", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            placeholder="GPA (optional, e.g., 3.7/4.0)"
+                            value={edu.gpa}
+                            onChange={(e) => handleEducationChange(index, "gpa", e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                className="secondary px-3 py-1"
+                style={{ marginTop: "0.7rem" }}
+                onClick={addEducation}
+              >
+                + Add Education
+              </button>
+            </fieldset>
+
             <div className="flex flex-wrap gap-3">
-              <button onClick={handleGenerateResume} disabled={isLoading}
+              <button onClick={handleGenerateResume} disabled={!canGenerate}
                 className="flex items-center gap-2 px-4 py-2">
                 {isLoading
                   ? <><span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />Generating…</>

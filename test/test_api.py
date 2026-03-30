@@ -325,6 +325,61 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(resp_list.status_code, 200)
         self.assertTrue(isinstance(resp_list.json(), list))
 
+    def test_projects_upload_handles_non_zip_file_path(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+        non_zip_path = os.path.join(self.tmpdir.name, "notes.txt")
+        with open(non_zip_path, "w", encoding="utf-8") as fh:
+            fh.write("plain text")
+
+        resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": non_zip_path, "recursive_choice": False, "save_to_db": True},
+        )
+
+        self.assertIn(resp.status_code, [200, 201])
+        self.assertNotEqual(resp.status_code, 500)
+        self.assertTrue(isinstance(resp.json(), dict))
+
+    def test_projects_upload_requires_privacy_consent(self):
+        project_dir = os.path.join(self.tmpdir.name, "project_without_consent")
+        os.makedirs(project_dir, exist_ok=True)
+        with open(os.path.join(project_dir, "main.py"), "w", encoding="utf-8") as fh:
+            fh.write("print('hello')\n")
+
+        resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": project_dir, "recursive_choice": False, "save_to_db": True},
+        )
+
+        self.assertIn(resp.status_code, [400, 403])
+        self.assertIn("consent", str(resp.json().get("detail", "")).lower())
+
+    def test_projects_upload_handles_duplicate_file_entries(self):
+        self.client.post("/privacy-consent", json={"data_consent": True})
+        zip_path = os.path.join(self.tmpdir.name, "duplicate_entries.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("demo/main.py", "print('same content')\n")
+            zf.writestr("demo/main.py", "print('same content')\n")
+
+        upload_resp = self.client.post(
+            "/projects/upload",
+            json={"project_path": zip_path, "recursive_choice": True, "save_to_db": True},
+        )
+        self.assertEqual(upload_resp.status_code, 201)
+
+        projects_resp = self.client.get("/projects")
+        self.assertEqual(projects_resp.status_code, 200)
+        project_name = os.path.basename(zip_path)
+        project_row = next((p for p in projects_resp.json() if p.get("name") == project_name), None)
+        self.assertIsNotNone(project_row)
+
+        detail_resp = self.client.get(f"/projects/{project_row['id']}")
+        self.assertEqual(detail_resp.status_code, 200)
+        files_summary = detail_resp.json().get("files_summary", {})
+        self.assertTrue(isinstance(files_summary, dict))
+        self.assertTrue("total_files" in files_summary)
+        self.assertGreaterEqual(files_summary.get("total_files", 0), 1)
+
     def test_scan_plan_reports_projects_and_existing_contributors(self):
         self.client.post("/privacy-consent", json={"data_consent": True})
 
@@ -558,14 +613,55 @@ class TestAPI(unittest.TestCase):
             ).fetchone()["id"]
             conn.commit()
 
-        with patch.object(api_mod, "HTML") as html_mock:
-            html_mock.return_value.write_pdf.return_value = b"%PDF-1.4 test"
+        with patch.object(api_mod, "_render_resume_pdf_with_reportlab", return_value=b"%PDF-1.4 test"):
             resp = self.client.get(f"/resume/{resume_id}/pdf")
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.headers.get("content-type"), "application/pdf")
         self.assertIn("attachment; filename=", resp.headers.get("content-disposition", ""))
         self.assertEqual(resp.content, b"%PDF-1.4 test")
+
+    def test_resume_pdf_info_returns_page_count(self):
+        resume_dir = os.path.join(self.tmpdir.name, "resumes")
+        os.makedirs(resume_dir, exist_ok=True)
+        resume_path = os.path.join(resume_dir, "resume_alice.md")
+        with open(resume_path, "w", encoding="utf-8") as f:
+            f.write("# Alice Example\n\n## Summary\nBuilt robust APIs.\n")
+
+        with db_mod.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO resumes (username, resume_path, metadata_json, generated_at) VALUES (?, ?, ?, ?)",
+                ("alice", resume_path, "{}", "2026-01-01 10:00:00Z"),
+            )
+            resume_id = conn.execute(
+                "SELECT id FROM resumes ORDER BY id DESC LIMIT 1"
+            ).fetchone()["id"]
+            conn.commit()
+
+        with patch.object(api_mod, "_build_resume_pdf_payload", return_value={
+            "filename": "resume_alice_1.pdf",
+            "page_count": 2,
+            "pdf_bytes": b"%PDF-1.4 test",
+        }):
+            resp = self.client.get(f"/resume/{resume_id}/pdf/info")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {
+            "filename": "resume_alice_1.pdf",
+            "page_count": 2,
+            "is_multi_page": True,
+        })
+
+    def test_count_pdf_pages_fallback_uses_pages_count_object(self):
+        pdf_bytes = (
+            b"%PDF-1.4\n"
+            b"4 0 obj\n<< /Type /Page >>\nendobj\n"
+            b"6 0 obj\n<< /Type /Page >>\nendobj\n"
+            b"9 0 obj\n<< /Count 2 /Kids [ 4 0 R 6 0 R ] /Type /Pages >>\nendobj\n"
+        )
+
+        with patch.object(api_mod, "PdfReader", None):
+            self.assertEqual(api_mod._count_pdf_pages(pdf_bytes), 2)
 
     def test_resume_pdf_missing_file_returns_404(self):
         missing_path = os.path.join(self.tmpdir.name, "resumes", "missing_resume.md")
@@ -1104,4 +1200,3 @@ class TestAPI(unittest.TestCase):
 
         self.assertEqual(updated["value"], "200 users")
         self.assertEqual(updated["source"], "Updated Source")
-

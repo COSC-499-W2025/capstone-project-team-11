@@ -27,7 +27,7 @@ describe('App Component', () => {
   it('renders main menu after consent is granted', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /GitHired/i })).toBeInTheDocument();
     expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
@@ -48,7 +48,7 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
@@ -60,11 +60,19 @@ describe('App Component', () => {
 
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Check Connection/i }));
 
     expect(await screen.findByText(/✗/)).toBeInTheDocument();
+  });
+
+  it('falls back to consent screen when config API request fails on load', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Config unavailable')));
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /Privacy & Data Consent/i })).toBeInTheDocument();
   });
 
   it('renders main menu directly when hash is set', async () => {
@@ -72,14 +80,14 @@ describe('App Component', () => {
 
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /Capstone MDA/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /GitHired/i })).toBeInTheDocument();
     expect(await screen.findByText(/Project analysis/i)).toBeInTheDocument();
   });
 
   it('navigates to Scan Project page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Scan Project/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -90,7 +98,7 @@ describe('App Component', () => {
   it('navigates to Resume page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Generate Resume/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -105,7 +113,7 @@ describe('App Component', () => {
   it('navigates to Rank Projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Rank Projects/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
@@ -118,7 +126,7 @@ describe('App Component', () => {
   it('navigates to scanned projects page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(
       screen.getByRole('button', { name: /View\/Manage Scanned Projects/i })
@@ -134,14 +142,16 @@ describe('App Component', () => {
   it('navigates to database maintenance page', async () => {
     window.location.hash = '#/main-menu';
     render(<App />);
-    await screen.findByRole('heading', { name: /Capstone MDA/i });
+    await screen.findByRole('heading', { name: /GitHired/i });
 
     fireEvent.click(screen.getByRole('button', { name: /Manage Database/i }));
     fireEvent(window, new HashChangeEvent('hashchange'));
 
     expect(window.location.hash).toBe('#/database');
     expect(await screen.findByRole('heading', { name: /Database Management/i })).toBeInTheDocument();
-    expect(await screen.findByText(/No tables found in database\./i)).toBeInTheDocument();
+    const projectsToggle = await screen.findByRole('button', { name: /Projects/i }); 
+    fireEvent.click(projectsToggle);
+    expect(await screen.findByText(/No data/i)).toBeInTheDocument();
   });
 
 });

@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FolderOpenIcon,
+  FolderIcon,
+  DocumentTextIcon,
+  BriefcaseIcon,
+  ChartBarIcon,
+  CircleStackIcon,
+} from '@heroicons/react/24/outline';
 import axios from 'axios';
 import ScanPage from './ScanPage.jsx';
 import ResumePage from './ResumePage.jsx';
@@ -8,43 +16,47 @@ import ScannedProjectsPage from './ScannedProjectsPage.jsx';
 import DatabaseMaintenance from './DatabaseMaintenance.jsx';
 import PortfolioPage from './PortfolioPage.jsx';
 import ConsentPage from './ConsentPage.jsx';
+import ThemeSettingsPage from './ThemeSettingsPage.jsx';
 import { API_BASE_URL } from './api';
+
+const THEME_STORAGE_KEY = 'capstone-theme';
+const APP_LOGO_SRC = '/logo.png';
 
 const MENU_ITEMS = [
   {
     title: 'Scan Project',
     detail: 'Import a local folder or zip and index commits, files, and contributors.',
-    icon: '⬡',
+    icon: FolderOpenIcon,
     accent: '#4ade80',
   },
   {
     title: 'View/Manage Scanned Projects',
     detail: 'Browse existing scans, update display names, or clean up old entries.',
-    icon: '◈',
+    icon: FolderIcon,
     accent: '#60a5fa',
   },
   {
     title: 'Generate Resume',
     detail: 'Build a contributor-focused resume using detected evidence and project data.',
-    icon: '◎',
+    icon: DocumentTextIcon,
     accent: '#f472b6',
   },
   {
     title: 'Generate Portfolio',
     detail: 'Create a project portfolio summary with key impact highlights.',
-    icon: '◉',
+    icon: BriefcaseIcon,
     accent: '#fb923c',
   },
   {
     title: 'Rank Projects',
     detail: 'Sort by importance and compare contribution strength across projects.',
-    icon: '◆',
+    icon: ChartBarIcon,
     accent: '#a78bfa',
   },
   {
     title: 'Manage Database',
     detail: 'Inspect stored data, remove projects, or clear database contents.',
-    icon: '⬢',
+    icon: CircleStackIcon,
     accent: '#fbbf24',
   },
 ];
@@ -58,6 +70,7 @@ const getPageFromHash = () => {
     '#/projects': 'projects',
     '#/database': 'database',
     '#/portfolio': 'portfolio',
+    '#/theme': 'theme',
   };
   return map[window.location.hash] || 'main-menu';
 };
@@ -75,8 +88,17 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
+const pageTransition = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 16 },
+  transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+};
+
 
 function MenuCard({ item, isActive, onClick }) {
+  const Icon = item.icon;
+
   return (
     <motion.button
       variants={itemVariants}
@@ -88,11 +110,11 @@ function MenuCard({ item, isActive, onClick }) {
         margin: 0,
         padding: '0.85rem 1rem',
         background: isActive
-          ? 'rgba(255,255,255,0.08)'
-          : 'rgba(255,255,255,0.03)',
+          ? 'color-mix(in srgb, var(--accent-cyan) 22%, rgba(255,255,255,0.08))'
+          : 'rgba(255,255,255,0.06)',
         border: isActive
-          ? `1px solid ${item.accent}55`
-          : '1px solid rgba(255,255,255,0.07)',
+          ? `1px solid ${item.accent}88`
+          : '1px solid var(--glass-border-strong)',
         borderRadius: '10px',
         cursor: 'pointer',
         textAlign: 'left',
@@ -103,17 +125,14 @@ function MenuCard({ item, isActive, onClick }) {
         boxShadow: isActive ? `0 0 0 1px ${item.accent}33, 0 4px 16px rgba(0,0,0,0.3)` : 'none',
       }}
     >
-      <span
+      <Icon
+        aria-hidden="true"
+        className="h-5 w-5 shrink-0"
         style={{
-          fontSize: '1.1rem',
-          lineHeight: 1,
           color: item.accent,
           marginTop: '0.1rem',
-          flexShrink: 0,
         }}
-      >
-        {item.icon}
-      </span>
+      />
       <span style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
         <span
           style={{
@@ -130,7 +149,7 @@ function MenuCard({ item, isActive, onClick }) {
           style={{
             display: 'block',
             fontSize: '0.78rem',
-            color: 'rgba(241,245,249,0.45)',
+            color: 'var(--text-muted)',
             lineHeight: 1.4,
           }}
         >
@@ -146,11 +165,12 @@ function StatCard({ label, value, note }) {
     <motion.article
       variants={itemVariants}
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--panel-surface-c)',
+        border: '1px solid var(--glass-border-strong)',
         borderRadius: '12px',
         padding: '1.1rem 1.2rem',
         textAlign: 'left',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <p
@@ -160,7 +180,7 @@ function StatCard({ label, value, note }) {
           fontWeight: 600,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: 'rgba(241,245,249,0.45)',
+          color: 'var(--text-muted)',
         }}
       >
         {label}
@@ -176,7 +196,7 @@ function StatCard({ label, value, note }) {
       >
         {value}
       </p>
-      <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(241,245,249,0.4)', lineHeight: 1.4 }}>
+      <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
         {note}
       </p>
     </motion.article>
@@ -188,11 +208,12 @@ function InfoPanel({ title, children }) {
     <motion.article
       variants={itemVariants}
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--panel-surface-a)',
+        border: '1px solid var(--glass-border-strong)',
         borderRadius: '12px',
         padding: '1.1rem 1.2rem',
         textAlign: 'left',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <h2
@@ -202,7 +223,7 @@ function InfoPanel({ title, children }) {
           fontWeight: 700,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          color: 'rgba(241,245,249,0.5)',
+          color: 'var(--text-muted)',
         }}
       >
         {title}
@@ -223,6 +244,15 @@ function App() {
   const [projectsStats, setProjectsStats] = useState(null);
   const [contributorsStats, setContributorsStats] = useState(null);
   const [outputsStats, setOutputsStats] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return stored || 'evergreen';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   // Fetch consent status
   useEffect(() => {
@@ -276,6 +306,7 @@ function App() {
       projects: '#/projects',
       database: '#/database',
       portfolio: '#/portfolio',
+      theme: '#/theme',
     };
     window.location.hash = routes[target] || '';
   };
@@ -365,9 +396,13 @@ function App() {
   // Block access to the entire app until we know consent status
   if (!consentChecked) return null;
 
+  let content = null;
+  let routeKey = page;
+
   // Show consent screen if data consent has not been granted
   if (!consentGranted) {
-    return (
+    routeKey = 'consent';
+    content = (
       <ConsentPage
         initialConsent={initialConsent}
         onConsented={(result) => {
@@ -384,17 +419,25 @@ function App() {
     );
   }
 
-  // Sub-pages — pass through unchanged
-  if (page === 'scan') return <ScanPage onBack={() => navigateTo('main-menu')} />;
-  if (page === 'resume') return <ResumePage onBack={() => navigateTo('main-menu')} />;
-  if (page === 'rank-projects') return <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
-  if (page === 'projects') return <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
-  if (page === 'database') return <DatabaseMaintenance onBack={() => navigateTo('main-menu')} />;
-  if (page === 'portfolio') return <PortfolioPage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'scan') content = <ScanPage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'resume') content = <ResumePage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'rank-projects') content = <RankProjectsPage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'projects') content = <ScannedProjectsPage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'database') content = <DatabaseMaintenance onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'portfolio') content = <PortfolioPage onBack={() => navigateTo('main-menu')} />;
+  if (consentGranted && page === 'theme') {
+    content = (
+      <ThemeSettingsPage
+        currentTheme={theme}
+        onThemeChange={setTheme}
+        onBack={() => navigateTo('main-menu')}
+      />
+    );
+  }
 
   // ── Main Menu ────────────────────────────────────────────────────────────
-  if (page === 'main-menu') {
-    return (
+  if (consentGranted && page === 'main-menu') {
+    content = (
       <div
         style={{
           minHeight: '100vh',
@@ -451,33 +494,55 @@ function App() {
               justifyContent: 'space-between',
               padding: '1.25rem 1.5rem',
               marginBottom: '1.25rem',
-              background: 'rgba(255,255,255,0.04)',
+              background: 'var(--panel-surface-a)',
               backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid var(--glass-border-strong)',
               borderRadius: '14px',
             }}
           >
-            <div>
-              <h1
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: '1.15rem',
-                  fontWeight: 700,
-                  color: '#f1f5f9',
-                  letterSpacing: '-0.02em',
+                  width: '66px',
+                  height: '66px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.92)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                Capstone MDA
-              </h1>
-              <p
-                style={{
-                  margin: '0.15rem 0 0',
-                  fontSize: '0.8rem',
-                  color: 'rgba(241,245,249,0.45)',
-                }}
-              >
-                Project analysis & portfolio generation toolkit
-              </p>
+                <img
+                  src={APP_LOGO_SRC}
+                  alt="GitHired logo"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </div>
+              <div>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: '1.15rem',
+                    fontWeight: 700,
+                    color: '#f1f5f9',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  GitHired
+                </h1>
+                <p
+                  style={{
+                    margin: '0.15rem 0 0',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Project analysis & portfolio generation toolkit
+                </p>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <motion.button
@@ -512,6 +577,23 @@ function App() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => navigateTo('theme')}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'rgba(241,245,249,0.5)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  boxShadow: 'none',
+                }}
+              >
+                Theme Settings
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setConsentGranted(false)}
                 style={{
                   padding: '0.4rem 0.75rem',
@@ -526,22 +608,6 @@ function App() {
               >
                 Privacy Settings
               </motion.button>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.1rem',
-                  fontWeight: 700,
-                  color: '#0f172a',
-                }}
-              >
-                M
-              </div>
             </div>
           </motion.header>
 
@@ -560,10 +626,11 @@ function App() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--panel-surface-b)',
+                border: '1px solid var(--glass-border-strong)',
                 borderRadius: '14px',
                 padding: '1.1rem',
+                backdropFilter: 'blur(8px)',
               }}
             >
               <p
@@ -573,7 +640,7 @@ function App() {
                   fontWeight: 700,
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
-                  color: 'rgba(241,245,249,0.35)',
+                  color: 'var(--text-muted)',
                   paddingLeft: '0.25rem',
                 }}
               >
@@ -583,7 +650,7 @@ function App() {
                 style={{
                   margin: '0 0 1rem',
                   fontSize: '0.78rem',
-                  color: 'rgba(241,245,249,0.4)',
+                  color: 'var(--text-secondary)',
                   paddingLeft: '0.25rem',
                 }}
               >
@@ -635,7 +702,7 @@ function App() {
               </div>
 
               <InfoPanel title="Quick Start">
-                <p style={{ margin: 0, fontSize: '0.88rem', color: 'rgba(241,245,249,0.65)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   Start with <strong style={{ color: '#4ade80' }}>Scan Project</strong> to import a
                   folder or zip. Once scanned, generate resumes and portfolios, run ranking or summary
                   tools, and explore contributor insights.
@@ -643,9 +710,9 @@ function App() {
               </InfoPanel>
 
               <InfoPanel title="About">
-                <p style={{ margin: 0, fontSize: '0.88rem', color: 'rgba(241,245,249,0.65)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   This desktop app analyzes code repositories and transforms data into
-                  contributor-focused outputs — rankings, summaries, resumes, and portfolios.
+                  contributor-focused outputs, rankings, summaries, resumes, and portfolios.
                 </p>
               </InfoPanel>
 
@@ -655,7 +722,7 @@ function App() {
                     margin: 0,
                     padding: '0 0 0 1.2rem',
                     fontSize: '0.88rem',
-                    color: 'rgba(241,245,249,0.65)',
+                    color: 'var(--text-secondary)',
                     lineHeight: 2,
                   }}
                 >
@@ -668,6 +735,23 @@ function App() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (content) {
+    return (
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={routeKey}
+          initial={pageTransition.initial}
+          animate={pageTransition.animate}
+          exit={pageTransition.exit}
+          transition={pageTransition.transition}
+          style={{ minHeight: '100vh' }}
+        >
+          {content}
+        </motion.div>
+      </AnimatePresence>
     );
   }
 
