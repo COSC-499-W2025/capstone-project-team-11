@@ -464,7 +464,7 @@ These changes improve flexibility, user experience, and clean up the user interf
 
 ## Reviewing / Collaboration Tasks
 
-- Reviewed teammates' code changes, PRs, and bug fixes ([PR #384], [PR #385]
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #384], [PR #385])
 - Attended weekly meetings on monday
 - Had multiple calls to discuss creating and practicing for our presentation and met after the presentation to discuss the video and weeks tasks
 - Completed slides, script, demo/practice Q/A and video 
@@ -540,7 +540,7 @@ These changes improve database visibility, user experience, and help maintain th
 
 ## Reviewing / Collaboration Tasks
 
-- Reviewed teammates' code changes, PRs, and bug fixes ([PR #422], [PR #421]
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #422], [PR #421])
 - Also reviewed team log and most individual logs logs
 - Attended weekly meetings on monday
 
@@ -642,7 +642,7 @@ npm run test
 
 ## Reviewing / Collaboration Tasks
 
-- Reviewed teammates' code changes, PRs, and bug fixes ([PR #450], [PR #449], [PR #443] , [PR #441]
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #450], [PR #449], [PR #443] , [PR #441])
 - Also reviewed team log and most individual logs logs
 - Attended weekly meetings on monday
 
@@ -654,13 +654,149 @@ npm run test
 
 ---
 
-## T2 Week 10 Plans
+## T2 Week 11 Plans
 
 - Clean up everything else needed to make sure capstone is complete
 - Discuss with teammates next steps and deal with any missing milestones/features
 - Help Tanner with the portfolio dashboard
 
 <img width="1906" height="937" alt="image" src="https://github.com/user-attachments/assets/9eff7897-515f-4a87-bf7f-713eb45f3c79" />
+
+# Tyler's T2 Week 11-12 Personal Log (Mar. 16 - Mar. 29)
+[Back to Term 2 Navigation](#)
+
+Focus of week 11 was to improve design/ui of project by adding modal popup for any errors or confirmation for user. Also helped out team writing code for limiting resume generation to only one page (ended up not using it)
+Focus of week 12 was cleaning up everything and getting the project fully done. Redesigned the database manager page, fixed tables to allow scroll bar so they didnt exceed page size, completed bug report and M3 SA diagram. Added fix to travis code
+
+1. Added a **Scroll Bar** to tables in database.
+2. Created the **created and designed a modal** for universal popup or confirmation.
+3. Created and finished bug report
+4. Created and finished M3 SA diagram
+5. Helped fix other peoples branches code and tests to make them pass
+6. Modified database tables and cleaned up information in them for improved user readability and usability
+
+These changes improve database visibility, user experience, and help maintain the integrity of project data. Additionally, they increase test coverage and frontend for database operations.
+
+<img width="986" height="581" alt="Last Personal Log" src="https://github.com/user-attachments/assets/c3374c88-4d9d-4662-9728-49c6eeeb8dd4" />
+
+---
+
+## Coding Tasks
+
+- Refactored the **Database Maintenance page UI**:
+  - Replaced dynamic table rendering with reusable **Section** and **Table** components to improve maintainability and consistency.
+  - Organized database data into structured, collapsible sections (Projects, Resumes, Portfolios, Scans, Contributors, Languages, Project Summaries, Skills).
+  - Set the **Projects section to be expanded by default** for better usability.
+  - Removed the **Files table** to reduce clutter and simplify the interface.
+  - Added horizontal scrolling to tables to prevent overflow and maintain a clean layout.
+
+- Improved **data handling and presentation**:
+  - Extended database inspection support to include **resumes and portfolios**.
+  - Implemented a `groupSkills` utility to aggregate and display skills mapped to associated projects.
+  - Standardized empty states by displaying **“No data”** when tables contain no entries.
+
+- Enhanced **UI/UX and styling**:
+  - Redesigned section toggle buttons with a consistent themed style and improved visual hierarchy.
+  - Updated dropdown/section interactions to provide clearer expand/collapse behavior.
+  - Ensured the layout remains responsive and usable across different screen sizes.
+
+- Integrated and standardized the **modal system**:
+  - Replaced `window.alert` and `window.confirm` usage with the shared **`showModal`** utility.
+  - Implemented a confirmation modal for **Clear Database** with clear destructive action messaging.
+  - Ensured modal interactions return Promises for cleaner asynchronous handling.
+
+- Implemented **Clear Database functionality improvements**:
+  - Connected the **Clear Database** button to the backend using the modal confirmation flow.
+  - Ensured destructive actions require explicit user confirmation before executing.
+  - Maintained consistent modal wording and button labels across the application.
+
+- Updated and fixed **frontend tests**:
+  - Modified `DatabaseMaintenance.test.jsx` to align with the new section-based UI and updated text (e.g., “No data”).
+  - Fixed `App.test.jsx` and other affected tests to reflect UI and structural changes.
+  - Verified functionality including:
+    - Page rendering
+    - Section expansion/collapse behavior
+    - Database refresh functionality
+    - Modal confirmation flow
+    - API interaction for clearing the database
+
+- Implemented **resume generation constraints**:
+  - Added logic to enforce a **one-page limit** for generated resumes using DOM measurement.
+  - Introduced a hidden render container to accurately calculate content height before displaying the resume.
+  - Prevented oversized resumes from being saved by clearing content and notifying the user when the limit is exceeded.
+
+---
+
+## Testing / Debugging Tasks
+
+- Performed **manual testing of the Database Maintenance page**:
+  - Verified navigation to the page renders correctly and loads data from the `/database/inspect` endpoint.
+  - Confirmed the **Projects section is expanded by default** and displays data correctly.
+  - Tested section toggle functionality to ensure expand/collapse behavior works across all sections.
+  - Clicked **Refresh Database** to confirm it triggers a new API request and reloads data.
+  - Verified table rendering across all sections (Projects, Resumes, Portfolios, etc.).
+  - Tested horizontal scrolling to ensure large tables remain within page layout.
+  - Clicked **Clear Database** to confirm the custom modal appears instead of a browser alert.
+  - Verified modal behavior:
+    - **Cancel** closes the modal without performing any action.
+    - **Yes, Clear Database** triggers the delete API call and refreshes the database view.
+
+- Conducted **automated frontend testing** using **Vitest** and **React Testing Library**:
+  - Updated `DatabaseMaintenance.test.jsx` to match the new section-based UI.
+  - Mocked API requests using Axios for:
+    - `/database/inspect`
+    - `/database/clear`
+  - Tests validate:
+    - Page rendering and initial data loading
+    - Section toggle (expand/collapse) behavior
+    - Refresh button triggers API calls
+    - Modal is triggered when clicking **Clear Database**
+    - Confirming modal triggers `DELETE /database/clear`
+
+- Added and verified **modal system tests**:
+  - Created `modal.test.js` to validate the reusable modal system.
+  - Tests confirm:
+    - Modal renders with correct title and message
+    - Confirm action resolves `true`
+    - Cancel action resolves `false`
+    - Clicking outside the modal closes it
+    - Modal is removed from the DOM after closing
+    - Cancel button only appears when `cancelText` is provided
+    - Correct styling is applied based on modal type (e.g., danger)
+
+- Fixed and updated **existing tests**:
+  - Updated `App.test.jsx` to reflect new UI text (e.g., “No data” instead of “No tables found”).
+  - Adjusted tests impacted by the removal of the Files table and UI restructuring.
+  - Updated tests to use the new modal system instead of `window.confirm`.
+
+- Ran full frontend test suite locally using:
+  ```bash
+  npm run test
+
+---
+
+## Reviewing / Collaboration Tasks
+
+- Reviewed teammates' code changes, PRs, and bug fixes ([PR #481], [PR #483], [PR #484], [PR #486], [PR #503], [PR #504])
+- Also reviewed team log and most individual logs logs
+- Attended weekly meetings on monday
+- Watched other teams presentations
+- Created and completed bug report and system architecture milestone 3 diagram
+
+---
+
+## Blockers / Issues
+
+- None major
+
+---
+
+## T2 Week 13 Plans
+
+- Go to class and watch other teams videos on their projects
+
+<img width="1892" height="928" alt="image" src="https://github.com/user-attachments/assets/442f563d-1023-4fac-a4ba-069a0ad1f0ed" />
+
 
 
 
