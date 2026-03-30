@@ -1,0 +1,11 @@
+# Bug Report
+
+| Bug ID | Title | Description | Steps to Reproduce | Expected Result | Actual Result | Severity |
+|--------|-------|-------------|--------------------|-----------------|---------------|----------|
+| 1 | Filtering by Name or ID | Filtering does not work correctly when a user enters a name or ID. | If project names contain numbers and the user filters by ID or name, it filters both. Enter "01" or "1" as the ID. | Entering "01" or "1" should return only the project with that ID. | Entering "01" returns no results. Entering "1" returns projects with that ID and any project with "1" in its name. | Low |
+| 2 | Open Repository Button | The repository does not open correctly on GitHub for a project. | Click "Open Repository" for a private project. | The GitHub repository page for the project should open. | A new instance of the project opens instead, creating an "inception-like" situation if repeated. | Medium |
+| 3 | Edit Project Thumbnail Path | No error message appears when a thumbnail fails to be added. | Click "Edit Project" and enter an invalid thumbnail path. | A modal should appear indicating the thumbnail failed to be added. | The invalid thumbnail is added to the project but does not display. | Low |
+| 4 | Generate Resume Without Selecting Contributor | A resume can be generated without selecting a Git username. | Click "Generate Resume" without selecting a contributor. | A popup should prompt the user to select a contributor. | The resume is generated without any selection. | Medium |
+| 5 | Rank Projects Page Auto Resize | The Rank Projects page does not resize properly. | Resize the window while on the Rank Projects page. | Page content should resize to fit the screen. | Content gets cut off when the window is too small. | Medium |
+| 6 | Exported Portfolios CSS | Exported portfolios only use the green CSS style. | Export a portfolio. | The exported portfolio should match the user’s selected CSS style. | The exported portfolio always uses the green style. | Low |
+| 7 | Scan Path While Scanning | The scan path can be modified while a scan is in progress (visual only, does not affect the scan). | Enter a file path, start a scan, and modify the path while scanning. | The scan path should not be editable during an active scan. | The scan path can still be modified while scanning. | Low |
