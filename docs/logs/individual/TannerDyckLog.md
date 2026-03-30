@@ -1,8 +1,11 @@
 # Tanner Dyck's Personal Log
 
-### Term 2 (Milestone #2)
+### Term 2 (Milestone #3)
+- [Weeks #11 and #12 - March 16th-29th](#weeks-11-and-12---march-16th---29th)
 - [Week #10 - March 9th-15th](#week-10---march-9th---15th)
 - [Week #9 - March 2nd-8th](#week-9---march-2nd---8th)
+
+### Term 2 (Milestone #2)
 - [Weeks #6, #7, and #8 - February 9th-March 1st](#weeks-6-7-and-8---february-9th---march-1st)
 - [Weeks #4 and #5 - January 26th-February 2nd](#weeks-4-and-5---january-26th---february-2nd)
 - [Week #3 - January 19th-25th](#week-3---january-19th---25th)
@@ -827,6 +830,8 @@ I am once again happy with our team's performance over the past three weeks, and
 
 ---
 
+# ===== MILESTONE #3 =====
+
 # Week #9 - March 2nd - 8th
 
 <img width="693" height="540" alt="t2week9-tasks" src="https://github.com/user-attachments/assets/009341c7-955f-4220-a1c1-cb480dda40be" />
@@ -968,3 +973,112 @@ Next week is our second peer testing event, so I currently plan to:
 
 ## Kanban Board at End of T2 Week 10
 <img width="1861" height="894" alt="t2week10-kanban" src="https://github.com/user-attachments/assets/5a186410-c301-4cab-944b-c90adfffe195" />
+
+---
+
+# Weeks #11 and #12 - March 16th - 29th
+
+<img width="696" height="541" alt="t2-weeks11-12-tasks" src="https://github.com/user-attachments/assets/4c679a9c-0a3d-4149-a399-b51f18248858" />
+
+## Connection to T2 Week 10
+In T2 Week 10 I fleshed out the web portfolio with data aggregation, project cards, a favouriting feature, and collapsed/expanded card views. Heading into Weeks 11 and 12, my goals were to add more polish to the web portfolio, participate in our second peer testing event, tie up remaining loose ends, and begin building slides for the milestone 3 presentation. Over the past two weeks, I was able (with the support of my teammates) to get the web portfolio into a polished and "final" state, equipped with persistent storage, an activity heatmap, a skills timeline, and expanded project metrics. I would argue that I was fairly successful in building off of the foundation I laid for myself in T2 Week 10.
+
+## Coding Tasks
+
+### [T2 Week 11 - March 16th to 22nd]
+
+### 1. Frontend portfolio generation: Expanded project card metrics [PR #468](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/468)
+- `PortfolioPage.jsx`:
+    - Added project start/end date range to the expanded card header
+    - Added a 4-tile "Project Metrics" row (Commits, Lines of Code, Files, Days Active)
+    - Added a 2×2 "User Metrics" grid (Commits w/ share % and avg/week, Lines Added/Removed, Contributor Rank, Rank Projects Score)
+    - Pulled in additional fields from the API: Frameworks, Git metrics, Contributors, Evidence, Scans, and Rank Projects score
+- `index.css`: Added styles for all new metric tiles/displays; added multi-column tile layout with internal column dividers; standardized spacing/padding across all expanded card components
+- `api.py`: Extended `GET /projects/{id}` to return frameworks (from tech_json), git metrics, and rank projects score
+
+### 2. Frontend privacy settings & Connection test rework [PR #474](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/474)
+- `App.jsx`: Removed the pre-existing "home" page with the "Backend Connection Test" button (moved it to the header); now handles when to force-show the new Consent Page based on current `config.json` consent fields; removed the deprecated "Summarize Contributor Projects" menu button
+- `ConsentPage.jsx`: Added a new consent page with a data-access description, 3 toggleable checkboxes (general data access, LLM scan summaries, LLM resume generation), and a "Save and Continue" button. The flow checks `~/.mda/config.json` on launch and redirects to the consent page if non-optional consent is missing. A "Privacy Settings" button in the header allows preferences to be updated at any time
+- `ResumePage.jsx` / `ScanPage.jsx`: Updated LLM feature gates to conditionally allow LLM-assisted features based on the user's current consent preferences
+- `index.css`: Added all required CSS for the new Consent Page
+
+### 3. Frontend portfolio generation: Skills timeline implementation [PR #475](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/475)
+- `PortfolioPage.jsx`: Added a SVG skills timeline chart component to the previously-existing placeholder tile — a project-anchored dot chart showing skills per project plotted with their git start dates and scan dates. Chart fills full tile width via `ResizeObserver`. Hovering over a dot displays a tooltip with the project name and detection month/year. Activity Heatmap and Skills Timeline tiles now stack vertically
+- `index.css`: Added all associated styles for the skills timeline tile (labels, chart, tooltips)
+
+### 4. Frontend portfolio generation: Web portfolio persistence (Part 1) [PR #481](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/481)
+Reworked the local SQLite database schema and API endpoints to serve the new web portfolios exclusively, untying them from the deprecated markdown portfolio functionality:
+- `init_db.sql`: Replaced the markdown-centric portfolio table schema with a web portfolio schema (portfolio_name, display_name, included/featured project IDs)
+- `api.py`: Added `GET/POST /portfolios` and `PATCH /portfolios/{id}/name` endpoints; simplified web portfolio endpoints to gather projects from `included_project_ids` directly; removed all public/private mode logic
+- `db.py`: Rewrote `save_portfolio()` for the updated schema; added `list_portfolios()` and `rename_portfolio()` helper functions; fixed `get_connection()` to read `FILE_DATA_DB_PATH` at call time instead of import time
+- `PortfolioPage.jsx`: Wired generate button to `POST /portfolios` instead of the old markdown generation endpoint
+
+### [T2 Week 12 - March 23rd to 29th]
+
+### 5. Frontend portfolio generation: Web portfolio permanence (Part 2) [PR #486](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/486)
+Implemented a saving/rebuilding pipeline for web portfolios, allowing users to save portfolio build parameters to the local SQLite database and re-visit them later:
+- `PortfolioPage.jsx`: Added a "Saved Portfolios" tile beneath the setup form that fetches portfolio entries via `GET /portfolios/all`; each entry has "View", "Rename", and "Delete" buttons. Added a "Save Portfolio" button to the preview page with a modal for naming; portfolios generated but not explicitly saved are flagged `__temp__` and cleaned up on app re-initialization to prevent duplicates
+- `api.py`: Added `GET /portfolios/all`, `DELETE /portfolios/{id}`, `DELETE /portfolios/cleanup-temp`, and `PUT /portfolios/{id}` endpoints
+- `db.py`: Added `list_all_portfolios()` and `update_portfolio()` helper functions
+- `index.css`: Standardized height, spacing, and hover animations across all portfolio-related buttons
+
+### 6. Frontend portfolio generation: Web portfolio permanence (Part 3) [PR #495](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/495)
+Added a `GET /{portfolio_id}/export-html` endpoint and supporting frontend to allow users to export a fully self-contained, downloadable HTML portfolio file:
+- `api.py`: Added `GET /{portfolio_id}/export-html` — generates a single HTML file with inline CSS and vanilla JavaScript, thumbnails embedded as base64, and full interactivity preserved (no server required)
+- `PortfolioPage.jsx`: Export button now only appears for saved portfolios; heatmap toolbar rearranged (project dropdown left, scope toggle right, renamed to "Portfolio Display Name" | "Project-wide"); Save Portfolio modal pre-fills the name field when re-saving an existing portfolio
+- `ScanPage.jsx`: Removed all drag-and-drop logic; added a `scan-path-input` text field as a fallback method for scanning zipped folders on Windows; added a plain-English hint alerting Windows users of the file browser's limitations with zipped folders
+- `index.css`: Updated heatmap toolbar class naming conventions; added styles for the new `scan-path-input` and `scan-path-hint` components
+
+## Testing & Debugging Tasks
+
+[PR #474](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/474)
+- `App.test.jsx`: Reworked the `renders connection test screen` test to ensure the main menu renders after consent is granted; updated all occurrences of "Test Backend Connection" → "Check Connection"; removed tests for the now-deprecated home page and "Feature coming soon" toasts; added `await screen.findByRole('heading', ...)` guards to handle the app's async config fetch before tests interact with menu buttons
+
+[PR #481](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/481)
+- `PortfolioPage.test.jsx`: Updated axios mocks to match the new `/portfolios` endpoint paths and responses
+- `DashboardStats.test.jsx`: Added `vi.spyOn(console, 'error').mockImplementation(() => {})` to suppress expected console errors
+- `ScannedProjectsPage.test.jsx`: Added two `mockResolvedValueOnce` calls for the `refreshProjectData` GET requests triggered after deletion, preventing `undefined` axios responses
+- `test_db.py`: Updated all portfolio-centric tests to use the updated DB table fields
+- `test_db_clear_and_delete_project.py` / `test_db_clear_output_directory.py`: Added `gc.collect()` in `tearDown` to force-close SQLite connections before file deletion (fixes Windows file-locking failures)
+- `test_db_schema_init.py`: Updated expected index name from `idx_portfolios_generated_at` → `idx_portfolios_created_at`
+- `test_api.py`: Replaced old portfolio generate/edit tests with new save/list/rename/get tests matching the updated endpoints
+
+[PR #486](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/486)
+- `PortfolioPage.test.jsx`: Added mocks for DELETE, PUT/PATCH, and `GET /portfolios/all` to fix ECONNREFUSED warnings during frontend testing
+
+[PR #495](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/495)
+- `PortfolioPage.test.jsx`: Fixed a failing "switches to per user heatmap and requests user scope" test that relied on the outdated heatmap toolbar button ordering
+
+## Reviewing & Collaboration Tasks
+- Communicated regularly throughout the two weeks in our Discord server
+- Completed individual log and peer review for T2 Week 12
+- Participated in our second peer testing event
+- Co-created the Milestone 3 video demo alongside Daniel
+- Slightly assisted Travis with the most recent Team log entry (He did the vast majority though)
+- Reviewed and approved:
+    - Code PRs:
+        - [#469 - Added project Heatmap](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/469)
+        - [#471 - Make project LLM summary editable from scanned projects view](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/471)
+        - [#473 - Updated Heatmap](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/473)
+        - [#480 - Improved UI/UX for Scanning Progress](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/480)
+        - [#483 - evidence enhancements](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/483)
+        - [#485 - fix: restore project evidence endpoints](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/485)
+        - [#488 - Added newly designed modal for windows.alerts](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/488)
+        - [#491 - Add select all / deselect all for project selection in resume and portfolio](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/491)
+        - [#497 - Added multi-page warning before resume PDF export](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/497)
+        - [#498 - Blacklist bot contributors from scanned projects page](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/498)
+        - [#499 - Moved logo](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/499)
+        - [#500 - Remove WeasyPrint and enforce ReportLab-only PDF rendering](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/500)
+        - [#516 - Prevent DevTools from opening automatically on launch](https://github.com/COSC-499-W2025/capstone-project-team-11/pull/516)
+
+## Issues & Blockers
+There were no substantial blockers encountered this week. While we were developing our "Known Bugs" document, we found some core issues that had gone unnoticed, so that added a bit of last-minute work to be done, but that was also to be expected. Overall, the past two weeks went by smoothly with little to no issues.
+
+## Reflection Points
+We did a good job of coming together as a team after the M3 presentation to prioritize the remaining tasks, and explicitly assign team members to each one. Everyone had a clear idea of what they needed to work on, and when they needed to have it done. Everyone completed their tasks to an appropriate quality and within an acceptable timeframe. Overall, I am astonished at how smoothly things went with this team over the past seven months, I truly could not have been luckier.
+
+## Goals for Next Week (T2 Week 13)
+We are officially "launching" our program in a finalized state. No more coding/testing/documentation tasks should be required. This upcoming week will be dedicated to reviewing other team's projects, and the following week will be our final lecture. After that I will just be studying for our final quiz. 
+
+## Kanban Board at End of T2 Weeks 11 & 12
+<img width="1875" height="894" alt="t2-weeks11-12-kanban" src="https://github.com/user-attachments/assets/4d40c6be-4f0c-4c2b-b15e-152a29e8ae11" />
