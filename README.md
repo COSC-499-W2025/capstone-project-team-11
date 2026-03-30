@@ -274,6 +274,7 @@ Additional testing artifacts:
 - Project proposal: `docs/proposal/`
 - Team contract: `docs/contract/`
 - Work breakdown artifact: `docs/WBS CAPSTONE.webp`
+- Bug Report: [Bug Report](docs/Bug_Report.md)
 
 ## Team Members
 - [Daniel Sokic](https://github.com/danielsokic)
